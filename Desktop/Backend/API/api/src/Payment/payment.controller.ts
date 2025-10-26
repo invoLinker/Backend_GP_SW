@@ -1,26 +1,32 @@
-// import { Controller, Post, Body, Param, Get, ParseIntPipe, UseGuards } from '@nestjs/common';
-// import { PaymentsService } from './payment.service';
-// import { CreatePaymentDto } from './CreatePaymentDto';
-// import { Payment } from './Payment.model';
-// import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-// import { PermissionName } from 'src/permission/permission.decorator';
+import { Controller, Post, Param, UseGuards, ParseIntPipe, Body } from '@nestjs/common';
+import { PaymentsService } from './payment.service';
+import { Payment } from './Payment.model';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { PermissionName } from 'src/permission/permission.decorator';
 
-// @Controller('payments')
-// export class PaymentsController {
-//   constructor(private readonly paymentsService: PaymentsService) {}
+@Controller('payments')
+export class PaymentsController {
+  constructor(private readonly paymentsService: PaymentsService) {}
 
-// @Post(':invoice_id')
-// @UseGuards(JwtAuthGuard)
-// @PermissionName('create_payment')
-// async create(@Param('invoice_id') invoice_id: number): Promise<Payment> {
-//   return this.paymentsService.createPayment(invoice_id);
-// }
+  @Post(':invoice_id')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('create_payment')
+  async payInvoice(@Param('invoice_id') invoice_id: number): Promise<Payment> {
+    return this.paymentsService.createPayment(invoice_id);
+  }
+
+   @Post('complete/:payment_id')
+  async completePayment(
+    @Param('payment_id', ParseIntPipe) payment_id: number,
+    @Body('details') details: string
+  ): Promise<Payment> {
+    return this.paymentsService.completePayment(payment_id, details);
+  }
 
 
-// //   @Get('invoice/:invoice_id')
-// //   @UseGuards(JwtAuthGuard)
-// //   @PermissionName('get_payment')
-// //   async getByInvoice(@Param('invoice_id', ParseIntPipe) invoice_id: number): Promise<Payment[]> {
-// //     return this.paymentsService.getPaymentsByInvoice(invoice_id);
-// //   }
-// }
+  @Post()
+  parsePayment(@Body() body: { notes: string; totalAmount: number }) {
+    const { notes, totalAmount } = body;
+    return this.paymentsService.parse(notes, totalAmount);
+  }
+}

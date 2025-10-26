@@ -60,4 +60,10 @@ export class Payment extends Model<Payment> {
   })
   notes: string;
 
+  @Column({ type: DataType.ENUM('Pending','Completed','Cancelled'), defaultValue: 'Pending' })
+  status: 'Pending' | 'Completed'| 'Cancelled';
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  payment_details: string;
+
 }

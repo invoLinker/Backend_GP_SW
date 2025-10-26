@@ -57,7 +57,8 @@ export class Payment extends Model<InferAttributes<Payment>, InferCreationAttrib
   declare amount_paid: number;
   declare remaining_amount: number;
   declare notes?: string;
-
+  declare  status: 'Pending' | 'Completed'| 'Cancelled';
+  declare payment_details: string;
 }
 
 Payment.init(
@@ -95,6 +96,10 @@ Payment.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    status:{
+      type: DataTypes.ENUM('Pending','Completed','Cancelled'), defaultValue: 'Pending' 
+    },
+    payment_details:{type: DataTypes.TEXT, allowNull: true }
   },
   {
     sequelize,

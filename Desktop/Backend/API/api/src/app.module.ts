@@ -32,10 +32,9 @@ import { GoodsReceipts } from './GoodsReceipt/GoodsReceipt.model';
 import { GoodsReceiptModule } from './GoodsReceipt/GoodsReceipt.module';
 import { GoodsReceiptItem } from './GoodsReceipt/GoodsReceiptItem.model';
 import { VerificationModule } from './Verification/verification.module';
-// import { PaymentsModule } from './Payment/payment.module';
+import { PaymentsModule } from './Payment/payment.module';
 import { Payment } from './Payment/Payment.model';
 import { ConfigModule } from '@nestjs/config';
-// import { AiModule } from './AI/ai.module';
 import { StockModule } from './Stock/stock.module';
 import { Stock } from './Stock/stock.model';
 
@@ -44,6 +43,7 @@ import { Stock } from './Stock/stock.model';
 
 @Module({
   imports: [
+    
     SequelizeModule.forRoot({
       dialect: 'mysql',
       host: 'localhost',
@@ -59,6 +59,7 @@ import { Stock } from './Stock/stock.model';
       autoLoadModels: true,
       synchronize: false,
     }),
+    // ConfigModule.forRoot({ isGlobal: true }),
     RolesModule,
     UsersModule,
     AuthModule,
@@ -73,10 +74,10 @@ import { Stock } from './Stock/stock.model';
     DeliveryNoteModule,
     GoodsReceiptModule,
     VerificationModule,
-    // PaymentsModule,
+    PaymentsModule,
     StockModule,
     // ConfigModule.forRoot({ isGlobal: true }),
-    // AiModule
+    // AiModule,
     // WarehouseReceiptModule
     
   ],
