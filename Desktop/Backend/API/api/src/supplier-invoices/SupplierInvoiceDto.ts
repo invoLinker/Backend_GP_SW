@@ -7,7 +7,7 @@ import { SupplierInvoiceItemDto } from './SupplierInvoiceItemDto';
 export enum PaymentMethod {
   CASH = 'Cash',
   BANK_TRANSFER = 'Bank Transfer',
-  CHEQUE = 'Cheque',
+  PAYPAL = 'PayPal',
   CREDIT = 'Credit',
 }
 

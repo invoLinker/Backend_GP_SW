@@ -47,7 +47,7 @@ export class SupplierInvoiceService {
       errors.push('Invalid invoice data');
     }
 
-    const validPayments = ['Cash', 'Bank Transfer', 'Cheque', 'Credit'];
+    const validPayments = ['Cash', 'Bank Transfer', 'PayPal', 'Credit'];
     if (dto.payment_method && !validPayments.includes(dto.payment_method)) {
       errors.push('Invalid payment method');
     }

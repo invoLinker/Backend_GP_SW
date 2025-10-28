@@ -62,7 +62,7 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare note: Text | null;
   declare is_verified: boolean;
   declare currency: 'USD'|'ILS'|'JOD';
-  declare payment_method: 'Cash' | 'Bank Transfer' | 'Cheque' | 'Credit';
+  declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
 
 }
 
@@ -115,7 +115,7 @@ PurchaseOrder.init(
     note:{type:DataTypes.TEXT, allowNull:true},
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
-    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','Cheque','Credit'), allowNull: true },
+    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true },
 
   },
   {

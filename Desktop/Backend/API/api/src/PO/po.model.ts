@@ -155,7 +155,7 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   status: 'Open'| 'Closed'| 'Cancelled'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
 
    @Column({
-    type: DataType.ENUM('Cash', 'Bank Transfer', 'Cheque', 'Credit'),
+    type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
     defaultValue: 'Bank Transfer',
   })
   payment_method: string;

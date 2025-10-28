@@ -61,7 +61,7 @@ export class InvoiceIncident extends Model<InferAttributes<InvoiceIncident>, Inf
   declare vat: number;
   declare discount: number;
   declare total_amount: number;
-  declare payment_method: 'Cash' | 'Bank Transfer' | 'Cheque' | 'Credit';
+  declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
   declare notes: string;
   declare incident_reason: string;
   declare supplier_id: number | null;
@@ -85,7 +85,7 @@ InvoiceIncident.init(
     vat: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     discount: { type: DataTypes.DECIMAL(10, 2), allowNull: true, defaultValue: 0 },
     total_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-    payment_method: { type: DataTypes.ENUM('Cash', 'Bank Transfer', 'Cheque', 'Credit'), allowNull: false },
+    payment_method: { type: DataTypes.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'), allowNull: false },
     notes: { type: DataTypes.TEXT, allowNull: true },
     incident_reason: { type: DataTypes.STRING, allowNull: false },
     supplier_id: { type: DataTypes.INTEGER, allowNull: true },

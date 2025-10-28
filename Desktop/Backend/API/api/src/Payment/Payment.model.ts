@@ -43,10 +43,10 @@ export class Payment extends Model<Payment> {
   remaining_amount: number;
 
   @Column({
-    type: DataType.ENUM('Cash', 'Bank Transfer', 'Cheque', 'Credit'),
+    type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
     allowNull: false
   })
-  payment_method: 'Cash'| 'Bank Transfer'| 'Cheque'| 'Credit'; 
+  payment_method: 'Cash'| 'Bank Transfer'| 'PayPal'| 'Credit'; 
 
   @Column({
     type: DataType.ENUM('USD' , 'ILS' , 'JOD'),
@@ -60,10 +60,33 @@ export class Payment extends Model<Payment> {
   })
   notes: string;
 
-  @Column({ type: DataType.ENUM('Pending','Completed','Cancelled'), defaultValue: 'Pending' })
-  status: 'Pending' | 'Completed'| 'Cancelled';
+  @Column({ type: DataType.ENUM('Pending','Completed','Failed'), defaultValue: 'Pending' })
+  status: 'Pending' | 'Completed'| 'Failed';
 
   @Column({ type: DataType.TEXT, allowNull: true })
   payment_details: string;
+
+  @Column({
+  type: DataType.DECIMAL(10, 2),
+  allowNull: true,
+  defaultValue: 0,
+  comment: 'Currency difference in invoice currency'
+})
+currency_difference: number;
+
+
+@Column({ 
+  type: DataType.DECIMAL(12, 2), 
+  defaultValue: 0,
+  comment: 'Installment amount in invoice currency' 
+})
+installment_amount: number;
+
+@Column({ 
+  type: DataType.ENUM('USD' , 'ILS' , 'JOD'), 
+  defaultValue: 'ILS',
+  comment: 'Currency used for payment' 
+})
+currency_paid: 'USD' | 'ILS' | 'JOD';
 
 }

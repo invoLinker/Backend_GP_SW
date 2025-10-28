@@ -52,14 +52,18 @@ export class Payment extends Model<InferAttributes<Payment>, InferCreationAttrib
   declare invoice_id: number;
   declare amount?: number;
   declare payment_date?: Date;
-  declare payment_method: 'Cash' | 'Bank Transfer' | 'Cheque' | 'Credit';
+  declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
   declare currency: 'USD' | 'ILS' | 'JOD';
   declare amount_paid: number;
   declare remaining_amount: number;
   declare notes?: string;
-  declare  status: 'Pending' | 'Completed'| 'Cancelled';
+  declare  status: 'Pending' | 'Completed'| 'Failed';
   declare payment_details: string;
+  declare currency_difference: number;
+  declare installment_amount: number;
+  declare currency_paid: 'USD' | 'ILS' | 'JOD';
 }
+
 
 Payment.init(
   {
@@ -85,7 +89,7 @@ Payment.init(
       allowNull: false,
     },
     payment_method: {
-      type: DataTypes.ENUM('Cash', 'Bank Transfer', 'Cheque', 'Credit'),
+      type: DataTypes.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
       allowNull: false,
     },
     currency: {
@@ -97,10 +101,26 @@ Payment.init(
       allowNull: true,
     },
     status:{
-      type: DataTypes.ENUM('Pending','Completed','Cancelled'), defaultValue: 'Pending' 
+      type: DataTypes.ENUM('Pending','Completed','Failed'), defaultValue: 'Pending' 
     },
-    payment_details:{type: DataTypes.TEXT, allowNull: true }
-  },
+    payment_details:{type: DataTypes.TEXT, allowNull: true },
+    currency_difference :{
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+        defaultValue: 0,
+        comment: 'Currency difference in invoice currency'
+      },
+      installment_amount:{
+        type: DataTypes.DECIMAL(12, 2), 
+        defaultValue: 0,
+        comment: 'Installment amount in invoice currency' 
+    },
+      currency_paid:{
+        type: DataTypes.ENUM('USD' , 'ILS' , 'JOD'),
+        defaultValue: 'ILS',
+        comment: 'Currency used for payment'
+     }
+    },
   {
     sequelize,
     tableName: 'payments',

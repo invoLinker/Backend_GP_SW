@@ -12,9 +12,9 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   note?: string;
 
-  @IsEnum(['Cash', 'Bank Transfer', 'Cheque', 'Credit'])
+  @IsEnum(['Cash', 'Bank Transfer', 'PayPal', 'Credit'])
   @IsOptional()
-  payment_method?: 'Cash'| 'Bank Transfer'| 'Cheque'| 'Credit';
+  payment_method?: 'Cash'| 'Bank Transfer'| 'PayPal'| 'Credit';
 
   @IsDateString()
   order_date: Date;
