@@ -146,7 +146,11 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   @HasMany(() => SupplierInvoiceItem)
   items: SupplierInvoiceItem[];
 
-  // @HasMany(() => Payment)
-  // Payments?: Payment[];
+  @Column({ type: DataType.JSON, allowNull: true })
+  installmentsData: {
+    total_installments: number;
+    installments: { amount: number; due_date: string }[];
+  } | null;
+
 
 }

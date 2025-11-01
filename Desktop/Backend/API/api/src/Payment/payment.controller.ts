@@ -3,7 +3,6 @@ import { PaymentsService } from './payment.service';
 import { Payment } from './Payment.model';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PermissionName } from 'src/permission/permission.decorator';
-import { PaymentParser } from './Regex&Parser';
 import { CreatePaymentDto } from './CreatePaymentDto';
 
 @Controller('payments')
@@ -71,11 +70,11 @@ export class PaymentsController {
   }
 
   //test
-  @Post()
-  parsePayment(@Body() body: { notes: string; totalAmount: number }) {
-    const { notes, totalAmount } = body;
-    return PaymentParser.parseInstallments(notes, totalAmount);
-  }
+  // @Post()
+  // parsePayment(@Body() body: { notes: string; totalAmount: number }) {
+  //   const { notes, totalAmount } = body;
+  //   return PaymentParser.parseInstallments(notes, totalAmount);
+  // }
 
 
    

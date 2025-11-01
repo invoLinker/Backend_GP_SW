@@ -17,7 +17,7 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare discount: number;
   declare total_amount: number;
   declare status: 'Pending' | 'Verified' | 'Approved' | 'Rejected' | 'Paid' | 'Cancelled' | 'Pending Verification' | 'On Hold' | 'Received' | 'Incident'| 'Partial_paid'|'ReadyForPaid';
-  declare payment_method: 'Cash' | 'Bank Transfer' | 'Cheque' | 'Credit';
+  declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
   declare notes: string;
 
   // بيانات المورد كاملة
@@ -33,7 +33,9 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare is_verified: boolean;
   declare document_images: string | null;
   declare currency: 'USD'|'ILS'|'JOD';
+  declare installmentsData: JSON | null;
 }
+
 
 SupplierInvoices.init(
   {
@@ -48,7 +50,7 @@ SupplierInvoices.init(
     discount: { type: DataTypes.DECIMAL, allowNull: true, defaultValue: 0 },
     total_amount: { type: DataTypes.DECIMAL, allowNull: false },
     status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Paid','Cancelled','Pending Verification','On Hold','Received','Incident', 'Partial_paid','ReadyForPaid'), defaultValue: 'Pending' },
-    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','Cheque','Credit'), allowNull: true },
+    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true },
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
     notes: { type: DataTypes.TEXT, allowNull: true },
 
@@ -64,6 +66,7 @@ SupplierInvoices.init(
     verified_at:{ type: DataTypes.DATE, allowNull: true },
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     document_images: { type: DataTypes.TEXT, allowNull: true },
+    installmentsData:{type: DataTypes.JSON, allowNull: true }
   },
   { sequelize, tableName: 'supplier_invoices', timestamps: true }
 );

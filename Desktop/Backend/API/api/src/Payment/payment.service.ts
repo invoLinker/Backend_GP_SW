@@ -1,25 +1,20 @@
 import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { Payment } from './Payment.model';
 import { SupplierInvoice } from '../supplier-invoices/supplier-invoice.model';
-import { PaymentParser } from './Regex&Parser';
 import { CreatePaymentDto } from './CreatePaymentDto';
 import axios from 'axios';
 import { Op } from 'sequelize';
+import { HuggingFaceService } from '../AI/AiService';
+
 
 @Injectable()
 export class PaymentsService {
+  constructor(private readonly hfService: HuggingFaceService) {}
 
 async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment> {
-  // 1️⃣ جلب الفاتورة
   const invoice = await SupplierInvoice.findByPk(invoice_id);
-  if (!invoice) throw new NotFoundException(`Invoice with id ${invoice_id} not found`);
+  if (!invoice) throw new NotFoundException(`Invoice not found`);
 
-  if (invoice.status !== 'ReadyForPaid' && invoice.status !== 'Partial_paid') {
-    throw new BadRequestException(`The invoice is not ready for payment, you must check it`);
-  }
-
-
-  // 2️⃣ جلب الدفعات السابقة
   const payments = await Payment.findAll({ where: { invoice_id } });
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.installment_amount), 0);
 
@@ -27,13 +22,21 @@ async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment>
     throw new BadRequestException('Invoice already fully paid');
   }
 
-  // 3️⃣ تحليل الأقساط
-  let installmentsData: { total_installments: number; installments: { amount: number; due_date: Date }[] } | null = null;
+  let installmentsData: { total_installments: number; installments: { amount: number; due_date: string }[] } | null = null;
+
   if (invoice.notes) {
-    installmentsData = PaymentParser.parseInstallments(invoice.notes, Number(invoice.total_amount));
+    if (!invoice.installmentsData) {
+      const parsed = await this.hfService.parseInstallments(
+        invoice.notes,
+        Number(invoice.total_amount),
+        invoice.createdAt 
+      );
+      invoice.installmentsData = parsed;  
+      await invoice.save();
+    }
+    installmentsData = invoice.installmentsData as any; 
   }
 
-  // 4️⃣ تحديد الدفعة التالية
   let installmentAmount = Number(invoice.total_amount) - totalPaid;
   let paymentDate = new Date();
 
@@ -43,34 +46,23 @@ async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment>
     if (!nextInstallment) throw new BadRequestException('All installments are already paid');
 
     paymentDate = new Date(nextInstallment.due_date);
+    installmentAmount = nextInstallment.amount;
 
     if (new Date() < paymentDate) {
       throw new BadRequestException(`Next installment is due on ${paymentDate.toLocaleDateString()}`);
     }
-
-    installmentAmount =
-      nextInstallment.amount ||
-      (Number(invoice.total_amount) - totalPaid) /
-        (installmentsData.total_installments - paidCount);
   }
 
-  // 5️⃣ حساب فرق العملة
-  const invoiceCurrency = invoice.currency; // عملة الفاتورة الأصلية (مثلاً ILS)
+  const invoiceCurrency = invoice.currency;
   const payCurrency = dto.currency || invoiceCurrency;
-
-  // سعر الصرف وقت الفاتورة
   const rateAtInvoice = await this.getExchangeRate(invoiceCurrency, payCurrency, invoice.createdAt);
-
-  // سعر الصرف وقت الدفع
   const rateAtPayment = await this.getExchangeRate(invoiceCurrency, payCurrency, paymentDate);
 
-  // 🔹 تحويل المبلغ حسب الاتجاه
   const amountPaid =
     invoiceCurrency === payCurrency
       ? installmentAmount
       : this.convertCurrency(installmentAmount, invoiceCurrency, payCurrency, rateAtPayment);
 
-  // 🔹 نحسب المبلغ المعادل بعملة الفاتورة حتى نعرف الفرق
   const paidInInvoiceCurrency =
     invoiceCurrency === payCurrency
       ? amountPaid
@@ -78,11 +70,10 @@ async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment>
 
   const currencyDifference = paidInInvoiceCurrency - installmentAmount;
 
-  // 6️⃣ إنشاء الدفعة
   const remainingAmount = Math.max(Number(invoice.total_amount) - totalPaid - installmentAmount, 0);
 
   const payment = await Payment.create({
-    curruncy:invoiceCurrency,
+    curruncy: invoiceCurrency,
     invoice_id: invoice.invoice_id,
     payment_date: paymentDate,
     installment_amount: installmentAmount,
@@ -96,27 +87,20 @@ async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment>
     currency_difference: currencyDifference,
   } as any);
 
-  // 7️⃣ تحديث حالة الفاتورة
   invoice.status = remainingAmount === 0 ? 'Paid' : 'Partial_paid';
   await invoice.save();
 
   return payment;
 }
 
-/**
- * 🔄 دالة ذكية لتحويل العملات (تقرر الضرب أو القسمة حسب الاتجاه)
- */
+
 convertCurrency(amount: number, from: string, to: string, rate: number): number {
   if (from === to) return amount;
-  // الـ API بيعطيك كم "to" مقابل 1 "from"
-  // يعني دايمًا بنضرب
+
   return amount * rate;
 }
 
 
-/**
- * 🌍 جلب سعر الصرف من API لتاريخ معيّن
- */
 async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
   if(from === to)return 1;
   const formattedDate = date.toISOString().split('T')[0];
@@ -129,7 +113,6 @@ async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
     throw new BadRequestException('Currency conversion failed');
   }
 
-  // ✅ نرجع السعر الحقيقي لعملة اليوم المحدد
   return data.info.quote;
 }
 
@@ -142,11 +125,9 @@ async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
     throw new BadRequestException(`Payment is already ${status}`);
   }
 
-  // 1️⃣ تغيير حالة الدفعة
   payment.status = status;
   await payment.save();
 
-  // 2️⃣ تحديث حالة الفاتورة إذا كانت الدفعة Confirmed فقط
   if (status === 'Completed') {
     const invoice = await SupplierInvoice.findByPk(payment.invoice_id);
     if (!invoice) throw new NotFoundException(`Invoice with id ${payment.invoice_id} not found`);
@@ -228,26 +209,21 @@ async updatePayment(payment_id: number, dto: {
   const invoice = await SupplierInvoice.findByPk(payment.invoice_id);
   if (!invoice) throw new NotFoundException('Invoice not found');
 
-  // ✨ تحديث الحقول العامة
   if (dto.payment_method) payment.payment_method = dto.payment_method;
   if (dto.payment_details) payment.payment_details = dto.payment_details;
   if (dto.notes) payment.notes = dto.notes;
 
-  // 🔄 التعامل مع العملة والمبلغ المدفوع
   const invoiceCurrency = invoice.currency;
   const payCurrency = dto.currency_paid || payment.currency_paid || invoiceCurrency;
 
   if (invoiceCurrency === payCurrency) {
-    // نفس عملة الفاتورة → المبلغ = القسط، الفرق = 0
     payment.amount_paid = payment.installment_amount;
     payment.currency_difference = 0;
     payment.currency_paid = payCurrency;
   } else {
-    // تحويل العملة
     const rateAtInvoice = await this.getExchangeRate(invoiceCurrency, payCurrency, invoice.createdAt);
     const rateAtUpdate = await this.getExchangeRate(invoiceCurrency, payCurrency, new Date());
 
-    // المبلغ المدفوع بالعملة الجديدة
     const amountPaidInCurrency =
       dto.amount_paid !== undefined
         ? dto.amount_paid
@@ -256,13 +232,11 @@ async updatePayment(payment_id: number, dto: {
     payment.amount_paid = amountPaidInCurrency;
     payment.currency_paid = payCurrency;
 
-    // الفرق بين المبلغ المتوقع والقيمة المحوّلة
     payment.currency_difference = this.convertCurrency(amountPaidInCurrency, payCurrency, invoiceCurrency, 1 / rateAtInvoice) - Number(payment.installment_amount);
   }
 
   await payment.save();
 
-  // 🔄 تحديث حالة الفاتورة بناءً على جميع الدفعات المكتملة
   const payments = await Payment.findAll({ where: { invoice_id: invoice.invoice_id } });
   const totalCompleted = payments
     .filter(p => p.status === 'Completed')

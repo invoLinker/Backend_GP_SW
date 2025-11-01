@@ -37,6 +37,7 @@ import { Payment } from './Payment/Payment.model';
 import { ConfigModule } from '@nestjs/config';
 import { StockModule } from './Stock/stock.module';
 import { Stock } from './Stock/stock.model';
+import { AiModule } from './AI/aimidule';
 
 
 
@@ -76,6 +77,7 @@ import { Stock } from './Stock/stock.model';
     VerificationModule,
     PaymentsModule,
     StockModule,
+    AiModule
     // ConfigModule.forRoot({ isGlobal: true }),
     // AiModule,
     // WarehouseReceiptModule
