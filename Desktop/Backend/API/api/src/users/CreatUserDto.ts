@@ -5,8 +5,10 @@ import {
   IsOptional, 
   IsEnum, 
   IsInt, 
-  IsDateString 
+  IsDateString ,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
 
 export enum UserStatus {
   Active = 'Active',
@@ -24,7 +26,7 @@ export class CreateUserDto {
   first_name: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   last_name: string;
 
   @IsEmail()
@@ -43,9 +45,13 @@ export class CreateUserDto {
   @IsOptional()
   location?: string;
 
-  @IsString()
-  @IsOptional()
-  profile_image?: string;
+  // @IsString()
+  // @IsOptional()
+  profile_image?: Express.Multer.File; 
+
+  // @IsString()
+  // @IsNotEmpty()
+  ID_image?:  Express.Multer.File; 
 
   @IsEnum(Gender, { message: 'gender must be either Male or Female' })
   @IsOptional()
@@ -57,6 +63,7 @@ export class CreateUserDto {
 
   @IsInt()
   @IsOptional()
+  @Type(() => Number)
   role_id?: number;
 
   @IsEnum(UserStatus, { message: 'status must be either Active or Inactive' })

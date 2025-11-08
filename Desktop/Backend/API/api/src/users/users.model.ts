@@ -18,7 +18,7 @@ export class User extends Model<User> {
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
+    allowNull: true,
   })
   last_name: string;
 
@@ -54,6 +54,13 @@ export class User extends Model<User> {
   profile_image: string; 
 
   @Column({
+    type: DataType.STRING, 
+    allowNull: true,
+  })
+  ID_image: string;
+
+
+  @Column({
     type: DataType.ENUM('Male', 'Female'),
     allowNull: true,
   })
@@ -84,7 +91,6 @@ export class User extends Model<User> {
   })
   deletedAt: Date | null;
 
-  // العلاقة مع جدول Role
   @BelongsTo(() => Role)
   role: Role;
 }

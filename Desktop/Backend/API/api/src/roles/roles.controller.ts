@@ -11,48 +11,41 @@ import { PermissionName } from 'src/permission/permission.decorator';
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @PermissionName("get_role")
-  // @Roles('Admin','Manager')
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll() {
     return this.rolesService.findAll();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @PermissionName("create_role")
-  // @Roles('Admin')
   @Post()
   create(@Body() createRoleDto: RoleDto) {
     return this.rolesService.create(createRoleDto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @PermissionName("update_role")
-  // @Roles('Admin')
   @Patch(':id')
   update( @Param('id') id: number, @Body() roleDto: RoleDto) {
     return this.rolesService.update(id, roleDto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @PermissionName("delete_all_role")
-  // @Roles('Admin')
   @Delete()
   deleteAll() {
     return this.rolesService.deleteAll();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @PermissionName("delete_role_by_id")
-  // @Delete(':id')
   deleteById(@Param('id') id: number) {
     return this.rolesService.deleteById( id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @PermissionName("get_role_by_name")
-  // @Roles('Admin')
   @Delete('by-name/:role_name')
   async deleteByRoleName(@Param('role_name') role_name: string) {
     return await this.rolesService.deleteByRoleName(role_name);

@@ -1,11 +1,11 @@
-import { IsNotEmpty, IsNumber, IsDateString, IsOptional, IsEnum, ValidateNested, IsString, isString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsDateString, IsArray, IsOptional, IsEnum, ValidateNested, IsString, isString } from 'class-validator';
+import { Type , Transform} from 'class-transformer';
 import { CreatePurchaseOrderItemDto } from './CreatePurchaseOrderItemDto';
 import { Unique } from 'sequelize-typescript';
 
 export class CreatePurchaseOrderDto {
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   supplier_id: number;
 
   @IsString()
@@ -40,6 +40,34 @@ export class CreatePurchaseOrderDto {
   @IsDateString()
   expected_delivery!: Date | null;
 
+  @IsString()
+  @IsNotEmpty()
+  company_name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  company_email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  company_phone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  company_address: string;
+
+  @IsString()
+  @IsNotEmpty()
+  supplier_email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  supplier_phone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  supplier_address: string;
+
   @IsOptional()
   @IsEnum(['Open', 'Closed', 'Cancelled', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'])
   status?: 'Open'| 'Closed'| 'Cancelled'| 'Draft'| 'Approved'| 'Sent' | 'Incident'|'ReadyForPaid';
@@ -47,4 +75,6 @@ export class CreatePurchaseOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseOrderItemDto)
   items: CreatePurchaseOrderItemDto[];
+
+
 }

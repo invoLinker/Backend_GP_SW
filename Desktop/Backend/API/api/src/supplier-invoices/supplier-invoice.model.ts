@@ -64,6 +64,13 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
   total_amount: number;
 
+  @Column({ type: DataType.STRING, allowNull: true })
+  bank_account?: string;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  bank_name?: string;
+
+
   @Column({
     type: DataType.ENUM(
       'Pending',
@@ -107,7 +114,7 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
 
   @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
-    defaultValue: 'Bank Transfer',
+    defaultValue: 'Cash',
   })
   payment_method: string;
 

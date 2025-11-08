@@ -1,5 +1,7 @@
 import { 
-  Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards, Req 
+  Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards, Req , Request, UploadedFile,
+  UseInterceptors, BadRequestException,
+  ValidationPipe
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './CreatUserDto';
@@ -11,6 +13,8 @@ import { Roles } from '../auth/roles.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PermissionName } from 'src/permission/permission.decorator';
 import { PermissionsGuard } from '../permission/PermissionsGuard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Uploads } from 'openai/resources/index.js';
 
 @ApiTags('Users')
 @Controller('users')
@@ -21,28 +25,30 @@ export class UsersController {
   @ApiBearerAuth()
   @Get('profile')
   async getProfile(@Req() req) {
-    return this.usersService.findOne(req.user.userId); // بدل req.user.sub
+    return this.usersService.findOne(req.user.userId);
   }
-
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','HeadOfDepartment')
-  @PermissionName('view_users')
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Request() req) {
+    return this.usersService.findAll(); 
   }
 
+  @Post('signup')
+  @UseInterceptors(FileInterceptor('ID_image'))
+  create(
+    @Body(new ValidationPipe({ transform: true })) createUserDto: CreateUserDto,
+    @UploadedFile() ID_imageFile?: Express.Multer.File
+  ) {
+    if (!ID_imageFile) {
+      throw new BadRequestException('ID_image is required');
+    }
 
-  // @Roles('Admin','Manager')
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+    return this.usersService.create(createUserDto, ID_imageFile);
   }
 
   @UseGuards(JwtAuthGuard)
   @PermissionName('search_users')
-  // @Roles('Admin','Manager','HeadOfDepartment')
   @Get('search')
   @ApiOperation({ summary: 'Search users by query' })
   async searchUsers(@Query('q') query: string) {
@@ -50,7 +56,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin')
   @PermissionName('search_users')
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
@@ -59,7 +64,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager','HeadOfDepartment')
   @PermissionName('search_users')
   @Get('by-role/:roleId')
   @ApiOperation({ summary: 'Get users by Role ID' })
@@ -69,7 +73,6 @@ export class UsersController {
 
   
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager','HeadOfDepartment')
   @PermissionName('search_users')
   @Get('by-email/:email')
   @ApiOperation({ summary: 'Get user by email' })
@@ -78,7 +81,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager','HeadOfDepartment')
   @PermissionName('search_users')
   @Get('by-role-name/:roleName')
   @ApiOperation({ summary: 'Get users by Role Name' })
@@ -87,7 +89,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager','HeadOfDepartment')
   @PermissionName('update_users_status')
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update user status (Active/Inactive)' })
@@ -119,7 +120,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager')
   @PermissionName('delete_users_by_id')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete user (force=true for hard delete)' })
@@ -131,7 +131,6 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager')
   @PermissionName('delete_all_users')
   @Delete('all')
   @ApiOperation({ summary: 'Delete all users (Admin only)' })
@@ -140,7 +139,6 @@ export class UsersController {
   }
 
  @UseGuards(JwtAuthGuard)
-  // @Roles('Admin','Manager')
   @PermissionName('update_users_role')
   @Patch(':id/role')
   async updateUserRole(
@@ -150,15 +148,16 @@ export class UsersController {
     return this.usersService.updateUserRole(id, updateRoleDto.roleName);
   }
 
+
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
-  @PermissionName('update_users_general')
-  @ApiOperation({ summary: 'Update user general information' })
+  @UseInterceptors(FileInterceptor('profile_image'))
   async updateUser(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() profile_imageFile: Express.Multer.File,
+    @Body() updateUserDto: UpdateUserDto
   ) {
-    return this.usersService.updateUser(id, updateUserDto);
+    return this.usersService.updateUser(id, updateUserDto, profile_imageFile);
   }
+
 
 }

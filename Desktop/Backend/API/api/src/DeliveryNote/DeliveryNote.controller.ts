@@ -7,49 +7,49 @@ import { request } from 'node:http';
 
 @Controller('delivery-notes')
 export class DeliveryNoteController {
-  constructor(private readonly service: DeliveryNoteService) {}
+  // constructor(private readonly service: DeliveryNoteService) {}
 
-    @Post()
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('create_supplier-invoices')
-    async create(@Body() body:  CreateDeliveryNoteDto, @Request() req) {
-    const userId = req.user.userId;
-    return this.service.createDeliveryNote(body, userId);
-     }
+  //   @Post()
+  //   @UseGuards(JwtAuthGuard)
+  //   @PermissionName('create_supplier-invoices')
+  //   async create(@Body() body:  CreateDeliveryNoteDto, @Request() req) {
+  //   const userId = req.user.userId;
+  //   return this.service.createDeliveryNote(body, userId);
+  //    }
 
 
-    @Get()
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('get_supplier-invoices')
-    async getAll() {
-        return this.service.getAll();
-    }
+  //   @Get()
+  //   @UseGuards(JwtAuthGuard)
+  //   @PermissionName('get_supplier-invoices')
+  //   async getAll() {
+  //       return this.service.getAll();
+  //   }
 
-    @Get('status/:status')
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('get_supplier-invoices')
-    async getByStatus(@Param('status') status: string) {
-        return this.service.getByStatus(status);
-    }
+  //   @Get('status/:status')
+  //   @UseGuards(JwtAuthGuard)
+  //   @PermissionName('get_supplier-invoices')
+  //   async getByStatus(@Param('status') status: string) {
+  //       return this.service.getByStatus(status);
+  //   }
 
-    @Get('search')
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('search_supplier-invoices')
-    async search(@Query('q') q: string) {
-        return this.service.search(q);
-    }
+  //   @Get('search')
+  //   @UseGuards(JwtAuthGuard)
+  //   @PermissionName('search_supplier-invoices')
+  //   async search(@Query('q') q: string) {
+  //       return this.service.search(q);
+  //   }
 
-    @Patch(':dn_number')
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('update_supplier-invoices')
-    async updateDeliveryNote(
-    @Param('dn_number') dn_number: string,
-    @Body() updateDto: any,
-    @Request() req,
-  ) {
-    const userId = req.user.userId;
-    return this.service.updateDeliveryNote(dn_number, updateDto, userId);
-  }
+  //   @Patch(':dn_number')
+  //   @UseGuards(JwtAuthGuard)
+  //   @PermissionName('update_supplier-invoices')
+  //   async updateDeliveryNote(
+  //   @Param('dn_number') dn_number: string,
+  //   @Body() updateDto: any,
+  //   @Request() req,
+  // ) {
+  //   const userId = req.user.userId;
+  //   return this.service.updateDeliveryNote(dn_number, updateDto, userId);
+  // }
 
   
 }

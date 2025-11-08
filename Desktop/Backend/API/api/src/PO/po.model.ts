@@ -1,75 +1,3 @@
-// import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, Default } from 'sequelize-typescript';
-// import { Supplier } from '../Suppliers/supplier.model';
-// import { PurchaseOrderItem } from './PoItem.model';
-
-// @Table({
-//   tableName: 'PurchaseOrders',
-//   timestamps: false,
-// })
-// export class PurchaseOrder extends Model<PurchaseOrder> {
-//   @Column({
-//     type: DataType.INTEGER,
-//     primaryKey: true,
-//     autoIncrement: true,
-//     allowNull: false,
-//   })
-//   po_id: number;
-
-//   @ForeignKey(() => Supplier)
-//   @Column({
-//     type: DataType.INTEGER,
-//     allowNull: false,
-//   })
-//   supplier_id: number;
-
-//   @Column({
-//     type: DataType.DATE,
-//     allowNull: false,
-//   })
-//   order_date: Date;
-
-//   @Column({
-//     type: DataType.DOUBLE,
-//     allowNull: true,
-//     defaultValue: 0,
-//   })
-//   subtotal: number;
-
-//   @Column({
-//     type: DataType.DOUBLE,
-//     allowNull: true,
-//     defaultValue: 0,
-//   })
-//   vat: number;
-
-//   @Column({
-//     type: DataType.DOUBLE,
-//     allowNull: true,
-//     defaultValue: 0,
-//   })
-//   total_amount: number;
-
-//   @Column({
-//     type: DataType.DATE,
-//     allowNull: true,
-//   })
-//   expected_delivery?: Date | null;
-
-//   @Default('Open')
-//   @Column({
-//     type: DataType.ENUM('Open', 'Closed', 'Cancelled'),
-//     allowNull: false,
-//   })
-//   status: 'Open' | 'Closed' | 'Cancelled';
-
-//   @BelongsTo(() => Supplier, { as: 'supplier' })
-//   supplier: Supplier;
-
-//   @HasMany(() => PurchaseOrderItem, { as: 'items', foreignKey: 'po_id' })
-//   items: PurchaseOrderItem[];
-// }
-
-
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
 import { Supplier } from '../Suppliers/supplier.model';
 import { PurchaseOrderItem } from './PoItem.model';
@@ -156,9 +84,51 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
 
    @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
-    defaultValue: 'Bank Transfer',
+    defaultValue: 'Cash',
   })
   payment_method: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  company_name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  company_email: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  company_phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  company_address: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  supplier_email: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  supplier_phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  supplier_address: string;
 
   @BelongsTo(() => Supplier, { as: 'supplier' })
   supplier: Supplier;

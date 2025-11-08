@@ -7,10 +7,12 @@ import { PurchaseOrderController } from './po.controller';
 import { RolePermissionModule } from 'src/RolePermission/RolePermission.module';
 import { PurchaseOrderItemModule } from './PoItem.module';
 import { EditRequest } from 'src/edit_requests/edit_requests.model';
+import { User } from 'src/users/users.model';
+import { Supplier } from 'src/Suppliers/supplier.model';
 
 @Module({
   imports: [
-  SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest]),
+  SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest, User, Supplier]),
   RolePermissionModule,
   PurchaseOrderItemModule
   

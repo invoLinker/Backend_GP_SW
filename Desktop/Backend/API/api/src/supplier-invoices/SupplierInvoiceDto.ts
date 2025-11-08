@@ -88,6 +88,14 @@ export class CreateSupplierInvoiceDto {
   @IsOptional()
   notes?: string;
 
+  @IsString()
+  @IsOptional()
+  bank_name?: string;
+
+  @IsString()
+  @IsOptional()
+  bank_account?: string;
+
   @IsNumber()
   @IsOptional()
   created_by?: number;

@@ -8,9 +8,21 @@ import { Supplier } from 'src/Suppliers/supplier.model';
 import { User } from 'src/users/users.model';
 import { InvoiceIncident } from 'src/InvoiceIncident/InvoiceIncident.model';
 import { InvoiceIncidentItem } from 'src/InvoiceIncident/InvoiceIncidentItem';
+import { MulterModule } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Module({
-  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User, InvoiceIncident, InvoiceIncidentItem])],
+  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User, InvoiceIncident, InvoiceIncidentItem]),
+  MulterModule.register({
+        storage: diskStorage({
+          destination: './uploads', 
+          filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            cb(null, uniqueSuffix + extname(file.originalname));
+          },
+        }),
+      })],
   providers: [SupplierInvoiceService],
   controllers: [SupplierInvoiceController],
   exports: [SupplierInvoiceService],

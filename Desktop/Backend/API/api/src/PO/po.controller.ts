@@ -1,10 +1,12 @@
-import { Controller, Post, Body, UseGuards, Get , Param, Patch, Delete, Query, Req} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get , Param, Patch, Delete, Query, Req, UploadedFile, UseInterceptors, BadRequestException, NotFoundException} from '@nestjs/common';
 import { PurchaseOrderService } from './po.service';
 import { CreatePurchaseOrderDto } from './CreatePurchaseOrderDto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../permission/PermissionsGuard';
 import { PurchaseOrder } from './po.model';
 import { PermissionName } from 'src/permission/permission.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { LOADIPHLPAPI } from 'dns';
 
 @Controller('purchase-orders')
 export class PurchaseOrderController {
@@ -13,9 +15,11 @@ export class PurchaseOrderController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_purchase_order')
-  async create(@Body() createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
+  async create(
+    @Body() createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     return this.poService.create(createPoDto);
   }
+
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -39,8 +43,6 @@ export class PurchaseOrderController {
   }
 
 
-
-  
   @Get('supplier/:id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')
@@ -67,8 +69,6 @@ export class PurchaseOrderController {
     return this.poService.update(+id, updateDto, userId);
   }
 
-
-
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')
@@ -76,7 +76,6 @@ export class PurchaseOrderController {
     return this.poService.deleteById(Number(id));
   }
 
-  // Delete all Purchase Orders
   @Delete()
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')
@@ -84,7 +83,6 @@ export class PurchaseOrderController {
     return this.poService.deleteAll();
   }
 
-  // Delete by Supplier ID
   @Delete('supplier/:supplierId')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')
@@ -92,7 +90,6 @@ export class PurchaseOrderController {
     return this.poService.deleteBySupplierId(Number(supplierId));
   }
 
-  // Delete by Status
   @Delete('status/:status')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')

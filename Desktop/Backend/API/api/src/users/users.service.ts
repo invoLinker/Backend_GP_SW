@@ -8,6 +8,9 @@ import { Op } from 'sequelize';
 import { BadRequestException,  ConflictException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { UpdateUserDto } from './UpdateUserDto';
 import { Cron } from '@nestjs/schedule';
+import { JwtService } from '@nestjs/jwt';
+import { Supplier } from '../Suppliers/supplier.model';
+
 
 
 @Injectable()
@@ -15,6 +18,7 @@ export class UsersService {
 constructor(
     @InjectModel(User) private userModel: typeof User,
     @InjectModel(Role) private roleModel: typeof Role,
+    private jwtService: JwtService,
   ) {}
 
   async findAll(): Promise<User[] | { message: string }> {
@@ -28,22 +32,43 @@ constructor(
     return users; 
   }
 
-  async create(createUserDto: CreateUserDto): Promise<{ message: string }> {
+  async findAll1(): Promise<User[]> {
+  const users = await this.userModel.findAll();
+  return users || []; 
+}
+
+
+async findByEmail1(email: string): Promise<User | null> {
+  const user = await this.userModel.findOne({ where: { email } });
+  return user || null; 
+}
+
+async updateIDImage(userId: number, ID_image: Express.Multer.File){
+   const user = await this.userModel.findByPk(userId);
+   if (!user){
+    throw new NotFoundException("User not found");
+   }
+
+  user.ID_image = `/uploads/${ID_image.filename}`; 
+   await user.save();
+   return "​✔️​ The image was uploaded successfully."
+
+}
+
+
+
+async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
   const {
     first_name,
     last_name,
     email,
     password_hash,
     role_id,
-    phone_number,
-    location,
-    profile_image,
-    gender,
-    birth_date,
   } = createUserDto;
 
+  let role: Role | null = null;
   if (role_id) {
-    const role = await this.roleModel.findByPk(role_id);
+     role = await this.roleModel.findByPk(role_id);
     if (!role) {
       throw new BadRequestException('Invalid role');
     }
@@ -63,18 +88,34 @@ constructor(
   user.password_hash = hashedPassword;
   if (role_id !== undefined) user.role_id = role_id;
   user.status = 'Active';
-
-  if (phone_number) user.phone_number = phone_number;
-  if (location) user.location = location;
-  if (profile_image) user.profile_image = profile_image;
-  if (gender) user.gender = gender;
-  if (birth_date) user.birth_date = birth_date;
+  if(ID_imageFile)
+    {
+     user.ID_image = `/uploads/${ID_imageFile!.filename}`; 
+    }
 
   await user.save();
 
-  return { message: 'User created successfully' };
-}
 
+  if(role?.role_name === 'Supplier'){
+   await Supplier.create({user_id: user.user_id } as any);
+  }
+
+
+    const payload = { sub: user.user_id, email: user.email, role: user.role?.role_name };
+    const access_token = this.jwtService.sign(payload, { expiresIn: '12h' });
+    const refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    return {
+      message: 'User created successfully',
+      access_token,
+      refresh_token,
+      user: { 
+        id: user.user_id, 
+        email: user.email, 
+        role: user.role?.role_name 
+      },
+    };
+  }
 
 
   
@@ -100,7 +141,7 @@ constructor(
       attributes: { exclude: ['password_hash'] },
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Email not found');
     }
     return user;
   }
@@ -203,13 +244,11 @@ async deleteUser(userId: number, forceDelete = false): Promise<{ message: string
   if (!user) throw new NotFoundException('User not foun');
 
   if (forceDelete || user.status === 'Inactive') {
-    // الحذف الفعلي
     await user.destroy();
     return { message: 'User deleted successfully' };
   } else {
-    // الحذف المؤجل
     const deleteDate = new Date();
-    deleteDate.setDate(deleteDate.getDate() + 7); // بعد 7 أيام
+    deleteDate.setDate(deleteDate.getDate() + 7); 
     user.deletedAt = deleteDate;
 
     await user.save();
@@ -218,7 +257,7 @@ async deleteUser(userId: number, forceDelete = false): Promise<{ message: string
 }
 
 
-@Cron('0 0 * * *') // كل يوم منتصف الليل
+@Cron('0 0 * * *')
   async handleDeletion() {
     const users = await this.userModel.findAll({
       where: {
@@ -257,21 +296,29 @@ async deleteUser(userId: number, forceDelete = false): Promise<{ message: string
   }
 
 
-  async updateUser(id: number, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.userModel.findByPk(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
 
-    if (!Object.keys(updateUserDto).length) {
-      throw new BadRequestException('No data provided for update');
-    }
-
-    Object.assign(user, updateUserDto);
-    await user.save();
-
-    return user;
+ async updateUser(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File): Promise<User> {
+  const user = await this.userModel.findByPk(id);
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
+
+  if (file) {
+    user.profile_image = `/uploads/${file.filename}`;
+  }
+
+  Object.assign(user, updateUserDto);
+  await user.save();
+
+  return user;
+}
+
+async forgetPassword(email: string, hashedPassword: string) {
+  const user = await this.userModel.findOne({ where: { email } });
+  if (!user) throw new BadRequestException('User not found');
+  user.password_hash = hashedPassword;
+  await user.save();
+}
 
 
 }

@@ -1,0 +1,59 @@
+part1:
+
+1) a.#Access-list 101 deny 172.16.10.144 0.0.0.15
+     #Access-list 101 permit 172.16.10.150 0.0.0.0
+     #Access-list 101 permit 172.16.10.128 0.0.0.63
+
+     #Access-list 101 deny 172.16.10.40 0.0.0.1
+     #Access-list 101 permit 172.16.10.32 0.0.0.31
+
+     #Access-list 101 deny 172.16.10.4 0.0.0.1
+
+     #Access-list 101 permit 172.16.10.0 0.0.0.255
+
+
+b.   #Access-list 102 deny 172.16.30.192 0.0.0.15
+     #Access-list 102 permit any any
+
+
+2)   interface s0
+     ip access-group 101 in
+     ip access-group 102 in
+
+we put it input  ------> نرجهلعااااااااااااا 
+
+
+
+part2:
+
+1)
+UDP: 
+     #Access-list 103 deny UDP 172.16.50.20 0.0.0.0 172.16.30.8 0.0.0.31   
+     #Access-list 103 permit UDP 172.16.50.0 0.0.0.31 172.16.30.8 0.0.0.31
+
+     #Access-list 104 permit UDP 172.16.10.0 any le 3600 
+
+     #Access-list 103 deny UDP any any     
+     #Access-list 104 deny UDP any any
+
+
+
+TCP : 
+
+     #Access-list 103 permit tcp any 172.16.30.7 host eq 80 
+     
+     #Access-list 103 deny tcp 172.16.50.0 0.0.0.255 172.16.30.128 0.0.0.63
+     #Access-list 104 deny tcp 172.16.10.0 0.0.0.255 172.16.30.128 0.0.0.63
+
+     #Access-list 103 deny tcp 172.16.50.0 0.0.0.255 host 172.16.30.4 eq 23
+     #Access-list 104 permit tcp 172.16.10.0 0.0.0.255 host 172.16.30.4 eq 23
+     #Access-list 104 permit tcp any any
+     #Access-list 103 permit tcp any any
+
+
+
+ICMP : 
+
+     #Access-list 104 permit icmp 172.16.10.0 0.0.0.255 any 
+     #Access-list 104 deny icmp 172.16.10.0 0.0.0.255 172.16.30.0 0.0.0.255
+     #Access-list 103 deny icmp 172.16.50.0 0.0.0.255 172.16.30.0 0.0.0.255

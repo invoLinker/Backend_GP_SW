@@ -15,13 +15,11 @@ export class Role extends Model<Role> {
   @Column({
     type: DataType.ENUM(
       'Admin',
-      'Manager',
-      'HeadOfDepartment',
       'Accountant',
+      'Warehouse',
       'Supplier',
-      'DeliveryAgent',
+      'Payment Officer',
       'Viewer',
-      'AI'
     ),
     allowNull: false,
     unique: true,

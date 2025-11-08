@@ -10,6 +10,7 @@ import { Supplier } from 'src/Suppliers/supplier.model';
 import { Op } from 'sequelize';
 import { EditRequest } from 'src/edit_requests/edit_requests.model';
 import { PaymentMethod } from 'src/supplier-invoices/SupplierInvoiceDto';
+import { User } from 'src/users/users.model';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -23,6 +24,13 @@ export class PurchaseOrderService {
     @InjectModel(EditRequest)
     private readonly editRequestModel: typeof EditRequest,
 
+    @InjectModel(User)
+    private readonly userModel: typeof User,
+
+    @InjectModel(Supplier)
+    private readonly supplierModel: typeof Supplier,
+    
+
     private readonly sequelize: Sequelize, 
   ) {}
 
@@ -31,18 +39,34 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
   const transaction = await this.poModel.sequelize!.transaction();
 
   try {
+    const supplierUser = await this.userModel.findOne({
+      where: { email: createPoDto.supplier_email },
+      transaction,
+    });
+
+    if (!supplierUser) {
+      throw new BadRequestException(`Supplier with email "${createPoDto.supplier_email}" does not exist.`);
+    }
+
+    const supplier = await this.supplierModel.findOne({
+      where: { user_id: supplierUser.user_id },
+      transaction,
+    });
+
+    if (!supplier) {
+      throw new BadRequestException(`No supplier record linked to user "${createPoDto.supplier_email}"`);
+    }
+
     let subtotal = 0;
     let vat = 0;
     let total_amount = 0;
 
-    // حساب الـ subtotal
     for (const item of createPoDto.items || []) {
       subtotal += item.quantity * item.unit_price;
     }
-    vat = subtotal * 0.16; // ضريبة 16%
+    vat = subtotal * 0.16;
     total_amount = subtotal + vat;
 
-    // توليد po_number
     const lastPo = await this.poModel.findOne({
       order: [['po_id', 'DESC']],
       transaction,
@@ -50,10 +74,9 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     const lastNumber = lastPo ? parseInt(lastPo.po_number.split('-')[1]) : 0;
     const po_number = `PO-${lastNumber + 1}`;
 
-    // إنشاء الـ Purchase Order
     const po = await this.poModel.create(
       {
-        supplier_id: createPoDto.supplier_id,
+        supplier_id: supplier.supplier_id,
         order_date: createPoDto.order_date ? new Date(createPoDto.order_date) : new Date(),
         subtotal,
         vat,
@@ -64,13 +87,18 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
         currency:createPoDto.currency,
         payment_method:createPoDto.payment_method,
         po_number,
+        company_name:createPoDto.company_name,
+        company_email:createPoDto.company_email,
+        company_phone:createPoDto.company_phone,
+        company_address:createPoDto.company_address,
+        supplier_email:createPoDto.supplier_email,
+        supplier_phone:createPoDto.supplier_phone,
+        supplier_address:createPoDto.supplier_address,
       } as any,
       { transaction },
     );
 
-    // إنشاء Purchase Order Items مع التحقق من وجود الاسم بالجدول
     for (const itemDto of createPoDto.items || []) {
-  // التحقق من وجود العنصر في جدول Items
   const existingItem = await Item.findOne({
     where: {
       item_code: itemDto.barcode,
@@ -97,10 +125,7 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
       );
     }
 
-    // Commit بعد كل الإضافات
     await transaction.commit();
-
-    // جلب الـ PO مع الـ Items
     const savedPo = await this.poModel.findByPk(po.po_id, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],
     });
@@ -126,10 +151,11 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
 }
 
 
+
 async findAll(): Promise<PurchaseOrder[]> {
     return this.poModel.findAll({
       include: [{ model: PurchaseOrderItem, as: 'items' }],
-      order: [['po_id', 'DESC']], // ترتيب حسب الأحدث أولاً
+      order: [['po_id', 'DESC']], 
     });
   }
 
@@ -139,7 +165,7 @@ async findAll(): Promise<PurchaseOrder[]> {
     });
 
     if (!po) {
-      throw new NotFoundException(`Purchase Order with id ${id} not found`);
+      throw new NotFoundException(`Purchase Order with not found`);
     }
 
     return po;
@@ -201,7 +227,6 @@ async findAll(): Promise<PurchaseOrder[]> {
       throw new BadRequestException(`Cannot modify Purchase Order in status "${po.status}".`);
     }
 
-    // 1️⃣ نبحث عن EditRequest الموافق عليه للمستخدم الحالي
     const approvedRequest = await this.editRequestModel.findOne({
       where: { 
         invoice_id: poId, 
@@ -212,7 +237,6 @@ async findAll(): Promise<PurchaseOrder[]> {
       transaction,
     });
 
-    // 2️⃣ إذا الفاتورة Approved وما عنده صلاحية تعديل مباشرة → إنشاء طلب جديد
     if (po.status === 'Approved' && !approvedRequest) {
       const editRequest = await this.editRequestModel.create({
         invoice_id: po.po_id,
@@ -225,23 +249,47 @@ async findAll(): Promise<PurchaseOrder[]> {
       await transaction.commit();
       return editRequest;
     }
-
-    // 3️⃣ إذا هناك طلب Approved موجود → يسمح بالتعديل مباشرة
     if (approvedRequest) {
-      // بعد الانتهاء من التعديل نضع can_edit = false
       approvedRequest.is_edit = true;
       await approvedRequest.save({ transaction });
     }
 
-    // التحديث الفعلي للفاتورة
-    if (updateDto.supplier_id !== undefined) po.supplier_id = updateDto.supplier_id;
+     if (updateDto.supplier_email) {
+      const supplierUser = await this.userModel.findOne({
+        where: { email: updateDto.supplier_email || po.supplier_email },
+        transaction,
+      });
+      if (!supplierUser) {
+        throw new BadRequestException(`Supplier with email "${updateDto.supplier_email}" does not exist.`);
+      }
+
+      const supplier = await this.supplierModel.findOne({
+        where: { user_id: supplierUser.user_id },
+        transaction,
+      });
+      if (!supplier) {
+        throw new BadRequestException(`No supplier record linked to user "${updateDto.supplier_email || po.supplier_email}"`);
+      }
+
+      po.supplier_id = supplier.supplier_id;
+      if (updateDto.supplier_email) po.supplier_email = updateDto.supplier_email;
+      
+    }
+
+    if (updateDto.supplier_phone) po.supplier_phone = updateDto.supplier_phone;
+    if (updateDto.supplier_address) po.supplier_address = updateDto.supplier_address;
+
+    if (updateDto.company_name) po.company_name = updateDto.company_name;
+    if (updateDto.company_email) po.company_email = updateDto.company_email;
+    if (updateDto.company_phone) po.company_phone = updateDto.company_phone;
+    if (updateDto.company_address) po.company_address = updateDto.company_address;
+
     if (updateDto.order_date !== undefined) po.order_date = new Date(updateDto.order_date);
     if (updateDto.expected_delivery !== undefined) po.expected_delivery = new Date(updateDto.expected_delivery!);
     if (updateDto.status !== undefined) po.status = updateDto.status;
     if (updateDto.currency!==undefined) po.currency=updateDto.currency;
     if (updateDto.payment_method!==undefined) po.payment_method=updateDto.payment_method;
 
-    // تحديث البنود
     if (updateDto.items && updateDto.items.length > 0) {
       await this.itemModel.destroy({ where: { po_id: poId }, transaction });
 
@@ -263,7 +311,6 @@ async findAll(): Promise<PurchaseOrder[]> {
       }
     }
 
-    // إعادة الحساب
     const itemsToCalculate = updateDto.items || po.items;
     po.subtotal = itemsToCalculate.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
     po.vat = po.subtotal * 0.16;
@@ -286,7 +333,6 @@ async findAll(): Promise<PurchaseOrder[]> {
 }
 
 
-  // Delete single PO by ID مع فحص الحالة
 async deleteById(poId: number): Promise<{ message: string }> {
   const transaction = await this.poModel.sequelize!.transaction();
 
@@ -294,7 +340,6 @@ async deleteById(poId: number): Promise<{ message: string }> {
     const po = await this.poModel.findByPk(poId, { transaction });
     if (!po) throw new NotFoundException(`Purchase Order with ID ${poId} not found`);
 
-    // الحالات الممنوعة من الحذف
     const blockedStatuses = ['Sent', 'Closed', 'Approved'];
     if (blockedStatuses.includes(po.status)) {
       throw new BadRequestException(
@@ -302,10 +347,7 @@ async deleteById(poId: number): Promise<{ message: string }> {
       );
     }
 
-    // حذف كل العناصر المرتبطة
     await this.itemModel.destroy({ where: { po_id: poId }, transaction });
-
-    // حذف الـ Purchase Order نفسه
     await po.destroy({ transaction });
 
     await transaction.commit();
@@ -321,8 +363,7 @@ async deleteById(poId: number): Promise<{ message: string }> {
 }
 
 
-  // Delete all Purchase Orders (مع حذف العناصر المرتبطة)
-  // Delete all Purchase Orders
+
 async deleteAll(): Promise<{ message: string }> {
   const transaction = await this.poModel.sequelize!.transaction();
 
@@ -354,7 +395,6 @@ async deleteAll(): Promise<{ message: string }> {
   }
 }
 
-// Delete all POs by Supplier ID
 async deleteBySupplierId(supplierId: number): Promise<{ message: string }> {
   const transaction = await this.poModel.sequelize!.transaction();
   try {
@@ -381,7 +421,6 @@ async deleteBySupplierId(supplierId: number): Promise<{ message: string }> {
   }
 }
 
-// Delete all POs by Status
 async deleteByStatus(status: string): Promise<{ message: string }> {
   const transaction = await this.poModel.sequelize!.transaction();
   try {
