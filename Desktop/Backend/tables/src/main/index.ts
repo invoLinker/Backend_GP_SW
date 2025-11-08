@@ -1,21 +1,3 @@
-// import { sequelize } from '../db';
-// import { Role } from '../models/Tables/Roles';
-// import { User } from '../models/Tables/Users';
-// async function main() {
-//   try {
-//     await sequelize.authenticate();
-//     console.log('✅ Connection has been established successfully!');
-
-//     // مزامنة الجداول
-//     await sequelize.sync({ alter: true }); // أو { force: true } لإعادة إنشاء الجداول
-
-//     console.log('✅ All tables synced!');
-//   } catch (error) {
-//     console.error('❌ Unable to connect to the database:', error);
-//   }
-// }
-
-// main();
 import { sequelize } from '../db';
 import { Role } from '../models/Tables/Roles';
 import { User } from '../models/Tables/Users';

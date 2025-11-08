@@ -1,43 +1,3 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../db'); 
-// const Suppliers = require('./Suppliers');
-
-// const PurchaseOrders = sequelize.define('PurchaseOrders', {
-//     po_id:{
-//         type:DataTypes.INTEGER,
-//         primaryKey:true,
-//         autoIncrement:true,
-//         allowNull:false
-//     },
-//     supplier_id:{
-//         type:DataTypes.INTEGER,
-//         allowNull: false
-//     },
-//     order_date:{
-//         type:DataTypes.DATE,
-//         allowNull:false
-//     },
-//     total_amount:{
-//         type:DataTypes.DOUBLE,
-//         allowNull:false
-//     },
-//     status:{
-//         type:DataTypes.ENUM(
-//             'Open',
-//             'Closed',
-//             'Cancelled'
-//         ),
-//     },
-// },
-// {
-//     tableName: 'PurchaseOrders', timestamps: false
-// }
-// );
-// Suppliers.hasMany(PurchaseOrders, { foreignKey: 'supplier_id' });
-// PurchaseOrders.belongsTo(Suppliers, { foreignKey: 'supplier_id' });
-
-// module.exports = PurchaseOrders;
-
 import {
   DataTypes,
   Model,
@@ -63,7 +23,13 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare is_verified: boolean;
   declare currency: 'USD'|'ILS'|'JOD';
   declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
-
+  declare company_name:string;
+  declare company_email:string;
+  declare company_phone:string;
+  declare company_address:string;
+  declare supplier_email:string;
+  declare supplier_phone:string;
+  declare supplier_address:string;
 }
 
 PurchaseOrder.init(
@@ -115,8 +81,15 @@ PurchaseOrder.init(
     note:{type:DataTypes.TEXT, allowNull:true},
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
-    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true },
-
+    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true, defaultValue:'Cash' },
+    company_name:{type: DataTypes.STRING, allowNull: false},
+    company_email:{type: DataTypes.STRING, allowNull: false},
+    company_phone:{type: DataTypes.STRING, allowNull: false},
+    company_address:{type: DataTypes.STRING, allowNull: false},
+    supplier_email:{type: DataTypes.STRING, allowNull: false},
+    supplier_phone:{type: DataTypes.STRING, allowNull: false},
+    supplier_address:{type: DataTypes.STRING, allowNull: false},
+    
   },
   {
     sequelize,
@@ -125,7 +98,7 @@ PurchaseOrder.init(
   }
 );
 
-// العلاقات
+
 Supplier.hasMany(PurchaseOrder, {foreignKey: 'supplier_id', as: 'purchaseOrders',});
 PurchaseOrder.belongsTo(Supplier, {foreignKey: 'supplier_id', as: 'supplier',});
 

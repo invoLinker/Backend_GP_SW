@@ -34,6 +34,8 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare document_images: string | null;
   declare currency: 'USD'|'ILS'|'JOD';
   declare installmentsData: JSON | null;
+  declare bank_account: string;
+  declare bank_name?: string;
 }
 
 
@@ -50,7 +52,7 @@ SupplierInvoices.init(
     discount: { type: DataTypes.DECIMAL, allowNull: true, defaultValue: 0 },
     total_amount: { type: DataTypes.DECIMAL, allowNull: false },
     status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Paid','Cancelled','Pending Verification','On Hold','Received','Incident', 'Partial_paid','ReadyForPaid'), defaultValue: 'Pending' },
-    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true },
+    payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','PayPal','Credit'), allowNull: true , defaultValue:'Cash'},
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
     notes: { type: DataTypes.TEXT, allowNull: true },
 
@@ -66,7 +68,10 @@ SupplierInvoices.init(
     verified_at:{ type: DataTypes.DATE, allowNull: true },
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     document_images: { type: DataTypes.TEXT, allowNull: true },
-    installmentsData:{type: DataTypes.JSON, allowNull: true }
+    installmentsData:{type: DataTypes.JSON, allowNull: true },
+    bank_account:{type: DataTypes.STRING, allowNull: true },
+    bank_name:{ type: DataTypes.STRING, allowNull: true }
+
   },
   { sequelize, tableName: 'supplier_invoices', timestamps: true }
 );

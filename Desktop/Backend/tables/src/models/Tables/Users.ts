@@ -1,101 +1,3 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../db');
-// const Role = require('./Roles')
-
-// const User = sequelize.define('User',{
-//     user_id:{
-//         type: DataTypes.INTEGER,
-//         primaryKey: true,
-//         autoIncrement: true
-//     },
-//     name:{
-//         type: DataTypes.STRING,
-//         allowNull:false
-//     },
-//     email:{
-//         type:DataTypes.STRING,
-//         unique:true,
-//         allowNull:false
-//     },
-//     password_hash:{
-//         type:DataTypes.STRING,
-//         allowNull:false
-//     },
-//     role_id:{
-//         type:DataTypes.INTEGER
-//     },
-//     status:{
-//         type:DataTypes.ENUM(
-//             'Active',
-//             'Inactive'
-//         ), defaultValue:'Active',
-//     },
-//     created_at: {
-//         type: DataTypes.DATE,
-//         defaultValue: DataTypes.NOW,
-//         allowNull: false,
-//     },
-// }, {
-// tableName: 'User',
-// timestamps: true
-
-// });
-
-// Role.hasMany(User, { foreignKey: 'role_id' });
-// User.belongsTo(Role, { foreignKey: 'role_id' });
-
-// module.exports = User;
-
-// import { DataTypes } from 'sequelize';
-// import { sequelize } from '../../db';
-// import { Role } from './Roles';
-
-// export const User = sequelize.define('User', {
-//   user_id: {
-//     type: DataTypes.INTEGER,
-//     primaryKey: true,
-//     autoIncrement: true,
-//   },
-//   name: {
-//     type: DataTypes.STRING,
-//     allowNull: false,
-//   },
-//   email: {
-//     type: DataTypes.STRING,
-//     unique: true,
-//     allowNull: false,
-//   },
-//   password_hash: {
-//     type: DataTypes.STRING,
-//     allowNull: false,
-//   },
-//   role_id: {
-//     type: DataTypes.INTEGER,
-//   },
-//   status: {
-//     type: DataTypes.ENUM('Active', 'Inactive'),
-//     defaultValue: 'Active',
-//   },
-//   created_at: {
-//     type: DataTypes.DATE,
-//     defaultValue: DataTypes.NOW,
-//     allowNull: false,
-//   },
-//   updated_at: {
-//     type: DataTypes.DATE,
-//     defaultValue: DataTypes.NOW,
-//     allowNull: false,
-//   },
-// }, {
-//   tableName: 'User',
-//   timestamps: true,
-// });
-
-// // العلاقات
-// Role.hasMany(User, { foreignKey: 'role_id' });
-// User.belongsTo(Role, { foreignKey: 'role_id' });
-
-
 import { DataTypes, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
 import { sequelize } from '../../db';
 import { Role } from './Roles';
@@ -109,6 +11,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare phone_number: string;
   declare location: string;
   declare profile_image: string;
+  declare ID_image: string;
   declare gender: 'Male' | 'Female' | 'Other';
   declare birth_date: Date;
   declare role_id: number;
@@ -129,7 +32,7 @@ User.init(
     },
     last_name: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     email: {
       type: DataTypes.STRING,
@@ -150,7 +53,7 @@ User.init(
     },
     profile_image: {
       type: DataTypes.STRING,
-      allowNull: true, // تخزن رابط الصورة
+      allowNull: true, 
     },
     gender: {
       type: DataTypes.ENUM('Male', 'Female'),
@@ -170,8 +73,12 @@ User.init(
     },
     deletedAt: {
       type: DataTypes.DATE,
-      allowNull: true, // null يعني المستخدم مش محذوف
+      allowNull: true, 
     },
+    ID_image: {
+      type: DataTypes.STRING,
+      allowNull: true, 
+    }
   },
   {
     sequelize,
@@ -180,6 +87,5 @@ User.init(
   }
 );
 
-// العلاقات
 Role.hasMany(User, { foreignKey: 'role_id' });
 User.belongsTo(Role, { foreignKey: 'role_id' });
