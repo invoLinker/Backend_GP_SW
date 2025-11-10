@@ -13,16 +13,17 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 
 @Module({
-  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User, InvoiceIncident, InvoiceIncidentItem]),
+  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User, InvoiceIncident, InvoiceIncidentItem, User, Supplier]),
   MulterModule.register({
-        storage: diskStorage({
-          destination: './uploads', 
-          filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-            cb(null, uniqueSuffix + extname(file.originalname));
-          },
-        }),
-      })],
+  storage: diskStorage({
+    destination: './uploads/invoices',
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + extname(file.originalname));
+    },
+  }),
+}),
+],
   providers: [SupplierInvoiceService],
   controllers: [SupplierInvoiceController],
   exports: [SupplierInvoiceService],

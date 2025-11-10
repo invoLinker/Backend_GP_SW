@@ -1,74 +1,3 @@
-// import {
-//   Table,
-//   Column,
-//   Model,
-//   DataType,
-//   ForeignKey,
-//   BelongsTo,
-// } from 'sequelize-typescript';
-// import { SupplierInvoice } from '../supplier-invoices/supplier-invoice.model';
-// import { GoodsReceipt } from '../GoodsReceipt/GoodsReceipt.model';
-// import { PurchaseOrder } from '../PO/po.model';
-// import { User } from '../users/users.model';
-
-// @Table({ tableName: 'purchase_incidents', timestamps: true })
-// export class PurchaseIncident extends Model<PurchaseIncident> {
-//   @Column({
-//     type: DataType.INTEGER,
-//     autoIncrement: true,
-//     primaryKey: true,
-//   })
-//   id: number;
-
-//   @ForeignKey(() => SupplierInvoice)
-//   @Column(DataType.INTEGER)
-//   supplier_invoice_id: number | null;
-
-//   @ForeignKey(() => GoodsReceipt)
-//   @Column(DataType.INTEGER)
-//   goods_receipt_id: number | null;
-
-//   @ForeignKey(() => PurchaseOrder)
-//   @Column(DataType.STRING)
-//   po_number: string | null;
-
-//   @Column({
-//     type: DataType.STRING,
-//     allowNull: false,
-//   })
-//   incident_type: string; // مثل: Supplier Missing, PO Missing, Mismatch
-
-//   @Column(DataType.TEXT)
-//   description: string | null;
-
-//   @ForeignKey(() => User)
-//   @Column(DataType.INTEGER)
-//   reported_by: number | null;
-
-//   @Column(DataType.DATE)
-//   reported_at: Date | null;
-
-//   @Column({
-//     type: DataType.ENUM('Open', 'Under Investigation', 'Closed'),
-//     defaultValue: 'Open',
-//   })
-//   status: 'Open' | 'Under Investigation' | 'Closed';
-
-//   // العلاقات
-//   @BelongsTo(() => SupplierInvoice)
-//   supplierInvoice: SupplierInvoice;
-
-//   @BelongsTo(() => GoodsReceipt)
-//   goodsReceipt: GoodsReceipt;
-
-//   @BelongsTo(() => PurchaseOrder)
-//   purchaseOrder: PurchaseOrder;
-
-//   @BelongsTo(() => User, 'reported_by')
-//   reporter: User;
-// }
-
-
 import {
   Table,
   Column,
@@ -123,7 +52,7 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
   incident_reason: string;
 
   @Column({
-    type: DataType.ENUM('Pending','Resolved','Rejected'),
+    type: DataType.ENUM('Pending','Resolved'),
     defaultValue: 'Pending',
   })
   status: string;
@@ -152,6 +81,36 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
 
   @Column(DataType.STRING)
   supplier_address: string;
+
+   @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_email: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_address: string;
+
+   @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  invoice_image: string;
 
   @ForeignKey(() => PurchaseOrder)
   @Column(DataType.STRING)

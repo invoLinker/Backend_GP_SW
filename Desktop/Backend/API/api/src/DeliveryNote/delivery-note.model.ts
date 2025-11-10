@@ -66,6 +66,18 @@ export class DeliveryNote extends Model<DeliveryNote> {
   @Column({ type: DataType.TEXT, allowNull: true })
   document_images!: string;
 
+  @Column({ type: DataType.STRING, allowNull: false})
+  to_name: string;
+
+  @Column({ type: DataType.STRING, allowNull: false})
+  to_email: string;
+
+ @Column({ type: DataType.STRING, allowNull: false})
+  to_phone: string;
+
+  @Column({ type: DataType.STRING, allowNull: false})
+  to_address: string;
+
   @HasMany(() => DeliveryNoteItem, 'dn_id')
   items: DeliveryNoteItem[];
 }

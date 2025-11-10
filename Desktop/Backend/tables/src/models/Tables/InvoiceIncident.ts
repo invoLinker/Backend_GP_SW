@@ -71,7 +71,12 @@ export class InvoiceIncident extends Model<InferAttributes<InvoiceIncident>, Inf
   declare supplier_address: string;
   declare po_number: string | null;
   declare created_by: number | null;
-  declare status: 'Pending'|'Resolved'|'Cancelled';
+  declare status: 'Pending'|'Resolved';
+
+  declare to_name:string;
+  declare to_email:string;
+  declare to_phone:string;
+  declare to_address:string;
   
 }
 
@@ -95,7 +100,11 @@ InvoiceIncident.init(
     supplier_address: { type: DataTypes.STRING, allowNull: true },
     po_number: { type: DataTypes.STRING, allowNull: true },
     created_by: { type: DataTypes.INTEGER, allowNull: true },
-    status:{type:DataTypes.ENUM('Pending','Resolved','Cancelled'), allowNull:false },
+    status:{type:DataTypes.ENUM('Pending','Resolved'), allowNull:false },
+    to_name:{type: DataTypes.STRING, allowNull: false},
+    to_email:{type: DataTypes.STRING, allowNull: false},
+    to_phone:{type: DataTypes.STRING, allowNull: false},
+    to_address:{type: DataTypes.STRING, allowNull: false},
   },
   {
     sequelize,

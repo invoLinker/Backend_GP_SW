@@ -6,175 +6,258 @@ import { CreateDeliveryNoteDto } from './DeliveryNoteDTO';
 import { DeliveryNoteItem } from './delivery-note-item.model';
 import { Supplier } from 'src/Suppliers/supplier.model';
 import { Op } from 'sequelize';
+import { User } from 'src/users/users.model';
 
 @Injectable()
 export class DeliveryNoteService {
-//   constructor(
-//     @InjectModel(DeliveryNote) private deliveryNoteModel: typeof DeliveryNote,
-//     @InjectModel(DeliveryNoteItem) private deliveryNoteItemModel: typeof DeliveryNoteItem,
-//     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
-//     @InjectModel(Supplier) private supplierModel: typeof Supplier,
+  constructor(
+    @InjectModel(DeliveryNote) private deliveryNoteModel: typeof DeliveryNote,
+    @InjectModel(DeliveryNoteItem) private deliveryNoteItemModel: typeof DeliveryNoteItem,
+    @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
+    @InjectModel(Supplier) private supplierModel: typeof Supplier,
+    @InjectModel(User)private userModel: typeof User,
+  ) {}
 
-//   ) {}
+  async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number) {
+  const transaction = await this.deliveryNoteModel.sequelize!.transaction();
+  const errors: string[] = [];
 
-//   async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number) {
-//   const transaction = await this.deliveryNoteModel.sequelize!.transaction();
-//   const errors: string[] = [];
+  try {
+    const po = await this.poModel.findOne({ where: { po_number: dto.po_number }, transaction });
+    if (!po) errors.push('PO number not found');
 
-//   try {
-//     const po = await this.poModel.findOne({ where: { po_number: dto.po_number }, transaction });
-//     if (!po) errors.push('PO number not found');
+    let supplier: Supplier | null = null;
 
-//     const supplier = await Supplier.findOne({ where: { contact_email: dto.supplier_email }, transaction });
-//     if(!supplier) errors.push('Supplier not found');
+        if (dto.supplier_email) {
+        const supplierUser = await this.userModel.findOne({
+            where: { email: dto.supplier_email },
+            transaction,
+        });
+
+        if (!supplierUser) {
+            errors.push(`Supplier with email ${dto.supplier_email} not found`);
+        } else {
+            supplier = await this.supplierModel.findOne({
+            where: { user_id: supplierUser.user_id },
+            transaction,
+            });
+
+            if (!supplier) {
+            errors.push(`Supplier record linked to user ${dto.supplier_email} not found`);
+            }
+        }
+        } else {
+        errors.push('Supplier email missing');
+        }
     
 
-//     const deliveryNote = await this.deliveryNoteModel.create({
-//       supplier_id: supplier? supplier.supplier_id : null,
-//       dn_number: dto.dn_number,
-//       dn_date: dto.dn_date,
-//       po_number: po ? dto.po_number : null,
-//       supplier_name: dto.supplier_name ?? null,
-//       supplier_email: dto.supplier_email ?? null,
-//       supplier_phone: dto.supplier_phone ?? null,
-//       supplier_address: dto.supplier_address ?? null,
-//       created_by: createdBy,
-//       status: errors.length > 0 ? 'Incident' : 'Pending', 
-//       notes: errors.length > 0 ? errors.join('; ') : null,
-//       }as any, { transaction });
+      const deliveryNote = await this.deliveryNoteModel.create({
+      supplier_id: supplier? supplier.supplier_id : null,
+      dn_number: dto.dn_number,
+      dn_date: dto.dn_date,
+      po_number: po ? dto.po_number : null,
+      supplier_name: dto.supplier_name ?? null,
+      supplier_email: dto.supplier_email ?? null,
+      supplier_phone: dto.supplier_phone ?? null,
+      supplier_address: dto.supplier_address ?? null,
+      created_by: createdBy,
+      to_name: dto.to_name,
+      to_email:dto.to_email,
+      to_phone:dto.to_phone,
+      to_address:dto.to_address,
+      status: errors.length > 0 ? 'Incident' : 'Pending', 
+      notes: errors.length > 0 ? errors.join('; ') : null,
+      }as any, { transaction });
 
 
-//     // إنشاء العناصر
-//     for (const item of dto.items) {
-//       await this.deliveryNoteItemModel.create({
-//         ...item,
-//         dn_id: deliveryNote.dn_id,
-//       } as any, { transaction });
-//     }
+    for (const item of dto.items) {
+      await this.deliveryNoteItemModel.create({
+        ...item,
+        dn_id: deliveryNote.dn_id,
+      } as any, { transaction });
+    }
 
-//     const noteWithItems = await this.deliveryNoteModel.findOne({
-//       where: { dn_id: deliveryNote.dn_id },
-//       include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
-//       transaction,
-//     });
+    const noteWithItems = await this.deliveryNoteModel.findOne({
+      where: { dn_id: deliveryNote.dn_id },
+      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
+      transaction,
+    });
 
-//     await transaction.commit();
-//     return noteWithItems;
+    await transaction.commit();
+    return noteWithItems;
 
-//   } catch (err) {
-//     await transaction.rollback();
-//     throw new InternalServerErrorException(err.message);
-//   }
-// }
+  } catch (err) {
+    await transaction.rollback();
+    throw new InternalServerErrorException(err.message);
+  }
+}
+
+async saveInvoiceImage( image: Express.Multer.File, Id: number,){
+    const dn = await this.deliveryNoteModel.findByPk(Id);
+    if (!dn){
+        throw new NotFoundException("Supplier invoice not found");
+    }
+
+    dn.document_images = `/uploads/DN/${image.filename}`; 
+    await dn.save();
+    return "​✔️​ The image was uploaded successfully."
+
+    }
 
 
-//   async getAll() {
-//     return this.deliveryNoteModel.findAll({
-//       include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
-//       order: [['createdAt', 'DESC']],
-//     });
-//   }
+  async getAll() {
+    return this.deliveryNoteModel.findAll({
+      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
+      order: [['createdAt', 'DESC']],
+    });
+  }
 
-//   // ✅ Get delivery notes by status
-//   async getByStatus(status: string) {
-//     const validStatuses = [
-//       'Pending',
-//       'Received',
-//       'Incident',
-//       'Verified',
-//       'Approved',
-//       'Rejected',
-//     ];
+  async getByStatus(status: string) {
+    const validStatuses = [
+      'Pending',
+      'Received',
+      'Incident',
+      'Verified',
+      'Approved',
+      'Rejected',
+    ];
 
-//     if (!validStatuses.includes(status)) {
-//       throw new NotFoundException(`Invalid status: ${status}`);
-//     }
+    if (!validStatuses.includes(status)) {
+      throw new NotFoundException(`Invalid status: ${status}`);
+    }
 
-//     const notes = await this.deliveryNoteModel.findAll({
-//       where: { status },
-//       include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
-//       order: [['createdAt', 'DESC']],
-//     });
+    const notes = await this.deliveryNoteModel.findAll({
+      where: { status },
+      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
+      order: [['createdAt', 'DESC']],
+    });
 
-//     if (!notes.length) throw new NotFoundException(`No delivery notes with status ${status}`);
-//     return notes;
-//   }
+    if (!notes.length) throw new NotFoundException(`No delivery notes with status ${status}`);
+    return notes;
+  }
 
-//   async search(keyword: string) {
-//     const results = await this.deliveryNoteModel.findAll({
-//       where: {
-//         [Op.or]: [
-//           { dn_number: { [Op.like]: `%${keyword}%` } },
-//           { supplier_name: { [Op.like]: `%${keyword}%` } },
-//           { po_number: { [Op.like]: `%${keyword}%` } },
-//         ],
-//       },
-//       include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
-//       order: [['createdAt', 'DESC']],
-//     });
+  async search(keyword: string) {
+    const results = await this.deliveryNoteModel.findAll({
+      where: {
+        [Op.or]: [
+          { dn_number: { [Op.like]: `%${keyword}%` } },
+          { supplier_name: { [Op.like]: `%${keyword}%` } },
+          { po_number: { [Op.like]: `%${keyword}%` } },
+        ],
+      },
+      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
+      order: [['createdAt', 'DESC']],
+    });
 
-//     if (!results.length)
-//       throw new NotFoundException(`No delivery notes found for: ${keyword}`);
+    if (!results.length)
+      throw new NotFoundException(`No delivery notes found for: ${keyword}`);
 
-//     return results;
-//   }
+    return results;
+  }
 
-//   async updateDeliveryNote(dn_number: string, updateData: any, userId: number) {
-//     const dn = await this.deliveryNoteModel.findOne({
-//       where: { dn_number },
-//       include: [
-//         { model: this.deliveryNoteItemModel, as: 'items' },
-//         // { model: this.poModel, attributes: ['po_number']}, 
-//       ],
-//     });
+async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
+  const transaction = await this.deliveryNoteModel.sequelize!.transaction();
+  const errors: string[] = [];
 
-//     if (!dn) throw new NotFoundException('Delivery Note not found');
+  try {
+    const deliveryNote = await this.deliveryNoteModel.findByPk(id, { transaction });
+    if (!deliveryNote) {
+      await transaction.rollback();
+      throw new NotFoundException('Delivery Note not found');
+    }
+   
 
-//     if (dn.status === 'Received')
-//       throw new BadRequestException('Received delivery notes cannot be modified');
+    await this.deliveryNoteItemModel.destroy({ where: { dn_id: id }, transaction });
 
-//     if (dn.status === 'Approved' && updateData.status && updateData.status !== 'Approved')
-//       throw new BadRequestException('Approved notes cannot change to a lower status');
+    const fieldsToClear = [
+      'po_number','supplier_id',
+      'incident_reason','to_name','to_email','to_phone','to_address',
+      'created_by','dn_date',
+      'supplier_name','supplier_email','supplier_phone','supplier_address'
+    ];
+    for (const f of fieldsToClear) {
+      deliveryNote[f] = null;
+    }
 
-//     let po: PurchaseOrder | null = null;
-//     if (updateData.po_number) {
-//       po = await this.poModel.findOne({
-//         where: { po_number: updateData.po_number },
-//         // include: [Supplier ],
-//       });
-//       if (!po) throw new BadRequestException('Purchase Order not found');
-//       dn.po_number = updateData.po_number;
-//     }
+    const po = await this.poModel.findOne({ where: { po_number: dto.po_number }, transaction });
+    if (!po) errors.push('PO number not found');
 
-//     if (!po?.supplier) {
-//       throw new BadRequestException('Purchase Order does not have a linked Supplier');
-//     }
+    let supplier: Supplier | null = null;
+    if (dto.supplier_email) {
+      const supplierUser = await this.userModel.findOne({
+        where: { email: dto.supplier_email },
+        transaction,
+      });
+      if (!supplierUser) {
+        errors.push(`Supplier with email ${dto.supplier_email} not found`);
+      } else {
+        supplier = await this.supplierModel.findOne({
+          where: { user_id: supplierUser.user_id },
+          transaction,
+        });
+        if (!supplier) {
+          errors.push(`Supplier record linked to user ${dto.supplier_email} not found`);
+        }
+      }
+    } else {
+      errors.push('Supplier email missing');
+    }
 
-//     dn.supplier_name = po.supplier.supplier_name;
-//     dn.supplier_email = po.supplier.contact_email;
-//     dn.supplier_phone = po.supplier.contact_phone;
-//     dn.supplier_address = po.supplier.contact_address;
+    Object.assign(deliveryNote, {
+      dn_id:id,
+      supplier_id: supplier ? supplier.supplier_id : null,
+      dn_number: dto.dn_number,
+      dn_date: dto.dn_date,
+      po_number: po ? dto.po_number : null,
+      supplier_name: dto.supplier_name ?? null,
+      supplier_email: dto.supplier_email ?? null,
+      supplier_phone: dto.supplier_phone ?? null,
+      supplier_address: dto.supplier_address ?? null,
+      created_by: createdBy,
+      to_name: dto.to_name,
+      to_email: dto.to_email,
+      to_phone: dto.to_phone,
+      to_address: dto.to_address,
+      status: errors.length > 0 ? 'Incident' : 'Pending',
+      notes: errors.length > 0 ? errors.join('; ') : null,
+    });
 
-//     if (updateData.document_images) {
-//       dn.notes = `${dn.notes ?? ''}\n[Old document replaced at ${new Date().toISOString()}]`;
-//       dn.document_images = updateData.document_images;
-//     }
+    await deliveryNote.save({ transaction });
 
-//     if (updateData.notes) {
-//       dn.notes = `${dn.notes ?? ''}\n[${new Date().toLocaleString()} by user ${userId}]: ${updateData.notes}`;
-//     }
+    for (const item of dto.items) {
+      await this.deliveryNoteItemModel.create({
+        ...item,
+        dn_id: deliveryNote.dn_id,
+      } as any, { transaction });
+    }
 
-//     if (updateData.status) {
-//       dn.status = updateData.status;
-//     }
+    const noteWithItems = await this.deliveryNoteModel.findOne({
+      where: { dn_id: deliveryNote.dn_id },
+      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
+      transaction,
+    });
 
-//     dn.created_by = userId;
-//     dn.updatedAt = new Date();
+    await transaction.commit();
+    return noteWithItems;
 
-//     await dn.save();
+  } catch (err) {
+    await transaction.rollback();
+    throw new InternalServerErrorException(err.message);
+  }
+}
 
-//     return { message: 'Delivery Note updated successfully', dn };
-//   }
+async deleteInvoiceById(id: number) {
+  // نبحث عن الفاتورة أولاً
+  const invoice = await this.deliveryNoteModel.findByPk(id);
+  if (!invoice) throw new NotFoundException('DN not found');
 
+  await this.deliveryNoteItemModel.destroy({
+    where: { dn_id: id },
+  });
+
+  await invoice.destroy();
+
+  return { message: 'DN deleted successfully' };
+}
 
 }

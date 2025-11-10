@@ -1,38 +1,3 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../db'); 
-// const PurchaseOrders = require('./PurchaseOrders');
-
-// const GoodsReceipts = sequelize.define('GoodsReceipts', 
-//     {
-//         gr_id: {
-//             type: DataTypes.INTEGER,
-//             primaryKey: true,
-//             autoIncrement: true,
-//             allowNull: false
-//         },
-//         po_id: {
-//             type: DataTypes.INTEGER,
-//             allowNull: false,
-//         },
-//         receipt_date: {
-//             type: DataTypes.DATE,
-//             allowNull: true
-//         },
-//         received_by: { 
-//             type: DataTypes.INTEGER,
-//             allowNull: false
-//         },
-//     },
-//     {
-//         tableName: 'GoodsReceipts',
-//         timestamps: true 
-//     }
-// );
-// PurchaseOrders.hasMany(GoodsReceipts , {foreignKey: 'po_id'});
-// GoodsReceipts.belongsTo(PurchaseOrders,{foreignKey: 'po_id'});
-
-// module.exports = GoodsReceipts;
-
 import { DataTypes, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
 import { sequelize } from '../../db';
 import { PurchaseOrder } from './PurchaseOrders';
@@ -49,7 +14,6 @@ export class GoodsReceipts extends Model<InferAttributes<GoodsReceipts>, InferCr
   declare status: 'Pending' | 'Received' | 'Verified' | 'Incident';
   declare po_number: string | null;
   declare is_verified: boolean;
-
 }
 
 GoodsReceipts.init(

@@ -7,14 +7,13 @@ import { DeliveryNoteItems } from './DeliveryNoteItem';
 
 export class DeliveryNotes extends Model<InferAttributes<DeliveryNotes>, InferCreationAttributes<DeliveryNotes>> {
   declare dn_id: number;
-  declare supplier_id: number | null; // FK لو المورد موجود
-  declare po_number: string | null; // FK لو الطلب موجود
+  declare supplier_id: number | null; 
+  declare po_number: string | null; 
   declare dn_number: string;
   declare dn_date: Date;
   declare status: 'Pending' | 'Verified' | 'Approved' | 'Rejected' | 'Received' | 'Incident';
   declare notes: string;
 
-  // بيانات المورد كاملة
   declare supplier_name: string;
   declare supplier_email: string;
   declare supplier_phone: string | null;
@@ -26,6 +25,12 @@ export class DeliveryNotes extends Model<InferAttributes<DeliveryNotes>, InferCr
   declare verified_at: Date | null;
   declare is_verified: boolean;
   declare document_images: string | null;
+
+  declare to_name:string;
+  declare to_email:string;
+  declare to_phone:string;
+  declare to_address:string;
+ 
 }
 
 DeliveryNotes.init(
@@ -38,7 +43,6 @@ DeliveryNotes.init(
     status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Received', 'Incident'), defaultValue: 'Pending' },
     notes: { type: DataTypes.TEXT, allowNull: true },
 
-    // بيانات المورد
     supplier_name: { type: DataTypes.STRING, allowNull: false },
     supplier_email: { type: DataTypes.STRING, allowNull: false },
     supplier_phone: { type: DataTypes.STRING, allowNull: true },
@@ -50,11 +54,14 @@ DeliveryNotes.init(
     verified_at:{ type: DataTypes.DATE, allowNull: true },
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     document_images: { type: DataTypes.TEXT, allowNull: true },
+    to_name:{type: DataTypes.STRING, allowNull: false},
+    to_email:{type: DataTypes.STRING, allowNull: false},
+    to_phone:{type: DataTypes.STRING, allowNull: false},
+    to_address:{type: DataTypes.STRING, allowNull: false},
   },
   { sequelize, tableName: 'delivery_notes', timestamps: true }
 );
 
-// Associations
 Supplier.hasMany(DeliveryNotes, { foreignKey: 'supplier_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 DeliveryNotes.belongsTo(Supplier, { foreignKey: 'supplier_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 

@@ -35,8 +35,21 @@ export class CreateDeliveryNoteDto {
   @IsDateString()
   dn_date: string;
 
-//   @IsEnum(DeliveryNoteStatus)
-//   status?: DeliveryNoteStatus;
+  @IsString()
+  @IsNotEmpty()
+  to_name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_phone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_address: string;
 
   @IsArray()
   @ValidateNested({ each: true })

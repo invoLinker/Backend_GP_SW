@@ -137,7 +137,37 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   })
   updatedAt: Date;
 
-  // العلاقات
+   @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_email: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+  })
+  to_address: string;
+ 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  invoice_image: string;
+
+  
   @BelongsTo(() => Supplier)
   supplier: Supplier;
 

@@ -1,4 +1,3 @@
-// src/services/goods-receipt.service.ts
 import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { GoodsReceipts } from './GoodsReceipt.model';
@@ -27,7 +26,6 @@ export class GoodsReceiptService {
     const transaction = await this.grModel.sequelize!.transaction();
 
     try {
-      // ✅ التحقق من وجود الـ Delivery Note
       const dn = await this.dnModel.findOne({
         where: { dn_number: dto.dn_number },
         transaction,
@@ -43,14 +41,12 @@ export class GoodsReceiptService {
         throw new Error('Purchase Order or Delivery Note not found');
       }
 
-      if (dn.status === 'Incident') {
-      throw new BadRequestException(`Cannot create Goods Receipt: Delivery Note status is '${dn.status}'`);
-      }
+      // if (dn.status === 'Incident') {
+      // throw new BadRequestException(`Cannot create Goods Receipt: Delivery Note status is '${dn.status}'`);
+      // }
 
-      // ✅ توليد رقم GR تلقائي
       const generatedGRNumber = await this.generateGRNumber();
 
-      // ✅ إنشاء GR فقط إذا الاثنين موجودين
       const gr = await this.grModel.create(
         {
           gr_number: generatedGRNumber,
@@ -64,7 +60,6 @@ export class GoodsReceiptService {
         { transaction },
       );
 
-      // ✅ إنشاء عناصر GR
       for (const item of dto.items) {
         await this.grItemModel.create(
           {
@@ -136,6 +131,79 @@ async getByStatus(status: string) {
       throw new NotFoundException(`No Goods Receipt found for: ${keyword}`);
 
     return results;
+  }
+
+  async updateGR(gr_id: number, dto: CreateGoodsReceiptDto) {
+  const transaction = await this.grModel.sequelize!.transaction();
+
+  try {
+    const gr = await this.grModel.findByPk(gr_id, { transaction });
+    if (!gr) throw new NotFoundException('Goods Receipt not found');
+
+    if (dto.dn_number) {
+      const dn = await this.dnModel.findOne({
+        where: { dn_number: dto.dn_number },
+        transaction,
+      });
+      if (!dn) throw new Error('Delivery Note not found');
+    }
+
+    if (dto.po_number) {
+      const po = await this.poModel.findOne({
+        where: { po_number: dto.po_number },
+        transaction,
+      });
+      if (!po) throw new Error('Purchase Order not found');
+    }
+
+    await gr.update(
+      {
+        notes: dto.notes ?? gr.notes,
+        po_number: dto.po_number ?? gr.po_number,
+      },
+      { transaction },
+    );
+
+    // حذف الـ items القديمة
+    await this.grItemModel.destroy({ where: { gr_id }, transaction });
+
+    // إضافة الـ items الجديدة
+    for (const item of dto.items) {
+      await this.grItemModel.create(
+        { ...item, gr_id } as any,
+        { transaction },
+      );
+    }
+
+    await transaction.commit();
+
+    return this.grModel.findOne({
+      where: { gr_id },
+      include: [{ model: this.grItemModel, as: 'items' }],
+    });
+  } catch (err) {
+    await transaction.rollback();
+    throw new InternalServerErrorException(err.message);
+  }
+}
+
+
+  async deleteGR(gr_id: number) {
+    const transaction = await this.grModel.sequelize!.transaction();
+    try {
+      const gr = await this.grModel.findByPk(gr_id, { transaction });
+      if (!gr) throw new NotFoundException('Goods Receipt not found');
+
+      await this.grItemModel.destroy({ where: { gr_id }, transaction });
+
+      await gr.destroy({ transaction });
+
+      await transaction.commit();
+      return { message: 'Goods Receipt deleted successfully' };
+    } catch (err) {
+      await transaction.rollback();
+      throw new InternalServerErrorException(err.message);
+    }
   }
 
 }

@@ -45,6 +45,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ChatModule } from './Firebase/chat.module';
 import { ChatGateway } from './Firebase/chat.gateway';
+import { InvoiceIncidentModule } from './InvoiceIncident/invoiceIncident.module';
 
 
 @Module({
@@ -91,7 +92,8 @@ import { ChatGateway } from './Firebase/chat.gateway';
     // ConfigModule.forRoot({ isGlobal: true }),
     // AiModule,
     // WarehouseReceiptModule
-    ChatModule
+    ChatModule,
+    InvoiceIncidentModule
     
   ],
   providers: [JwtStrategy, ],

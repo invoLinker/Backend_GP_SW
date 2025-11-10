@@ -1,6 +1,5 @@
-// src/supplier-invoices/dto/create-supplier-invoice.dto.ts
 import { IsString, IsNumber, IsDateString, IsOptional, IsEnum, IsNotEmpty,IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 import { SupplierInvoiceItemDto } from './SupplierInvoiceItemDto';
 
@@ -96,13 +95,32 @@ export class CreateSupplierInvoiceDto {
   @IsOptional()
   bank_account?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  to_name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_phone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to_address: string;
+
+
   @IsNumber()
   @IsOptional()
   created_by?: number;
+
+  invoice_image?: Express.Multer.File
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SupplierInvoiceItemDto)
   items: SupplierInvoiceItemDto[];
-
+  
 }

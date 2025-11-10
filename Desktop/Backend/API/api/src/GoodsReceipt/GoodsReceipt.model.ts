@@ -1,4 +1,3 @@
-// src/tables/GoodsReceipts.ts
 import { Column, Model, Table, DataType, HasMany, ForeignKey, BelongsTo, AllowNull } from 'sequelize-typescript';
 import { User } from '../users/users.model';
 import { DeliveryNote } from '../DeliveryNote/delivery-note.model';

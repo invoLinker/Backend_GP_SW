@@ -19,23 +19,24 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare status: 'Pending' | 'Verified' | 'Approved' | 'Rejected' | 'Paid' | 'Cancelled' | 'Pending Verification' | 'On Hold' | 'Received' | 'Incident'| 'Partial_paid'|'ReadyForPaid';
   declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
   declare notes: string;
-
-  // بيانات المورد كاملة
   declare supplier_name: string;
   declare supplier_email: string;
   declare supplier_phone: string | null;
   declare supplier_address: string | null;
-
   declare created_by: number | null;
   declare verified_by: number | null;
   declare verification_notes: string | null;
   declare verified_at: Date | null;
   declare is_verified: boolean;
-  declare document_images: string | null;
   declare currency: 'USD'|'ILS'|'JOD';
   declare installmentsData: JSON | null;
   declare bank_account: string;
   declare bank_name?: string;
+  declare to_name:string;
+  declare to_email:string;
+  declare to_phone:string;
+  declare to_address:string;
+  declare invoice_image:string;
 }
 
 
@@ -56,7 +57,7 @@ SupplierInvoices.init(
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
     notes: { type: DataTypes.TEXT, allowNull: true },
 
-    // بيانات المورد
+   
     supplier_name: { type: DataTypes.STRING, allowNull: false },
     supplier_email: { type: DataTypes.STRING, allowNull: false },
     supplier_phone: { type: DataTypes.STRING, allowNull: true },
@@ -67,16 +68,20 @@ SupplierInvoices.init(
     verification_notes:{ type: DataTypes.TEXT, allowNull: true },
     verified_at:{ type: DataTypes.DATE, allowNull: true },
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
-    document_images: { type: DataTypes.TEXT, allowNull: true },
     installmentsData:{type: DataTypes.JSON, allowNull: true },
     bank_account:{type: DataTypes.STRING, allowNull: true },
-    bank_name:{ type: DataTypes.STRING, allowNull: true }
+    bank_name:{ type: DataTypes.STRING, allowNull: true },
+    
+    to_name:{type: DataTypes.STRING, allowNull: false},
+    to_email:{type: DataTypes.STRING, allowNull: false},
+    to_phone:{type: DataTypes.STRING, allowNull: false},
+    to_address:{type: DataTypes.STRING, allowNull: false},
+    invoice_image: { type: DataTypes.STRING, allowNull: true }
 
   },
   { sequelize, tableName: 'supplier_invoices', timestamps: true }
 );
 
-// Associations
 Supplier.hasMany(SupplierInvoices, { foreignKey: 'supplier_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 SupplierInvoices.belongsTo(Supplier, { foreignKey: 'supplier_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
