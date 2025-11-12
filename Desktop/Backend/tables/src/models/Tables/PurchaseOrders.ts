@@ -30,6 +30,8 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare supplier_email:string;
   declare supplier_phone:string;
   declare supplier_address:string;
+  declare installmentsData: JSON | null;
+
 }
 
 PurchaseOrder.init(
@@ -89,6 +91,8 @@ PurchaseOrder.init(
     supplier_email:{type: DataTypes.STRING, allowNull: false},
     supplier_phone:{type: DataTypes.STRING, allowNull: false},
     supplier_address:{type: DataTypes.STRING, allowNull: false},
+        installmentsData:{type: DataTypes.JSON, allowNull: true },
+
     
   },
   {

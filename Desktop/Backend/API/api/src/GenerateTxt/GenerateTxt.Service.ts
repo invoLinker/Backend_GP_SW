@@ -2,24 +2,25 @@ import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 
 @Injectable()
-export class HuggingFaceService {
+export class GenerateTxtService {
   private client: OpenAI;
 
   constructor() {
     this.client = new OpenAI({
       baseURL: 'https://router.huggingface.co/v1',
-      apiKey: "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",
+      apiKey: process.env.HF_TOKEN,
     });
   }
 
   async parseInstallments(notes: string, totalAmount: number, invoiceDate: Date) {
+    
     const prompt = `
-            Analyze the following text and extract the number of installments, the amount of each payment, and their due dates.  
+        Analyze the following text and extract the number of installments, the amount of each payment, and their due dates.  
         Return the result **only** in JSON format with no explanation.  
         Use the invoice date "${invoiceDate}" as the starting point for the due dates.  
         If a specific date is not mentioned, schedule each payment one month apart.  
-        The total sum of all installments must equal ${totalAmount}.  
-
+        The total sum of all installments must equal ${totalAmount}. 
+        If text is null make total_installments =1 and day today
         Text: "${notes}"
 
         Expected format:
@@ -38,9 +39,15 @@ export class HuggingFaceService {
     });
 
     const reply = completion.choices[0].message?.content?.trim() || '';
+    const cleaned = reply.replace(/^[^{]*|[^}]*$/g, '').trim();
 
-    try {
-      return JSON.parse(reply);
+
+  try {
+      // ✅ حماية: إذا الرد لسه فيه كلمة "number" أو "yyyy"
+      if (cleaned.includes('number') || cleaned.includes('yyyy')) {
+        throw new Error('Model returned template JSON, not valid data');
+      }
+      return JSON.parse(cleaned);
     } catch {
       // إذا النموذج أرجع كلام زيادة، نحاول نقتطع JSON فقط
       const jsonMatch = reply.match(/\{[\s\S]*\}/);

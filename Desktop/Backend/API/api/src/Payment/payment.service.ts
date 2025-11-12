@@ -4,93 +4,149 @@ import { SupplierInvoice } from '../supplier-invoices/supplier-invoice.model';
 import { CreatePaymentDto } from './CreatePaymentDto';
 import axios from 'axios';
 import { Op } from 'sequelize';
-import { HuggingFaceService } from '../AI/AiService';
+import { GenerateTxtService } from '../GenerateTxt/GenerateTxt.Service';
+import { PurchaseOrder } from 'src/PO/po.model';
 
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly hfService: HuggingFaceService) {}
+  constructor(private readonly hfService: GenerateTxtService) {}
 
-async createPayment(invoice_id: number, dto: CreatePaymentDto): Promise<Payment> {
-  const invoice = await SupplierInvoice.findByPk(invoice_id);
-  if (!invoice) throw new NotFoundException(`Invoice not found`);
+async createPayment(po_id: number, dto: CreatePaymentDto): Promise<any[]> {
+  // 1️⃣ جيب الـ PO
+  const po = await PurchaseOrder.findByPk(po_id);
+  if (!po) throw new NotFoundException(`Purchase Order not found`);
 
-  const payments = await Payment.findAll({ where: { invoice_id } });
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.installment_amount), 0);
+  // 2️⃣ جيب كل الفواتير التابعة له
+  const invoices = await SupplierInvoice.findAll({ where: { po_number: po.po_number } });
+  if (!invoices.length) throw new NotFoundException(`No invoices found for PO ${po.po_number}`);
 
-  if (totalPaid >= Number(invoice.total_amount)) {
-    throw new BadRequestException('Invoice already fully paid');
+  // 3️⃣ جيب كل الدفعات السابقة لهالفواتير
+  const allPayments = await Payment.findAll({ where: { invoice_id: invoices.map(i => i.invoice_id) } });
+
+  // ✅ إجمالي PO بعد الخصم والضريبة (موجود بالـ total_amount لكل فاتورة)
+  const totalPOAmount = invoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+  const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.installment_amount), 0);
+
+  if (totalPaid >= totalPOAmount) {
+    po.status = 'Closed';
+    await po.save();
+    throw new BadRequestException(`PO ${po.po_number} already fully paid`);
   }
 
-  let installmentsData: { total_installments: number; installments: { amount: number; due_date: string }[] } | null = null;
+  // 4️⃣ حضر بيانات التقسيط من الـ PO
+  let installmentsData = po.installmentsData;
+  if (!installmentsData) {
+    const parsed = await this.hfService.parseInstallments(po.note!, totalPOAmount, po.createdAt);
+    po.installmentsData = parsed;
+    await po.save();
+    installmentsData = parsed;
+  }
 
-  if (invoice.notes) {
-    if (!invoice.installmentsData) {
-      const parsed = await this.hfService.parseInstallments(
-        invoice.notes,
-        Number(invoice.total_amount),
-        invoice.createdAt 
-      );
-      invoice.installmentsData = parsed;  
-      await invoice.save();
+  // 5️⃣ حدد الدفعة الجاية
+  const paidInstallments = await Payment.findAll({
+    where: { invoice_id: invoices.map(i => i.invoice_id) },
+    attributes: ['payment_date'],
+    group: ['payment_date'],
+  });
+  const paidCount = paidInstallments.length;
+  const nextInstallment = installmentsData?.installments[paidCount];
+
+  if (!nextInstallment) {
+    po.status = 'Closed';
+    await po.save();
+    throw new BadRequestException(`All installments are already paid (total ${installmentsData?.total_installments})`);
+  }
+
+  const paymentDate = new Date(nextInstallment.due_date);
+  let installmentAmount = nextInstallment.amount;
+
+  // 🔥 إذا القسط الوحيد → ادفع كل PO
+  if (installmentsData!.total_installments === 1) {
+    installmentAmount = totalPOAmount;
+  }
+
+  // الدفع لسا ما موعده
+  if (new Date() < paymentDate) {
+    return [
+      {
+        message: `Next installment is due on ${paymentDate.toLocaleDateString()}`,
+        status: 'Pending',
+        nextInstallmentAmount: installmentAmount,
+        nextInstallmentDate: paymentDate,
+      },
+    ];
+  }
+
+  // 6️⃣ وزع الدفعة على كل الفواتير
+  const paymentsToCreate: Payment[] = [];
+
+  for (const invoice of invoices) {
+    let amountForInvoice: number;
+
+    // إذا في قسط واحد → ادفع كل فاتورة بالكامل
+    if (installmentsData!.total_installments === 1) {
+      amountForInvoice = Number(invoice.total_amount);
+    } else {
+      const invoiceShare = Number(invoice.total_amount) / totalPOAmount;
+      amountForInvoice = installmentAmount * invoiceShare;
     }
-    installmentsData = invoice.installmentsData as any; 
+
+    const invoiceCurrency = invoice.currency;
+    const payCurrency = dto.currency || invoiceCurrency;
+
+    // احصل على سعر الصرف عند إنشاء الفاتورة وعند الدفع
+    const rateAtInvoice = await this.getExchangeRate(invoiceCurrency, payCurrency, invoice.createdAt);
+    const rateAtPayment = await this.getExchangeRate(invoiceCurrency, payCurrency, paymentDate);
+
+    const amountPaid =
+      invoiceCurrency === payCurrency
+        ? amountForInvoice
+        : this.convertCurrency(amountForInvoice, invoiceCurrency, payCurrency, rateAtPayment);
+
+    const paidInInvoiceCurrency =
+      invoiceCurrency === payCurrency
+        ? amountPaid
+        : this.convertCurrency(amountPaid, payCurrency, invoiceCurrency, 1 / rateAtInvoice);
+
+    const currencyDifference = paidInInvoiceCurrency - amountForInvoice;
+
+    // ✅ احسب كل الدفعات السابقة + الدفعة الحالية
+    const previousPaid = allPayments
+      .filter(p => p.invoice_id === invoice.invoice_id)
+      .reduce((sum, p) => sum + Number(p.installment_amount), 0);
+
+    const updatedTotalPaid = previousPaid + amountForInvoice;
+
+    const remainingAmount = Math.max(Number(invoice.total_amount) - updatedTotalPaid, 0);
+
+    const payment = await Payment.create({
+      curruncy: invoiceCurrency,
+      invoice_id: invoice.invoice_id,
+      payment_date: paymentDate,
+      installment_amount: amountForInvoice,
+      amount_paid: amountPaid,
+      currency_paid: payCurrency,
+      remaining_amount: remainingAmount,
+      payment_method: invoice.payment_method as any,
+      notes: po.note,
+      payment_details: dto.payment_details,
+      status: 'Pending',
+      currency_difference: currencyDifference,
+    } as any);
+
+    // ✅ حدّث حالة الفاتورة فوراً
+    invoice.status = remainingAmount === 0 ? 'Paid' : 'Partial_paid';
+    await invoice.save();
+
+    paymentsToCreate.push(payment);
   }
 
-  let installmentAmount = Number(invoice.total_amount) - totalPaid;
-  let paymentDate = new Date();
+  // 7️⃣ حدّث حالة الـ PO بعد كل الفواتير
+  po.status = invoices.every(inv => inv.status === 'Paid') ? 'Closed' : 'ReadyForPaid';
+  await po.save();
 
-  if (installmentsData?.installments?.length) {
-    const paidCount = payments.length;
-    const nextInstallment = installmentsData.installments[paidCount];
-    if (!nextInstallment) throw new BadRequestException('All installments are already paid');
-
-    paymentDate = new Date(nextInstallment.due_date);
-    installmentAmount = nextInstallment.amount;
-
-    if (new Date() < paymentDate) {
-      throw new BadRequestException(`Next installment is due on ${paymentDate.toLocaleDateString()}`);
-    }
-  }
-
-  const invoiceCurrency = invoice.currency;
-  const payCurrency = dto.currency || invoiceCurrency;
-  const rateAtInvoice = await this.getExchangeRate(invoiceCurrency, payCurrency, invoice.createdAt);
-  const rateAtPayment = await this.getExchangeRate(invoiceCurrency, payCurrency, paymentDate);
-
-  const amountPaid =
-    invoiceCurrency === payCurrency
-      ? installmentAmount
-      : this.convertCurrency(installmentAmount, invoiceCurrency, payCurrency, rateAtPayment);
-
-  const paidInInvoiceCurrency =
-    invoiceCurrency === payCurrency
-      ? amountPaid
-      : this.convertCurrency(amountPaid, payCurrency, invoiceCurrency, 1 / rateAtInvoice);
-
-  const currencyDifference = paidInInvoiceCurrency - installmentAmount;
-
-  const remainingAmount = Math.max(Number(invoice.total_amount) - totalPaid - installmentAmount, 0);
-
-  const payment = await Payment.create({
-    curruncy: invoiceCurrency,
-    invoice_id: invoice.invoice_id,
-    payment_date: paymentDate,
-    installment_amount: installmentAmount,
-    amount_paid: amountPaid,
-    currency_paid: payCurrency,
-    remaining_amount: remainingAmount,
-    payment_method: invoice.payment_method as any,
-    notes: invoice.notes,
-    payment_details: dto.payment_details,
-    status: 'Pending',
-    currency_difference: currencyDifference,
-  } as any);
-
-  invoice.status = remainingAmount === 0 ? 'Paid' : 'Partial_paid';
-  await invoice.save();
-
-  return payment;
+  return paymentsToCreate;
 }
 
 

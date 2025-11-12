@@ -73,18 +73,18 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
 
   @Column({
     type: DataType.ENUM(
-      'Pending',
+      'Pending',/////اول ما ارفعها
       'Pending Verification',
-      'Verified',
+      'Verified',////// لما اشيك لسا بس هي والبيرشز اوردر 
       'Approved',
-      'Rejected',
-      'Paid',
-      'Cancelled',
+      'Rejected',////// في حال صار اغلاط 
+      'Paid',///// بس اخلص الدفع
+      'Cancelled',///////// بس الغيها
       'On Hold',
       'Received',
-      'Incident',
-      'Partial_paid',
-      'ReadyForPaid'
+      'Incident',////////// اول ما ارفعها لما يشيك ع السبلاير ورقم الطلب
+      'Partial_paid',//////////// لما تكون اقساط ولسا مش كل الدفعات اندفعوا
+      'ReadyForPaid' ////////// بس اخلص التدقيق كامل فبتكون جاهزة ادفع
     ),
     defaultValue: 'Pending',
   })

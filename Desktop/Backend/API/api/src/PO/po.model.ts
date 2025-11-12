@@ -135,4 +135,10 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
 
   @HasMany(() => PurchaseOrderItem, { as: 'items', foreignKey: 'po_id' })
   items: PurchaseOrderItem[];
+
+  @Column({ type: DataType.JSON, allowNull: true })
+  installmentsData: {
+    total_installments: number;
+    installments: { amount: number; due_date: string }[];
+  } | null;
 }

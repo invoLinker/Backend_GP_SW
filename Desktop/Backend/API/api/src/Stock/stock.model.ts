@@ -1,4 +1,3 @@
-// src/stock/stock.model.ts
 import { Table, Column, Model, DataType, PrimaryKey, AutoIncrement, AllowNull, Default, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { DeliveryNote } from 'src/DeliveryNote/delivery-note.model';
 

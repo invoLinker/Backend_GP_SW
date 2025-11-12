@@ -49,3 +49,28 @@
 //   }
 
 // }
+
+import { Controller, Post, Body, Param, Req } from '@nestjs/common';
+import { InvoiceService } from './verification.service';
+
+@Controller('compare')
+export class InvoiceController {
+  constructor(private readonly invoiceService: InvoiceService) {}
+
+  @Post('invoices')
+  async compareSI(@Body('po_number') po_number: string) {
+  return await this.invoiceService.compareInvoices(po_number);
+  }
+
+  @Post('DN')
+  async compareDN(@Body('po_number') po_number: string) {
+  return await this.invoiceService.compareDN(po_number);
+  }
+
+  @Post('GR')
+  async compareGR(@Body('po_number') po_number: string) {
+  return await this.invoiceService.compareGR(po_number);
+  }
+
+}
+

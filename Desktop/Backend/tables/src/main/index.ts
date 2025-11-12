@@ -28,6 +28,7 @@ import { InvoiceIncidentItem } from '../models/Tables/InvoiceIncidentItem';
 import { DeliveryNoteItems } from '../models/Tables/DeliveryNoteItem';
 import { DeliveryNotes } from '../models/Tables/DeliveryNote';
 import { Stock } from '../models/Tables/Stock';
+import { Task } from '../models/Tables/Tasks';
 
 
 
@@ -61,6 +62,7 @@ InvoiceIncidentItem;
 DeliveryNoteItems;
 DeliveryNotes;
 Stock;
+Task;
 
 
 async function main() {

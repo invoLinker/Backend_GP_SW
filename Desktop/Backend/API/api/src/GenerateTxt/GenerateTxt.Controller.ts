@@ -1,9 +1,9 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { HuggingFaceService } from './AiService';
+import { GenerateTxtService } from './GenerateTxt.Service';
 
 @Controller('ai')
-export class HuggingFaceController {
-  constructor(private readonly huggingFaceService: HuggingFaceService) {}
+export class GenerateTxtController {
+  constructor(private readonly huggingFaceService: GenerateTxtService) {}
 
   @Post('parse')
   async parseNotes(@Body() body: { notes: string; totalAmount: number , invoiceDate: Date}) {

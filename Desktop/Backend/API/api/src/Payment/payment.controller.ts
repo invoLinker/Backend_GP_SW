@@ -9,11 +9,12 @@ import { CreatePaymentDto } from './CreatePaymentDto';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Post(':invoice_id')
+  @Post(':PO_id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_payment')
-  async payInvoice(@Param('invoice_id') invoice_id: number, @Body() dto:CreatePaymentDto): Promise<Payment> {
-    return this.paymentsService.createPayment(invoice_id, dto);
+  async payInvoice(@Param('PO_id') PO_id: number, @Body() dto:CreatePaymentDto) {
+    const payments =  this.paymentsService.createPayment(PO_id, dto);
+    return payments;
   }
 
   @Patch('complete/:payment_id')

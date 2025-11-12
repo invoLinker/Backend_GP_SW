@@ -31,13 +31,13 @@ import { DeliveryNoteModule } from './DeliveryNote/DeliveryNote.module';
 import { GoodsReceipts } from './GoodsReceipt/GoodsReceipt.model';
 import { GoodsReceiptModule } from './GoodsReceipt/GoodsReceipt.module';
 import { GoodsReceiptItem } from './GoodsReceipt/GoodsReceiptItem.model';
-// import { VerificationModule } from './Verification/verification.module';
+import { VerificationModule } from './Verification/verification.module';
 import { PaymentsModule } from './Payment/payment.module';
 import { Payment } from './Payment/Payment.model';
 import { ConfigModule } from '@nestjs/config';
 import { StockModule } from './Stock/stock.module';
 import { Stock } from './Stock/stock.model';
-import { AiModule } from './AI/aimidule';
+import { GenerateTxt } from './GenerateTxt/GenerateTxt.Module';
 import { OcrModule } from './OCR/Ocr.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { JwtStrategy } from './auth/jwt.strategy';
@@ -46,6 +46,8 @@ import { join } from 'path';
 import { ChatModule } from './Firebase/chat.module';
 import { ChatGateway } from './Firebase/chat.gateway';
 import { InvoiceIncidentModule } from './InvoiceIncident/invoiceIncident.module';
+import { TaskModule } from './Task/task.module';
+import { Task } from './Task/task.model';
 
 
 @Module({
@@ -66,7 +68,7 @@ import { InvoiceIncidentModule } from './InvoiceIncident/invoiceIncident.module'
          PurchaseOrder, PurchaseOrderItem, Item, EditRequest,
          SupplierInvoice, SupplierInvoiceItem,
           // WarehouseReceipt,
-         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, Stock],
+         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, Stock, Task],
       autoLoadModels: true,
       synchronize: false,
     }),
@@ -84,16 +86,17 @@ import { InvoiceIncidentModule } from './InvoiceIncident/invoiceIncident.module'
     SupplierInvoiceModule,
     DeliveryNoteModule,
     GoodsReceiptModule,
-    // VerificationModule,
+    VerificationModule,
     PaymentsModule,
     StockModule,
-    AiModule,
+    GenerateTxt,
     OcrModule, MulterModule.register({}),
     // ConfigModule.forRoot({ isGlobal: true }),
     // AiModule,
     // WarehouseReceiptModule
     ChatModule,
-    InvoiceIncidentModule
+    InvoiceIncidentModule,
+    TaskModule
     
   ],
   providers: [JwtStrategy, ],
