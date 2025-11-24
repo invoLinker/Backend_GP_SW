@@ -10,16 +10,25 @@ import { UpdateUserDto } from './UpdateUserDto';
 import { Cron } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { Supplier } from '../Suppliers/supplier.model';
+import { NotificationService } from 'src/Notification/notification.service';
+import { NotificationChannel } from 'src/Notification/create-notification.dto';
+import * as nodemailer from 'nodemailer';
+import { v4 as uuidv4 } from 'uuid';
+import { EditRequest } from 'src/edit_requests/edit_requests.model';
 
 
 
 @Injectable()
 export class UsersService {
+  private resetTokensMap: Map<string, { email: string; newPassword: string }> = new Map();
 constructor(
     @InjectModel(User) private userModel: typeof User,
     @InjectModel(Role) private roleModel: typeof Role,
+    private notificationService: NotificationService,
     private jwtService: JwtService,
   ) {}
+
+ 
 
   async findAll(): Promise<User[] | { message: string }> {
   const users = await this.userModel.findAll({
@@ -73,6 +82,13 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
       throw new BadRequestException('Invalid role');
     }
   }
+  else {
+    const viewerRole = await this.roleModel.findOne({ where: { role_name: 'Viewer' } });
+    if (!viewerRole) {
+      throw new BadRequestException('Default Viewer role not found');
+    }
+    role = viewerRole;
+  }
 
   const existing = await this.userModel.findOne({ where: { email } });
   if (existing) {
@@ -86,7 +102,7 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
   user.last_name = last_name;
   user.email = email;
   user.password_hash = hashedPassword;
-  if (role_id !== undefined) user.role_id = role_id;
+  user.role_id = role.role_id;
   user.status = 'Active';
   if(ID_imageFile)
     {
@@ -98,6 +114,18 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
 
   if(role?.role_name === 'Supplier'){
    await Supplier.create({user_id: user.user_id } as any);
+  }
+
+  try {
+    await this.notificationService.sendNotification({
+      title: 'Welcome to InvoLinker! 🎉',
+      message: `Hello ${user.first_name}, we are delighted to have you join our team, and we hope you enjoy working with us.`,
+      userId: user.user_id,
+      channel: NotificationChannel.EMAIL,
+      userEmail: user.email,
+    }as any);
+  } catch (err) {
+    console.error('Failed to send welcome notification', err);
   }
 
 
@@ -184,6 +212,39 @@ async searchUsers(query: string): Promise<User[]> {
   });
 }
 
+async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
+  const user = await User.findByPk(userId);
+
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  if (updateDto.status) {
+    user.status = updateDto.status;
+
+    if (updateDto.status === 'Inactive') {
+      const deleteDate = new Date();
+      deleteDate.setDate(deleteDate.getDate() + 30);
+      user.deletedAt = deleteDate;
+    } else {
+      user.deletedAt = null;
+    }
+  }
+
+  if (updateDto.role_name) {
+    const role = await Role.findOne({ where: { role_name: updateDto.role_name } });
+    if (!role) throw new NotFoundException(`Role with name ${updateDto.role_name} not found`);
+
+    user.role_id = role.role_id;
+  }
+
+  await user.save();
+
+  return {
+    message: 'User updated successfully',
+  };
+}
+
 
 async updateStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
   const user = await User.findByPk(userId);
@@ -193,7 +254,7 @@ async updateStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
 
   if (updateDto.status === 'Inactive') {
     const deleteDate = new Date();
-    deleteDate.setDate(deleteDate.getDate() + 7);
+    deleteDate.setDate(deleteDate.getDate() + 30);
     user.deletedAt = deleteDate;
   } else {
     user.deletedAt = null;
@@ -206,21 +267,64 @@ async updateStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
 }
 
 
-  async updatePassword(userId: number, updateDto: UpdateUserDto): Promise<{ message: string }> {
-    const user = await User.findByPk(userId);
-    if (!user) throw new NotFoundException('User not found');
+async updatePassword(id: number, updateDto: UpdateUserDto) {
+    const user = await User.findByPk(id);
+    if (!user) throw new BadRequestException('User not found');
 
-    const isMatch = await bcrypt.compare(updateDto.old_password!, user.password_hash);
+    if (!updateDto.old_password || !updateDto.new_password) {
+      throw new BadRequestException('Old password and new password are required');
+    }
+
+    const isMatch = await bcrypt.compare(updateDto.old_password, user.password_hash);
     if (!isMatch) throw new BadRequestException('Old password is incorrect');
 
-    const salt = await bcrypt.genSalt(10);
-    user.password_hash = await bcrypt.hash(updateDto.new_password, salt);
+    const token = uuidv4();
+    this.resetTokensMap.set(token, { email: user.email, newPassword: updateDto.new_password });
+
+    const resetLink = `${process.env.BACKEND_URL}/users/reset-password?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"🖇InvoLinker" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: 'Reset Your Password 🔑',
+      html: `
+        <h3>Hello ${user.first_name},</h3>
+        <p>Click the button below to reset your password:</p>
+        <a href="${resetLink}" 
+           style="display:inline-block;padding:10px 20px;font-size:16px;color:#fff;
+                  background-color:#007bff;text-decoration:none;border-radius:5px;">
+           Verify & Reset Password
+        </a>
+        <p>If you did not request this, ignore this email.</p>
+      `,
+    });
+
+    return { message: 'Password reset email sent' };
+  }
+
+  async resetPassword(token: string) {
+    const data = this.resetTokensMap.get(token);
+    if (!data) throw new BadRequestException('Invalid or expired token');
+
+    const user = await User.findOne({ where: { email: data.email } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+    user.password_hash = hashedPassword;
     await user.save();
+
+    this.resetTokensMap.delete(token);
 
     return { message: 'Password updated successfully' };
   }
-
-
   async updateName(userId: number, updateDto: UpdateUserDto): Promise<any> {
   const user = await User.findByPk(userId);
   if (!user) throw new NotFoundException('User not found');
@@ -239,22 +343,27 @@ async updateStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
 }
 
 
-async deleteUser(userId: number, forceDelete = false): Promise<{ message: string }> {
-  const user = await User.findByPk(userId);
-  if (!user) throw new NotFoundException('User not foun');
+async deleteUsers(userIds: number[]): Promise<{ message: string }> {
 
-  if (forceDelete || user.status === 'Inactive') {
-    await user.destroy();
-    return { message: 'User deleted successfully' };
-  } else {
-    const deleteDate = new Date();
-    deleteDate.setDate(deleteDate.getDate() + 7); 
-    user.deletedAt = deleteDate;
+  const users = await User.findAll({ where: { user_id: userIds } });
 
-    await user.save();
-    return { message: `User is Active. Marked for deletion at ${user.deletedAt}` };
+  if (users.length === 0) {
+    throw new NotFoundException('No users found with the given IDs');
   }
+
+  await EditRequest.destroy({
+    where: { user_id: userIds }
+  });
+
+  await User.destroy({
+    where: { user_id: userIds }
+  });
+
+  return { message: 'User/s deleted successfully' };
 }
+
+
+
 
 
 @Cron('0 0 * * *')
@@ -269,12 +378,7 @@ async deleteUser(userId: number, forceDelete = false): Promise<{ message: string
     }
   }
 
-  async deleteAllUsers(): Promise<{ message: string }> {
-  await this.userModel.destroy({ where: {}, truncate: true }); 
-
-  return { message: 'All users deleted successfully' };
-}
-
+  
  async updateUserRole(id: number, roleName: string) {
     const user = await User.findByPk(id);
     if (!user) throw new NotFoundException('User not found');

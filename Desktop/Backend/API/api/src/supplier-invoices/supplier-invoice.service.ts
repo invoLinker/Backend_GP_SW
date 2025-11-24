@@ -164,7 +164,6 @@ async updateInvoice(
 
   if (!invoice) throw new NotFoundException('Invoice not found');
 
-  // 🟢 مسح كل القيم القديمة إذا ما أرسلت في DTO
   const fieldsToClear = [
     'invoice_number', 'invoice_date', 'received_date', 'subtotal',
     'vat', 'discount', 'total_amount', 'payment_method', 'notes',
@@ -176,20 +175,16 @@ async updateInvoice(
     invoice[field] = null;
   }
 
-  // 🟢 مسح الـ Items القديمة
   await this.supplierInvoiceItemModel.destroy({
     where: { invoice_id: id },
   });
 
-  // 🟢 تعيين القيم الجديدة
   Object.assign(invoice, updateDto);
 
-  // 🟢 تحديث الشخص اللي عدّل
   invoice.created_by = userId;
 
   await invoice.save();
 
-  // 🟢 إنشاء الـ Items الجديدة
   if (updateDto.items && updateDto.items.length > 0) {
     for (const item of updateDto.items) {
       await this.supplierInvoiceItemModel.create({
@@ -199,7 +194,6 @@ async updateInvoice(
     }
   }
 
-  // 🟢 إعادة الفاتورة بعد التحديث
   const updatedInvoice = await this.supplierInvoiceModel.findByPk(id, {
     include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
   });
@@ -273,16 +267,13 @@ async updateInvoice(
 }
 
 async deleteInvoiceById(id: number) {
-  // نبحث عن الفاتورة أولاً
   const invoice = await this.supplierInvoiceModel.findByPk(id);
   if (!invoice) throw new NotFoundException('Invoice not found');
 
-  // 🟢 حذف الـ Items المرتبطة بالفاتورة
   await this.supplierInvoiceItemModel.destroy({
     where: { invoice_id: id },
   });
 
-  // 🟢 حذف الفاتورة نفسها
   await invoice.destroy();
 
   return { message: 'Invoice deleted successfully' };

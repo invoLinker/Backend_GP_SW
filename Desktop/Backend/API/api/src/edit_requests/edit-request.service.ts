@@ -28,7 +28,6 @@ export class EditRequestService {
     }
   }
 
-  // جلب طلبات التعديل حسب الحالة
 async findByStatus(status: 'pending' | 'approved' | 'rejected'): Promise<EditRequest[]> {
   try {
     const requests = await this.editRequestModel.findAll({
@@ -54,14 +53,11 @@ async findByStatus(status: 'pending' | 'approved' | 'rejected'): Promise<EditReq
 
 
 async update(id: number, data: UpdateEditRequestDto): Promise<EditRequest> {
-  // 1. جلب الطلب
   const request = await this.editRequestModel.findByPk(id);
 
   if (!request) throw new NotFoundException(`EditRequest with id ${id} not found`);
 
-  // 2. فحص can_edit
   if (!request.is_edit) {
-    // 3. تعديل الحقول المسموح بها فقط
     if (data.message !== undefined) request.message = data.message;
     if (data.status !== undefined) request.status = data.status;
 
@@ -69,8 +65,8 @@ async update(id: number, data: UpdateEditRequestDto): Promise<EditRequest> {
     return request;
   }
 
-  // 4. إذا can_edit = true → لا نغيّر شيء
   return request;
 }
+
 
 }

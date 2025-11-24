@@ -237,7 +237,7 @@ async findAll(): Promise<PurchaseOrder[]> {
       transaction,
     });
 
-    if (po.status === 'Approved' && !approvedRequest) {
+    if ((po.status === 'Approved' || po.status === 'Open') && !approvedRequest) {
       const editRequest = await this.editRequestModel.create({
         invoice_id: po.po_id,
         user_id: userId,

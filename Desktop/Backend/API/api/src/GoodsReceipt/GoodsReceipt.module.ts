@@ -6,6 +6,8 @@ import { DeliveryNote } from '../DeliveryNote/delivery-note.model';
 import { PurchaseOrder } from '../PO/po.model';
 import { GoodsReceiptService } from './GoodsReceipt.service';
 import { GoodsReceiptController } from './GoodsReceipt.controller';
+import { HistoryLog } from 'src/History/history-log.model';
+import { HistoryLogService } from 'src/History/history-log.service';
 
 @Module({
   imports: [
@@ -14,9 +16,10 @@ import { GoodsReceiptController } from './GoodsReceipt.controller';
       GoodsReceiptItem,
       DeliveryNote,
       PurchaseOrder,
+      HistoryLog
     ]),
   ],
   controllers: [GoodsReceiptController],
-  providers: [GoodsReceiptService],
+  providers: [GoodsReceiptService,HistoryLogService],
 })
 export class GoodsReceiptModule {}

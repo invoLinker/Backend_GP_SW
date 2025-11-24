@@ -10,6 +10,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { HistoryLog } from 'src/History/history-log.model';
+import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationService } from 'src/Notification/notification.service';
 
 @Module({
   imports: [
@@ -22,7 +25,7 @@ import { extname } from 'path';
         },
       }),
     }),
-    SequelizeModule.forFeature([User,Role]),
+    SequelizeModule.forFeature([User,Role, HistoryLog]),
     forwardRef(() => RolesModule),RolePermissionModule,
     JwtModule.register({
           secret: process.env.JWT_SECRET || 'secretKey',
@@ -30,7 +33,7 @@ import { extname } from 'path';
         }),
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, HistoryLogService, NotificationService],
   exports: [UsersService],
 })
 export class UsersModule {}

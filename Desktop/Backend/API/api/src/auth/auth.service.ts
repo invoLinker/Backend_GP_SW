@@ -59,17 +59,17 @@ export class AuthService {
     const payload = { 
       sub: user.user_id, 
       email: user.email, 
-      role: user.role?.role_name 
+      role_name: user.role?.role_name 
     };
 
     return {
       message: 'Login successful',
-      access_token: this.jwtService.sign(payload, { expiresIn: '10m' }), 
+      access_token: this.jwtService.sign(payload, { expiresIn: '1h' }), 
       refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }), 
       user: { 
         id: user.user_id, 
         email: user.email, 
-        role: user.role?.role_name 
+        role_name: user.role?.role_name 
       },
     };
   }

@@ -29,6 +29,7 @@ import { DeliveryNoteItems } from '../models/Tables/DeliveryNoteItem';
 import { DeliveryNotes } from '../models/Tables/DeliveryNote';
 import { Stock } from '../models/Tables/Stock';
 import { Task } from '../models/Tables/Tasks';
+import { HistoryLog } from '../models/Tables/HistoryLog';
 
 
 
@@ -63,6 +64,7 @@ DeliveryNoteItems;
 DeliveryNotes;
 Stock;
 Task;
+HistoryLog;
 
 
 async function main() {

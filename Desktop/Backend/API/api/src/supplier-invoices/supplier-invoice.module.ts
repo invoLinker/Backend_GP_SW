@@ -11,9 +11,12 @@ import { InvoiceIncidentItem } from 'src/InvoiceIncident/InvoiceIncidentItem';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { HistoryLog } from 'src/History/history-log.model';
+import { HistoryLogService } from 'src/History/history-log.service';
 
 @Module({
-  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User, InvoiceIncident, InvoiceIncidentItem, User, Supplier]),
+  imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User,
+     InvoiceIncident, InvoiceIncidentItem, User, Supplier, HistoryLog]),
   MulterModule.register({
   storage: diskStorage({
     destination: './uploads/invoices',
@@ -24,7 +27,7 @@ import { extname } from 'path';
   }),
 }),
 ],
-  providers: [SupplierInvoiceService],
+  providers: [SupplierInvoiceService, HistoryLogService],
   controllers: [SupplierInvoiceController],
   exports: [SupplierInvoiceService],
 })

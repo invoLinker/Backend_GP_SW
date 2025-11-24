@@ -1,20 +1,48 @@
-import { Controller, Post, Param, UseGuards, ParseIntPipe, Body, Patch,Get, Delete, Query } from '@nestjs/common';
+import { Controller, Post, Param, UseGuards, ParseIntPipe, Body, Patch,Get, Delete, Query, Request } from '@nestjs/common';
 import { PaymentsService } from './payment.service';
 import { Payment } from './Payment.model';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { PermissionName } from 'src/permission/permission.decorator';
 import { CreatePaymentDto } from './CreatePaymentDto';
+import { HistoryLogService } from 'src/History/history-log.service';
+import { HistoryCategory, HistorySeverity } from 'src/History/create-history-log.dto';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(private readonly paymentsService: PaymentsService,
+              private readonly historyLogService: HistoryLogService,
+  ) {}
 
   @Post(':PO_id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_payment')
-  async payInvoice(@Param('PO_id') PO_id: number, @Body() dto:CreatePaymentDto) {
-    const payments =  this.paymentsService.createPayment(PO_id, dto);
-    return payments;
+  async payInvoice(@Param('PO_id') PO_id: number, @Body() dto:CreatePaymentDto, @Request() req) {
+    try {
+      const payment = await this.paymentsService.createPayment(PO_id, dto);
+
+      await this.historyLogService.createLog({
+        action: 'Payment Created',
+        description: `Payment created for PO #${PO_id}`,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: payment,
+      });
+
+      return payment;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Payment Creation Failed',
+        description: error.message,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
+    }
   }
 
   @Patch('complete/:payment_id')
@@ -23,8 +51,37 @@ export class PaymentsController {
   async completePayment(
     @Param('payment_id') payment_id: number,
     @Body('status') status: 'Completed' | 'Failed',
+    @Request() req
   ):Promise<{ message: string }>  {
-    return this.paymentsService.updatePaymentStatus(payment_id, status);
+    try {
+      const result = await this.paymentsService.updatePaymentStatus(payment_id, status);
+
+      await this.historyLogService.createLog({
+        action: 'Payment Status Updated',
+        description: `Payment #${payment_id} marked as ${status}`,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity:
+          status === 'Completed'
+            ? HistorySeverity.SUCCESS
+            : HistorySeverity.WARNING,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Payment Status Update Failed',
+        description: error.message,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
+    }
   }
 
   @Get('invoice/:id/payments')
@@ -44,15 +101,65 @@ export class PaymentsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_payment')
-  async deletePayment(@Param('id') payment_id: number) {
-    return this.paymentsService.deletePayment(payment_id);
+  async deletePayment(@Param('id') payment_id: number, @Request() req) {
+    try {
+      const result = await this.paymentsService.deletePayment(payment_id);
+
+      await this.historyLogService.createLog({
+        action: 'Payment Deleted',
+        description: `Payment with ID ${payment_id} deleted`,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Payment Deletion Failed',
+        description: error.message,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
+    }
   }
 
   @Patch(':id/details')
   @UseGuards(JwtAuthGuard)
   @PermissionName('update_payment')
-  async updatePaymentDetails(@Param('id') payment_id: number, @Body() dto: CreatePaymentDto) {
-    return this.paymentsService.updatePayment(payment_id, dto);
+  async updatePaymentDetails(@Param('id') payment_id: number, @Body() dto: CreatePaymentDto, @Request() req) {
+     try {
+      const result = await this.paymentsService.deletePayment(payment_id);
+
+      await this.historyLogService.createLog({
+        action: 'Payment Updated',
+        description: `Payment with ID ${payment_id} updated`,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Payment Updated Failed',
+        description: error.message,
+        user: req?.user?.email ?? 'Unknown',
+        userRole: req?.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
+    }
   }
 
 

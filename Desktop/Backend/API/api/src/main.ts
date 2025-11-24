@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,6 +7,7 @@ config();
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
 import * as express from 'express';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 
 
@@ -17,12 +18,11 @@ async function bootstrap() {
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
   app.useGlobalPipes(new ValidationPipe({
+    
     whitelist: true,              
     forbidNonWhitelisted: true,    
     transform: true,               
   }));
-
-
 
 
   const config = new DocumentBuilder()

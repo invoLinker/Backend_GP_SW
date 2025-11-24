@@ -9,9 +9,12 @@ import { ConfigModule } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { HistoryLogService } from 'src/History/history-log.service';
+import { HistoryLog } from 'src/History/history-log.model';
+import { SequelizeModule } from '@nestjs/sequelize';
 
 @Module({
-  imports: [
+  imports: [HistoryLog,
     MulterModule.register({
           storage: diskStorage({
             destination: './uploads', 
@@ -21,6 +24,7 @@ import { extname } from 'path';
             },
           }),
         }),
+    SequelizeModule.forFeature([HistoryLog]),
     UsersModule,
     PassportModule,
     ConfigModule,
@@ -30,7 +34,7 @@ import { extname } from 'path';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy,HistoryLogService],
   exports: [AuthService],
 })
 export class AuthModule {}

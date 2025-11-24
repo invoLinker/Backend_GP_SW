@@ -10,9 +10,12 @@ import { User } from 'src/users/users.model';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { HistoryLog } from 'src/History/history-log.model';
+import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationService } from 'src/Notification/notification.service';
 
 @Module({
-  imports: [SequelizeModule.forFeature([DeliveryNote, PurchaseOrder, DeliveryNoteItem, Supplier, User]),
+  imports: [SequelizeModule.forFeature([DeliveryNote, PurchaseOrder, DeliveryNoteItem, Supplier, User, HistoryLog, ]),
   MulterModule.register({
     storage: diskStorage({
       destination: './uploads/DN',
@@ -24,6 +27,6 @@ import { extname } from 'path';
   })
   ],
   controllers: [DeliveryNoteController],
-  providers: [DeliveryNoteService],
+  providers: [DeliveryNoteService,HistoryLogService,],
 })
 export class DeliveryNoteModule {}

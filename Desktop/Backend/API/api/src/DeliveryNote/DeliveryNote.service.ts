@@ -7,6 +7,9 @@ import { DeliveryNoteItem } from './delivery-note-item.model';
 import { Supplier } from 'src/Suppliers/supplier.model';
 import { Op } from 'sequelize';
 import { User } from 'src/users/users.model';
+import { NotificationService } from 'src/Notification/notification.service';
+import { NotificationChannel } from 'src/Notification/create-notification.dto';
+import { Role } from 'src/roles/roles.model';
 
 @Injectable()
 export class DeliveryNoteService {
@@ -16,6 +19,7 @@ export class DeliveryNoteService {
     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
     @InjectModel(Supplier) private supplierModel: typeof Supplier,
     @InjectModel(User)private userModel: typeof User,
+    // private readonly notificationService: NotificationService
   ) {}
 
   async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number) {
@@ -259,5 +263,21 @@ async deleteInvoiceById(id: number) {
 
   return { message: 'DN deleted successfully' };
 }
+
+// private async notifyAdmins(title: string, message: string) {
+//   const admins = await this.userModel.findAll({
+//     where: { rol: 'Admin' }
+//   }as any);
+
+//   for (const admin of admins) {
+//     await this.notificationService.sendNotification({
+//       title,
+//       message,
+//       userId: admin.user_id.toString(),
+//       channel: NotificationChannel.IN_APP,
+//     });
+//   }
+// }
+
 
 }

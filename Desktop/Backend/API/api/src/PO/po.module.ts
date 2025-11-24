@@ -9,16 +9,18 @@ import { PurchaseOrderItemModule } from './PoItem.module';
 import { EditRequest } from 'src/edit_requests/edit_requests.model';
 import { User } from 'src/users/users.model';
 import { Supplier } from 'src/Suppliers/supplier.model';
+import { HistoryLog } from 'src/History/history-log.model';
+import { HistoryLogService } from 'src/History/history-log.service';
 
 @Module({
   imports: [
-  SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest, User, Supplier]),
+  SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest, User, Supplier, HistoryLog]),
   RolePermissionModule,
   PurchaseOrderItemModule
   
 ],
 
   controllers: [PurchaseOrderController],
-  providers: [PurchaseOrderService],
+  providers: [PurchaseOrderService, HistoryLogService],
 })
 export class PurchaseOrderModule {}

@@ -5,38 +5,120 @@ import { PermissionName } from 'src/permission/permission.decorator';
 import { CreateSupplierInvoiceDto } from './SupplierInvoiceDto';
 import { SupplierInvoiceItemDto } from './SupplierInvoiceItemDto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { HistoryLogService } from '../History/history-log.service';
+import { HistoryCategory, HistorySeverity } from '../History/create-history-log.dto';
+
 
 @Controller('supplier-invoices')
 export class SupplierInvoiceController {
-  constructor(private readonly supplierInvoiceService: SupplierInvoiceService) {}
+  constructor(private readonly supplierInvoiceService: SupplierInvoiceService,
+              private readonly historyLogService: HistoryLogService
+  ) {}
 
-    @Post()
-    @UseGuards(JwtAuthGuard)
-    @PermissionName('create_supplier-invoices')
-    async createInvoice(@Body() body:  CreateSupplierInvoiceDto, @Request() req) {
-    const userId = req.user.userId;
-    return this.supplierInvoiceService.createInvoice(body, userId);
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('create_supplier-invoices')
+  async createInvoice(@Body() body:  CreateSupplierInvoiceDto, @Request() req) {
+    try {
+      const userId = req.user.userId;
+      const result = await this.supplierInvoiceService.createInvoice(body, userId);
+
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Created',
+        description: `Invoice number=${body.invoice_number} created`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Creation Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
     }
+  }
 
-    @Post('upload-image/:id')
-    @UseGuards(JwtAuthGuard)
-    @UseInterceptors(FileInterceptor('invoice_image'))
-    async updateUser(
-        @Param('id', ParseIntPipe) id: number,
-        @UploadedFile() invoice_image: Express.Multer.File,
-    ) {
-        return this.supplierInvoiceService.saveInvoiceImage(invoice_image , id);
+  @Post('upload-image/:id')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('invoice_image'))
+  async updateUser(
+      @Param('id', ParseIntPipe) id: number,
+      @UploadedFile() invoice_image: Express.Multer.File,
+      @Request() req
+  ) {
+    try {
+      const result = await this.supplierInvoiceService.saveInvoiceImage(invoice_image , id);
+
+      await this.historyLogService.createLog({
+        action: 'Invoice Image Uploaded',
+        description: `Invoice id=${id} image uploaded`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Invoice Image Upload Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
     }
+  }
 
-    @Put(':id')
-    @UseGuards(JwtAuthGuard)
-    async updateInvoice(
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  async updateInvoice(
     @Param('id') id: number,
-    @Body() data: CreateSupplierInvoiceDto,@Request() req,
-    ) {
-        const userId = req.user.userId;         
-        return this.supplierInvoiceService.updateInvoice(id, data, userId);
+    @Body() data: CreateSupplierInvoiceDto,
+    @Request() req,
+  ) {
+    try {
+      const userId = req.user.userId;
+      const result = await this.supplierInvoiceService.updateInvoice(id, data, userId);
+
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Updated',
+        description: `Invoice id=${id} updated`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Update Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
     }
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -54,23 +136,75 @@ export class SupplierInvoiceController {
   }
 
   @Get('all')
+  @UseGuards(JwtAuthGuard)
   async getAllInvoicesOrderedByDate() {
     return this.supplierInvoiceService.getAllInvoicesOrderedByDate();
   }
 
 
   @Delete(':id')
-  async deleteInvoice(@Param('id', ParseIntPipe) id: number) {
-    return this.supplierInvoiceService.deleteInvoiceById(id);
+  @UseGuards(JwtAuthGuard)
+  async deleteInvoice(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    try {
+      const result = await this.supplierInvoiceService.deleteInvoiceById(id);
+
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Deleted',
+        description: `Invoice id=${id} deleted`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.WARNING,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Deletion Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: { id },
+      });
+      throw error;
+    }
   }
 
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
   async updateInvoiceStatus(
-  @Param('id') id: number,
-  @Body('status') status: string,
+    @Param('id') id: number,
+    @Body('status') status: string,
+    @Request() req
   ): Promise<any> {
-  return this.supplierInvoiceService.updateStatus(id, status);
-  }
+    try {
+      const result = await this.supplierInvoiceService.updateStatus(id, status);
 
+      await this.historyLogService.createLog({
+        action: 'Supplier Invoice Status Updated',
+        description: `Invoice id=${id} status changed to ${status}`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Update Invoice Status Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: { id, status },
+      });
+      throw error;
+    }
+  }
 }

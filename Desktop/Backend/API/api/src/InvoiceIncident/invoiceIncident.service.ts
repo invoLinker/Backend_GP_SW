@@ -33,4 +33,19 @@ export class SupplierIncidentService {
     
     return { message: 'Incident checked successfully', incident };
   }
+
+  async deleteIncident(id: number) {
+  const incident = await this.incidentModel.findByPk(id);
+
+  if (!incident) throw new NotFoundException('Incident not found');
+
+  await this.invoiceIncidentItem.destroy({
+    where: { incident_id: id }
+  });
+
+  await incident.destroy();
+
+  return { message: 'Incident deleted successfully' };
+}
+
 }

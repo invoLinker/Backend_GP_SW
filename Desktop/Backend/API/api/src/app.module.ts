@@ -22,7 +22,6 @@ import { EditRequestModule } from './edit_requests/edit-request.module';
 import { SupplierInvoice } from './supplier-invoices/supplier-invoice.model';
 import { SupplierInvoiceItem } from './supplier-invoices/supplier-invoice-item.model';
 import { SupplierInvoiceModule } from './supplier-invoices/supplier-invoice.module';
-// import { WarehouseReceipt } from './WarehouseReceipt/WarehouseReceipt.model';
 import { InvoiceIncident } from './InvoiceIncident/InvoiceIncident.model';
 import { InvoiceIncidentItem } from './InvoiceIncident/InvoiceIncidentItem';
 import { DeliveryNote } from './DeliveryNote/delivery-note.model';
@@ -48,13 +47,19 @@ import { ChatGateway } from './Firebase/chat.gateway';
 import { InvoiceIncidentModule } from './InvoiceIncident/invoiceIncident.module';
 import { TaskModule } from './Task/task.module';
 import { Task } from './Task/task.model';
+import { HistoryLogModule } from './History/history-log.module';
+import { HistoryLog } from './History/history-log.model';
+import { NotificationModule } from './Notification/notification.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { APP_GUARD } from '@nestjs/core';
+// import { ChatBotModule } from './ChatBot/ChatBotModule';
 
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads', // URL العام سيكون http://localhost:3000/uploads/filename.png
+      serveRoot: '/uploads',
     }),
     
     SequelizeModule.forRoot({
@@ -67,12 +72,10 @@ import { Task } from './Task/task.model';
       models: [Role, User, Permission, RolePermission, Supplier,
          PurchaseOrder, PurchaseOrderItem, Item, EditRequest,
          SupplierInvoice, SupplierInvoiceItem,
-          // WarehouseReceipt,
-         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, Stock, Task],
+         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, Stock, Task, HistoryLog],
       autoLoadModels: true,
       synchronize: false,
     }),
-    // ConfigModule.forRoot({ isGlobal: true }),
     RolesModule,
     UsersModule,
     AuthModule,
@@ -91,15 +94,19 @@ import { Task } from './Task/task.model';
     StockModule,
     GenerateTxt,
     OcrModule, MulterModule.register({}),
-    // ConfigModule.forRoot({ isGlobal: true }),
-    // AiModule,
-    // WarehouseReceiptModule
     ChatModule,
     InvoiceIncidentModule,
-    TaskModule
+    TaskModule,
+    HistoryLogModule,
+    NotificationModule,
+    // ChatBotModule
     
   ],
-  providers: [JwtStrategy, ],
+  providers: [ JwtStrategy,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },],
 })
 export class AppModule {}
 

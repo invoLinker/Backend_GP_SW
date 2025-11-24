@@ -57,15 +57,6 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
   })
   status: string;
 
-  // @Column({
-  //   type: DataType.BOOLEAN,
-  //   defaultValue: false,
-  // })
-  // resolved: boolean;
-
-  // @Column(DataType.TEXT)
-  // resolution_notes: string;
-
   @ForeignKey(() => Supplier)
   @Column(DataType.INTEGER)
   supplier_id: number | null;
