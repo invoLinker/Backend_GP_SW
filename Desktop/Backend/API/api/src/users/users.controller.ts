@@ -37,9 +37,6 @@ export class UsersController {
     @Body(new ValidationPipe({ transform: true })) createUserDto: CreateUserDto,
     @UploadedFile() ID_imageFile?: Express.Multer.File
   ) {
-    if (!ID_imageFile) {
-      throw new BadRequestException('ID_image is required');
-    }
 
      try {
       const result = await this.usersService.create(createUserDto, ID_imageFile);
@@ -47,8 +44,8 @@ export class UsersController {
       await this.historyLogService.createLog({
         action: 'User Created',
         description: `User with email=${createUserDto.email} created`,
-        user: result.user.email,
-        userRole: result.user.role ?? 'Unknown',
+        user: result.user!.email,
+        userRole: result.user!.role ?? 'Unknown',
         category: HistoryCategory.USER,
         severity: HistorySeverity.SUCCESS,
         details: result.message,
@@ -88,8 +85,6 @@ export class UsersController {
     return this.usersService.findAll(); 
   }
 
-  
-
   @UseGuards(JwtAuthGuard)
   @PermissionName('search_users')
   @Get('search')
@@ -114,7 +109,6 @@ export class UsersController {
     return this.usersService.findByRole(roleId);
   }
 
-  
   @UseGuards(JwtAuthGuard)
   @PermissionName('search_users')
   @Get('by-email/:email')
@@ -243,9 +237,6 @@ export class UsersController {
     }
   }
 
-
-
-  
   @Patch(':id/statusRole')
   @UseGuards(JwtAuthGuard)
   @PermissionName('update_users_role')
@@ -298,7 +289,6 @@ export class UsersController {
     }
   }
 
-
   @Patch(':id/role')
   @UseGuards(JwtAuthGuard)
   @PermissionName('update_users_role')
@@ -308,7 +298,7 @@ export class UsersController {
     @Req() req
   ) {
     try {
-      const result = await this.usersService.updateUserRole(id, updateRoleDto.role_name);
+      const result = await this.usersService.updateUserRole(id, updateRoleDto.role_name!);
 
       await this.historyLogService.createLog({
         action: 'User Role Updated',
@@ -334,7 +324,6 @@ export class UsersController {
       throw error;
     }
   }
-
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
@@ -372,6 +361,36 @@ export class UsersController {
       throw error;
     }
   }
+
+  @Delete(':id/profile-image')
+  async deleteProfileImage(@Param('id') id: number, @Req() req) {
+  try {
+        const result = await this.usersService.deleteProfileImage(id);
+
+        await this.historyLogService.createLog({
+          action: 'User Updated her image profile',
+          description: `User id=${id} updated`,
+          user: req.user?.email ?? 'Unknown',
+          userRole: req.user?.role ?? 'Unknown',
+          category: HistoryCategory.USER,
+          severity: HistorySeverity.SUCCESS,
+          details: result,
+        });
+
+        return result;
+      } catch (error) {
+        await this.historyLogService.createLog({
+          action: 'User image profile Update Failed',
+          description: error.message,
+          user: req.user?.email ?? 'Unknown',
+          userRole: req.user?.role ?? 'Unknown',
+          category: HistoryCategory.DATA,
+          severity: HistorySeverity.ERROR,
+          details: error,
+        });
+        throw error;
+      }
+    }
 
 
 

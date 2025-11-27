@@ -1,4 +1,4 @@
-import { Column, Model, Table, DataType, HasMany, BelongsToMany } from 'sequelize-typescript';
+import { Column, Model, Table, DataType, HasMany, BelongsToMany, AllowNull } from 'sequelize-typescript';
 import { User } from '../users/users.model';
 import { Permission } from 'src/permission/permission.model';
 import { RolePermission } from 'src/RolePermission/RolePermission.model';
@@ -11,6 +11,12 @@ export class Role extends Model<Role> {
     autoIncrement: true,
   })
   role_id: number;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull:false
+  })
+  description: string;
 
   @Column({
     type: DataType.ENUM(

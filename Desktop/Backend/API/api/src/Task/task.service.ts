@@ -4,10 +4,14 @@ import { Task, TaskStatus } from './task.model';
 import { CreateTaskDto } from './create-task.dto';
 import { User } from 'src/users/users.model';
 import { hrtime, title } from 'process';
+import { NotificationService } from 'src/Notification/notification.service';
+import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
 
 @Injectable()
 export class TaskService {
-  constructor(@InjectModel(Task) private taskModel: typeof Task) {}
+  constructor(@InjectModel(Task) private taskModel: typeof Task,
+  private readonly notificationService: NotificationService
+) {}
 
   async createTask(dto: CreateTaskDto, userId: number) {
   const creator = await User.findByPk(userId);
@@ -27,6 +31,24 @@ export class TaskService {
     created_by: userId,
   }as any);
 
+  await this.notificationService.sendNotification({
+    title: 'New Task Assigned',
+    message: `You have been assigned a new task: "${dto.title}"`,
+    userId: assignee.user_id.toString(),
+    channel: NotificationChannel.IN_APP,
+    category: NotificationCategory.TASK,
+    payload: { taskId: task.id, dueDate: task.dueDate },
+  });
+
+  await this.notificationService.sendNotification({
+    title: 'New Task Assigned',
+    message: `You have been assigned a new task: "${dto.title}"`,
+    userId: assignee.user_id.toString(),
+    channel: NotificationChannel.PUSH,
+    category: NotificationCategory.TASK,
+    payload: { taskId: task.id, dueDate: task.dueDate },
+  });
+
   return task;
 }
 
@@ -41,7 +63,7 @@ async getAllTasks() {
   async getTasks(status: 'Pending' | 'In_Progress' | 'Completed'): Promise<Task[]> {
   return this.taskModel.findAll({
     where: {status: status},
-    order: [['dueDate', 'ASC']], // عرض حسب تاريخ الاستحقاق
+    order: [['dueDate', 'ASC']],
   } as any);
 }
 
@@ -56,6 +78,16 @@ async getAllTasks() {
     }
 
     await task.save();
+
+    await this.notificationService.sendNotification({
+    title: 'Task Status Updated',
+    message: `You updated the status of task "${task.title}" to "${task.status}".`,
+    userId: task.created_by.toString(),
+    channel: NotificationChannel.IN_APP,
+    category: NotificationCategory.TASK,
+    payload: { taskId: task.id, newStatus: task.status },
+  });
+  
     return task;
   }
 

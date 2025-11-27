@@ -22,15 +22,6 @@ export class OcrService {
     });
   }
 
-  // 🔹 الخطوة 1: تحسين الصورة إذا كانت صورة
-  // private async preprocessImage(buffer: Buffer): Promise<Buffer> {
-  //   return sharp(buffer)
-  //     .grayscale()       
-  //     .normalise()       
-  //     .sharpen()        
-  //     .toBuffer();
-  // }
-
   private async  preprocessImage(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer)
     .resize({ width: 2000 })       // تكبير إذا كانت الصورة صغيرة
@@ -155,10 +146,10 @@ export class OcrService {
 
 
 
-   async processFile(file: Express.Multer.File): Promise<any> {
-    const text = await this.extractText(file);
-    return this.extractDataByType(text);
-  }
+  async processFile(file: Express.Multer.File): Promise<any> {
+  const text = await this.extractText(file);
+  return this.extractDataByType(text);
+}
 
 
   

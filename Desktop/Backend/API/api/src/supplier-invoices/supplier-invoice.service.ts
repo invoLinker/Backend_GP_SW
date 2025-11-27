@@ -12,7 +12,9 @@ import { User } from 'src/users/users.model';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promises } from 'dns';
-
+import { NotificationService } from 'src/Notification/notification.service';
+import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
+import { Role } from 'src/roles/roles.model';
 
 @Injectable()
 export class SupplierInvoiceService {
@@ -29,116 +31,156 @@ constructor(
     private userModel: typeof User,
     @InjectModel(Supplier)
     private supplierModel: typeof Supplier,
+
+    private readonly notificationService: NotificationService
+
 ) {}
 
-    async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number) {
-    const transaction = await this.supplierInvoiceModel.sequelize!.transaction();
-    const errors: string[] = [];
+    // async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number) {
+    // const transaction = await this.supplierInvoiceModel.sequelize!.transaction();
+    // const errors: string[] = [];
 
-    try {
-        let supplier: Supplier | null = null;
+    // try {
+    //     let supplier: Supplier | null = null;
 
-        // ✅ الخطوة 1: نبحث عن اليوزر بالإيميل
-        if (dto.supplier_email) {
-        const supplierUser = await this.userModel.findOne({
-            where: { email: dto.supplier_email },
-            transaction,
-        });
+    //     // ✅ الخطوة 1: نبحث عن اليوزر بالإيميل
+    //     if (dto.supplier_email) {
+    //     const supplierUser = await this.userModel.findOne({
+    //         where: { email: dto.supplier_email },
+    //         transaction,
+    //     });
 
-        if (!supplierUser) {
-            errors.push(`Supplier with email ${dto.supplier_email} not found`);
-        } else {
-            // ✅ الخطوة 2: نجيب السّبلاير المرتبط بهذا اليوزر
-            supplier = await this.supplierModel.findOne({
-            where: { user_id: supplierUser.user_id },
-            transaction,
-            });
+    //     if (!supplierUser) {
+    //         errors.push(`Supplier with email ${dto.supplier_email} not found`);
+    //     } else {
+    //         // ✅ الخطوة 2: نجيب السّبلاير المرتبط بهذا اليوزر
+    //         supplier = await this.supplierModel.findOne({
+    //         where: { user_id: supplierUser.user_id },
+    //         transaction,
+    //         });
 
-            if (!supplier) {
-            errors.push(`Supplier record linked to user ${dto.supplier_email} not found`);
-            }
-        }
-        } else {
-        errors.push('Supplier email missing');
-        }
+    //         if (!supplier) {
+    //         errors.push(`Supplier record linked to user ${dto.supplier_email} not found`);
+    //         }
+    //     }
+    //     } else {
+    //     errors.push('Supplier email missing');
+    //     }
 
 
-        let po: PurchaseOrder | null = null;
-        if (dto.po_number) {
-        po = await PurchaseOrder.findOne({ where: { po_number: dto.po_number }, transaction });
-        if (!po) errors.push('Purchase order not found');
-        } else {
-        errors.push('PO number missing');
-        }
+    //     let po: PurchaseOrder | null = null;
+    //     if (dto.po_number) {
+    //     po = await PurchaseOrder.findOne({ where: { po_number: dto.po_number }, transaction });
+    //     if (!po) errors.push('Purchase order not found');
+    //     } else {
+    //     errors.push('PO number missing');
+    //     }
 
-        if (errors.length > 0) {
-        const incident = await this.incidentModel.create({
-            ...dto,
-            created_by: createdBy,
-            supplier_id: supplier?.supplier_id ?? null,
-            po_number: po ? dto.po_number : null,
-            status: 'Pending',
-            incident_reason: errors.join('; '), 
-        } as any, { transaction });
+    //     if (errors.length > 0) {
+    //     const incident = await this.incidentModel.create({
+    //         ...dto,
+    //         created_by: createdBy,
+    //         supplier_id: supplier?.supplier_id ?? null,
+    //         po_number: po ? dto.po_number : null,
+    //         status: 'Pending',
+    //         incident_reason: errors.join('; '), 
+    //     } as any, { transaction });
 
-        for (const item of dto.items) {
-            await this.incidentItemModel.create({
-            ...item,
-            incident_id: incident.incident_id,
-            }as any, { transaction });
-        }
+    //     for (const item of dto.items) {
+    //         await this.incidentItemModel.create({
+    //         ...item,
+    //         incident_id: incident.incident_id,
+    //         }as any, { transaction });
+    //     }
 
-        await transaction.commit();
-        return { message: 'Invoice added to incidents', errors };
-        }
+    //     await transaction.commit();
+    //     return { message: 'Invoice added to incidents', errors };
+    //     }
 
-        const invoice = await this.supplierInvoiceModel.create({
-        invoice_number: dto.invoice_number,
-        invoice_date: dto.invoice_date,
-        received_date: dto.received_date,
-        subtotal: dto.subtotal,
-        vat: dto.vat,
-        discount: dto.discount,
-        total_amount: dto.total_amount,
-        payment_method: dto.payment_method,
-        notes: dto.notes,
-        supplier_id: supplier?.supplier_id ?? null,
-        supplier_name: dto.supplier_name, 
-        supplier_email: dto.supplier_email,
-        supplier_phone: dto.supplier_phone,
-        supplier_address: dto.supplier_address,
-        to_name: dto.to_name,
-        to_email:dto.to_email,
-        to_phone:dto.to_phone,
-        to_address:dto.to_address,
-        currency: dto.currency,
-        po_number: dto.po_number,
-        created_by: createdBy,
-        status: 'Pending',
-        is_verified: false,
-        } as any, { transaction });
+    //     const invoice = await this.supplierInvoiceModel.create({
+    //     invoice_number: dto.invoice_number,
+    //     invoice_date: dto.invoice_date,
+    //     received_date: dto.received_date,
+    //     subtotal: dto.subtotal,
+    //     vat: dto.vat,
+    //     discount: dto.discount,
+    //     total_amount: dto.total_amount,
+    //     payment_method: dto.payment_method,
+    //     notes: dto.notes,
+    //     supplier_id: supplier?.supplier_id ?? null,
+    //     supplier_name: dto.supplier_name, 
+    //     supplier_email: dto.supplier_email,
+    //     supplier_phone: dto.supplier_phone,
+    //     supplier_address: dto.supplier_address,
+    //     to_name: dto.to_name,
+    //     to_email:dto.to_email,
+    //     to_phone:dto.to_phone,
+    //     to_address:dto.to_address,
+    //     currency: dto.currency,
+    //     po_number: dto.po_number,
+    //     created_by: createdBy,
+    //     status: 'Pending',
+    //     is_verified: false,
+    //     } as any, { transaction });
 
-        for (const item of dto.items) {
-        await this.supplierInvoiceItemModel.create({
-            ...item,
-            invoice_id: invoice.invoice_id,
-        }as any, { transaction });
-        }
+    //     for (const item of dto.items) {
+    //     await this.supplierInvoiceItemModel.create({
+    //         ...item,
+    //         invoice_id: invoice.invoice_id,
+    //     }as any, { transaction });
+    //     }
 
-        const invoiceWithItems = await this.supplierInvoiceModel.findOne({
-        where: { invoice_id: invoice.invoice_id },
-        include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
-        transaction,
-        });
+    //     const invoiceWithItems = await this.supplierInvoiceModel.findOne({
+    //     where: { invoice_id: invoice.invoice_id },
+    //     include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
+    //     transaction,
+    //     });
 
-        await transaction.commit();
-        return invoiceWithItems;
+    //     await transaction.commit();
 
-    } catch (err) {
-        await transaction.rollback();
-        throw new InternalServerErrorException(err.message);
-    }
-    }
+    //     const admins = await this.userModel.findAll({ where: { role: 'Admin' } });
+
+    //     let poCreator: User | null = null;
+    //     if (dto.po_number) {
+    //       const po = await PurchaseOrder.findOne({ where: { po_number: dto.po_number } });
+    //       if (po) {
+    //         poCreator = await this.userModel.findByPk(po.created_by);
+    //       }
+    //     }
+
+    //     const recipients = [
+    //       ...admins,
+    //       ...(poCreator ? [poCreator] : [])
+    //     ];
+
+    //     for (const user of recipients) {
+    //       await this.notificationService.sendNotification({
+    //         title: 'New Supplier Invoice Created',
+    //         message: `Invoice ${dto.invoice_number} has been created for PO ${dto.po_number || 'N/A'}.`,
+    //         userId: user.user_id.toString(),
+    //         channel: NotificationChannel.IN_APP,
+    //         category: NotificationCategory.SYSTEM,
+    //         payload: {},
+    //       });
+
+    //       await this.notificationService.sendNotification({
+    //         title: 'New Supplier Invoice Created',
+    //         message: `Invoice ${dto.invoice_number} has been created for PO ${dto.po_number || 'N/A'}.`,
+    //         userId: user.user_id.toString(),
+    //         channel: NotificationChannel.PUSH,
+    //         category: NotificationCategory.SYSTEM,
+    //         payload: {},
+    //       });
+    //     }
+
+
+    //     return invoiceWithItems;
+
+    // } catch (err) {
+    //     await transaction.rollback();
+    //     throw new InternalServerErrorException(err.message);
+    // }
+    // }
 
     async saveInvoiceImage( image: Express.Multer.File, Id: number,){
     const si = await this.supplierInvoiceModel.findByPk(Id);
@@ -151,6 +193,171 @@ constructor(
     return "​✔️​ The image was uploaded successfully."
 
     }
+
+  async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number) {
+  const transaction = await this.supplierInvoiceModel.sequelize!.transaction();
+  const errors: string[] = [];
+
+  try {
+    let supplier: Supplier | null = null;
+
+    if (dto.supplier_email) {
+      const supplierUser = await this.userModel.findOne({
+        where: { email: dto.supplier_email },
+        transaction,
+      });
+
+      if (!supplierUser) {
+        errors.push(`Supplier with email ${dto.supplier_email} not found`);
+      } else {
+        supplier = await this.supplierModel.findOne({
+          where: { user_id: supplierUser.user_id },
+          transaction,
+        });
+
+        if (!supplier) {
+          errors.push(`Supplier record linked to user ${dto.supplier_email} not found`);
+        }
+      }
+    } else {
+      errors.push('Supplier email missing');
+    }
+
+    let po: PurchaseOrder | null = null;
+    if (dto.po_number) {
+      po = await PurchaseOrder.findOne({ where: { po_number: dto.po_number }, transaction });
+      if (!po) errors.push('Purchase order not found');
+    } else {
+      errors.push('PO number missing');
+    }
+
+    if (errors.length > 0) {
+      const incident = await this.incidentModel.create({
+        ...dto,
+        created_by: createdBy,
+        supplier_id: supplier?.supplier_id ?? null,
+        po_number: po ? dto.po_number : null,
+        status: 'Pending',
+        incident_reason: errors.join('; '), 
+      } as any, { transaction });
+
+      for (const item of dto.items) {
+        await this.incidentItemModel.create({
+          ...item,
+          incident_id: incident.incident_id,
+        } as any, { transaction });
+      }
+
+      await transaction.commit();
+      const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
+      const admins = await this.userModel.findAll({ where: { role_id: adminRole!.id } });
+
+      let poCreator: User | null = null;
+      if (po) {
+        poCreator = await this.userModel.findByPk(po.created_by);
+      }
+
+      const recipients = [...admins, ...(poCreator ? [poCreator] : [])];
+
+      for (const user of recipients) {
+        await this.notificationService.sendNotification({
+          title: 'Invoice Incident Created',
+          message: `An Supplier invoice for PO ${dto.po_number} has issues: ${errors.join('; ')}`,
+          userId: user.user_id.toString(),
+          channel: NotificationChannel.IN_APP,
+          category: NotificationCategory.SYSTEM,
+          payload: { incidentId: incident.incident_id },
+        });
+      }
+
+      return { message: 'Invoice added to incidents', errors };
+    }
+
+    const invoice = await this.supplierInvoiceModel.create({
+      invoice_number: dto.invoice_number,
+      invoice_date: dto.invoice_date,
+      received_date: dto.received_date,
+      subtotal: dto.subtotal,
+      vat: dto.vat,
+      discount: dto.discount,
+      total_amount: dto.total_amount,
+      payment_method: dto.payment_method,
+      notes: dto.notes,
+      supplier_id: supplier?.supplier_id ?? null,
+      supplier_name: dto.supplier_name, 
+      supplier_email: dto.supplier_email,
+      supplier_phone: dto.supplier_phone,
+      supplier_address: dto.supplier_address,
+      to_name: dto.to_name,
+      to_email: dto.to_email,
+      to_phone: dto.to_phone,
+      to_address: dto.to_address,
+      currency: dto.currency,
+      po_number: dto.po_number,
+      created_by: createdBy,
+      status: 'Pending',
+      is_verified: false,
+    } as any, { transaction });
+
+    for (const item of dto.items) {
+      await this.supplierInvoiceItemModel.create({
+        ...item,
+        invoice_id: invoice.invoice_id,
+      } as any, { transaction });
+    }
+
+    const invoiceWithItems = await this.supplierInvoiceModel.findOne({
+      where: { invoice_id: invoice.invoice_id },
+      include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
+      transaction,
+    });
+
+    await transaction.commit();
+
+    const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
+
+    const admins = await this.userModel.findAll({ where: { role_id: adminRole!.id } });
+
+    let poCreator: User | null = null;
+    if (po) {
+      poCreator = await this.userModel.findByPk(po.created_by);
+    }
+
+    const recipients = [...admins, ...(poCreator ? [poCreator] : [])];
+
+    for (const user of recipients) {
+      await this.notificationService.sendNotification({
+        title: 'New Supplier Invoice Created',
+        message: `Supplier Invoice ${dto.invoice_number} has been created for PO ${dto.po_number}.`,
+        userId: user.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {},
+      });
+
+      // try {
+      //   await this.notificationService.sendNotification({
+      //     title: 'New Supplier Invoice Created',
+      //     message: `Supplier Invoice ${dto.invoice_number} has been created for PO ${dto.po_number}.`,
+      //     userId: user.user_id.toString(),
+      //     channel: NotificationChannel.PUSH,
+      //     category: NotificationCategory.SYSTEM,
+      //     payload: {},
+      //   });
+      // } catch (error) {
+      //   if (error.message.includes('FCM token not found')) continue;
+      //   throw error;
+      // }
+    }
+
+    return invoiceWithItems;
+
+  } catch (err) {
+    await transaction.rollback();
+    throw new InternalServerErrorException(err.message);
+  }
+}
+
 
 
 async updateInvoice(
@@ -197,6 +404,23 @@ async updateInvoice(
   const updatedInvoice = await this.supplierInvoiceModel.findByPk(id, {
     include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
   });
+
+  const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
+  const admins = await this.userModel.findAll({ where: { role_id: adminRole!.id } });
+
+  const updatedByUser = await this.userModel.findByPk(userId);
+  const recipients = [...admins, ...(updatedByUser ? [updatedByUser] : [])];
+
+  for (const user of recipients) {
+    await this.notificationService.sendNotification({
+      title: 'Supplier Invoice Updated',
+      message: `Invoice ${invoice.invoice_number} has been updated.`,
+      userId: user.user_id.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: { invoiceId: invoice.invoice_id, updatedFields: updateDto },
+    });
+  }
 
   return { message: 'Invoice fully replaced', invoice: updatedInvoice };
 }

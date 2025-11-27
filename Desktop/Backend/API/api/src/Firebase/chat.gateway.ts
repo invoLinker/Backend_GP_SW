@@ -31,21 +31,6 @@ async handleMessage(
   return message;
 }
 
-// @SubscribeMessage('newGroupMessage')
-// async handleGroupMessage(
-//   @MessageBody() data: { senderId: number; content: string },
-// ) {
-//   const message = await this.chatService.sendMessageToGroupChat(
-//     data.senderId,
-//         data.content,
-//   );
-
-//   // إرسال لجميع الموجودين في الغرفة
-//   // this.server.to('all').emit('newGroupMessage', message);
-
-//   return message;
-// }
-
 handleConnection(client: Socket) {
   const userId = client.handshake.query.userId as string;
   if (userId) {

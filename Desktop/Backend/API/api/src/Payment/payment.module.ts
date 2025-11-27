@@ -7,11 +7,12 @@ import { SupplierInvoice } from '../supplier-invoices/supplier-invoice.model';
 import { GenerateTxtService } from 'src/GenerateTxt/GenerateTxt.Service';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogModule } from 'src/History/history-log.module';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([Payment, SupplierInvoice]),
-    HistoryLogModule,
+    HistoryLogModule, NotificationModule
   ],
   providers: [PaymentsService, GenerateTxtService],
   controllers: [PaymentsController],

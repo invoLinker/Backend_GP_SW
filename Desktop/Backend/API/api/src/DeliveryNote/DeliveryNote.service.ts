@@ -10,6 +10,7 @@ import { User } from 'src/users/users.model';
 import { NotificationService } from 'src/Notification/notification.service';
 import { NotificationChannel } from 'src/Notification/create-notification.dto';
 import { Role } from 'src/roles/roles.model';
+import {NotificationCategory} from '../Notification/create-notification.dto'
 
 @Injectable()
 export class DeliveryNoteService {
@@ -19,7 +20,7 @@ export class DeliveryNoteService {
     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
     @InjectModel(Supplier) private supplierModel: typeof Supplier,
     @InjectModel(User)private userModel: typeof User,
-    // private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService
   ) {}
 
   async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number) {
@@ -88,7 +89,19 @@ export class DeliveryNoteService {
     });
 
     await transaction.commit();
+
+    if (errors.length > 0) {
+      await this.notifyUsers(
+      ['Admin', 'Accountant'],
+      errors.length > 0 ? 'Delivery Note Incident' : 'New Delivery Note Created',
+      errors.length > 0
+        ? `DN ${dto.dn_number} contains issues: ${errors.join(', ')}`
+        : `A new Delivery Note ${dto.dn_number} has been added.`
+    );
+    }
+
     return noteWithItems;
+
 
   } catch (err) {
     await transaction.rollback();
@@ -242,7 +255,19 @@ async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
     });
 
     await transaction.commit();
+
+    if (errors.length > 0) {
+      await this.notifyUsers(
+      ['Accountant'],
+      errors.length > 0 ? 'Delivery Note Updated With Incident' : 'Delivery Note Updated',
+      errors.length > 0
+        ? `DN ${dto.dn_number} contains issues: ${errors.join(', ')}`
+        : `A Delivery Note ${dto.dn_number} has been updated.`
+    );
+    }
+
     return noteWithItems;
+
 
   } catch (err) {
     await transaction.rollback();
@@ -251,7 +276,6 @@ async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
 }
 
 async deleteInvoiceById(id: number) {
-  // نبحث عن الفاتورة أولاً
   const invoice = await this.deliveryNoteModel.findByPk(id);
   if (!invoice) throw new NotFoundException('DN not found');
 
@@ -264,20 +288,23 @@ async deleteInvoiceById(id: number) {
   return { message: 'DN deleted successfully' };
 }
 
-// private async notifyAdmins(title: string, message: string) {
-//   const admins = await this.userModel.findAll({
-//     where: { rol: 'Admin' }
-//   }as any);
+private async notifyUsers(roles: string[], title: string, message: string) {
+  const users = await this.userModel.findAll({
+    where: { role: roles },
+  });
 
-//   for (const admin of admins) {
-//     await this.notificationService.sendNotification({
-//       title,
-//       message,
-//       userId: admin.user_id.toString(),
-//       channel: NotificationChannel.IN_APP,
-//     });
-//   }
-// }
+  for (const user of users) {
+    await this.notificationService.sendNotification({
+      title,
+      message,
+      userId: user.user_id.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: {},
+    });
+  }
+}
+
 
 
 }

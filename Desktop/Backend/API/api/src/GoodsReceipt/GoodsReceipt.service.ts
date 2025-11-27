@@ -6,6 +6,10 @@ import { DeliveryNote } from '../DeliveryNote/delivery-note.model';
 import { PurchaseOrder } from '../PO/po.model';
 import { CreateGoodsReceiptDto } from './GoodsReceiptDto';
 import { Op, where } from 'sequelize';
+import { NotificationService } from 'src/Notification/notification.service';
+import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
+import { User } from 'src/users/users.model';
+
 
 @Injectable()
 export class GoodsReceiptService {
@@ -14,6 +18,8 @@ export class GoodsReceiptService {
     @InjectModel(GoodsReceiptItem) private grItemModel: typeof GoodsReceiptItem,
     @InjectModel(DeliveryNote) private dnModel: typeof DeliveryNote,
     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
+    @InjectModel(User)private userModel: typeof User,
+    private readonly notificationService: NotificationService
   ) {}
 
   private async generateGRNumber(): Promise<string> {
@@ -40,10 +46,6 @@ export class GoodsReceiptService {
       if (!po || !dn) {
         throw new Error('Purchase Order or Delivery Note not found');
       }
-
-      // if (dn.status === 'Incident') {
-      // throw new BadRequestException(`Cannot create Goods Receipt: Delivery Note status is '${dn.status}'`);
-      // }
 
       const generatedGRNumber = await this.generateGRNumber();
 
@@ -77,6 +79,9 @@ export class GoodsReceiptService {
       });
 
       await transaction.commit();
+           
+      await this.notifyAdmins(['Admin', 'Accountant'],`New Goods Receipt Created`, `GR ${gr.gr_number} has been created for DN ${dto.dn_number}.`);
+
       return grWithItems;
     } catch (err) {
       await transaction.rollback();
@@ -88,7 +93,6 @@ export class GoodsReceiptService {
     return this.grModel.findAll({
       include: [
         { model: this.grItemModel, as: 'items' },
-        // { model: this.poModel, attributes: ['po_number'] },
         { model: this.dnModel, attributes: ['dn_number'] },
       ],
     });
@@ -164,10 +168,8 @@ async getByStatus(status: string) {
       { transaction },
     );
 
-    // حذف الـ items القديمة
     await this.grItemModel.destroy({ where: { gr_id }, transaction });
 
-    // إضافة الـ items الجديدة
     for (const item of dto.items) {
       await this.grItemModel.create(
         { ...item, gr_id } as any,
@@ -176,6 +178,9 @@ async getByStatus(status: string) {
     }
 
     await transaction.commit();
+         
+    await this.notifyAdmins(['Accountant'],`Goods Receipt Updated`, `GR ${gr.gr_number} has been updated.`);
+
 
     return this.grModel.findOne({
       where: { gr_id },
@@ -203,6 +208,23 @@ async getByStatus(status: string) {
     } catch (err) {
       await transaction.rollback();
       throw new InternalServerErrorException(err.message);
+    }
+  }
+
+  private async notifyAdmins(roles: string[], title: string, message: string) {
+  const users = await this.userModel.findAll({
+    where: { role: roles },
+  });
+
+  for (const user of users) {
+      await this.notificationService.sendNotification({
+        title,
+        message,
+        userId: user.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {},
+      });
     }
   }
 

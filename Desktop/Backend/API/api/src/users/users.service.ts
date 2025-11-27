@@ -11,7 +11,7 @@ import { Cron } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { Supplier } from '../Suppliers/supplier.model';
 import { NotificationService } from 'src/Notification/notification.service';
-import { NotificationChannel } from 'src/Notification/create-notification.dto';
+import { NotificationCategory, NotificationChannel } from 'src/Notification/create-notification.dto';
 import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { EditRequest } from 'src/edit_requests/edit_requests.model';
@@ -65,29 +65,27 @@ async updateIDImage(userId: number, ID_image: Express.Multer.File){
 }
 
 
-
-async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
+async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File) {
   const {
     first_name,
     last_name,
     email,
     password_hash,
-    role_id,
+    role_name, 
+    sendWelcomeEmail,
   } = createUserDto;
 
   let role: Role | null = null;
-  if (role_id) {
-     role = await this.roleModel.findByPk(role_id);
+  if (role_name) {
+    role = await this.roleModel.findOne({ where: { role_name } });
     if (!role) {
-      throw new BadRequestException('Invalid role');
+      throw new BadRequestException(`Invalid role_name: ${role_name}`);
     }
-  }
-  else {
-    const viewerRole = await this.roleModel.findOne({ where: { role_name: 'Viewer' } });
-    if (!viewerRole) {
+  } else {
+    role = await this.roleModel.findOne({ where: { role_name: 'Viewer' } });
+    if (!role) {
       throw new BadRequestException('Default Viewer role not found');
     }
-    role = viewerRole;
   }
 
   const existing = await this.userModel.findOne({ where: { email } });
@@ -104,46 +102,63 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File){
   user.password_hash = hashedPassword;
   user.role_id = role.role_id;
   user.status = 'Active';
-  if(ID_imageFile)
-    {
-     user.ID_image = `/uploads/${ID_imageFile!.filename}`; 
-    }
+
+  if (ID_imageFile) {
+    user.ID_image = `/uploads/${ID_imageFile.filename}`;
+  }
 
   await user.save();
 
-
-  if(role?.role_name === 'Supplier'){
-   await Supplier.create({user_id: user.user_id } as any);
+  if (role.role_name === 'Supplier') {
+    await Supplier.create({ user_id: user.user_id } as any);
   }
 
   try {
+    if (createUserDto.sendWelcomeEmail) {
+  const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+  
+      await transporter.sendMail({
+        from: `"🖇InvoLinker" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Welcome to InvoLinker! 🎉​',
+        text: `Hello ${user.first_name}, your account was created. 🔑Your temporary password is DefaultPassword123!. Please change it after login.`,
+      });
+  
+    }
+else{
     await this.notificationService.sendNotification({
       title: 'Welcome to InvoLinker! 🎉',
       message: `Hello ${user.first_name}, we are delighted to have you join our team, and we hope you enjoy working with us.`,
       userId: user.user_id,
       channel: NotificationChannel.EMAIL,
       userEmail: user.email,
-    }as any);
+    } as any);
+  }
   } catch (err) {
     console.error('Failed to send welcome notification', err);
   }
 
+  const payload = { sub: user.user_id, email: user.email, role: role.role_name };
+  const access_token = this.jwtService.sign(payload, { expiresIn: '12h' });
+  const refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-    const payload = { sub: user.user_id, email: user.email, role: user.role?.role_name };
-    const access_token = this.jwtService.sign(payload, { expiresIn: '12h' });
-    const refresh_token = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-    return {
-      message: 'User created successfully',
-      access_token,
-      refresh_token,
-      user: { 
-        id: user.user_id, 
-        email: user.email, 
-        role: user.role?.role_name 
-      },
-    };
-  }
+  return {
+    message: 'User created successfully',
+    access_token,
+    refresh_token,
+    user: {
+      id: user.user_id,
+      email: user.email,
+      role: role.role_name,
+    },
+  };
+}
 
 
   
@@ -212,37 +227,70 @@ async searchUsers(query: string): Promise<User[]> {
   });
 }
 
+
 async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
   const user = await User.findByPk(userId);
+  if (!user) throw new NotFoundException('User not found');
 
-  if (!user) {
-    throw new NotFoundException('User not found');
-  }
+  let roleChanged = false;
+  let statusChanged = false;
 
-  if (updateDto.status) {
+  if (updateDto.status && updateDto.status !== user.status) {
     user.status = updateDto.status;
+    statusChanged = true;
 
     if (updateDto.status === 'Inactive') {
       const deleteDate = new Date();
       deleteDate.setDate(deleteDate.getDate() + 30);
       user.deletedAt = deleteDate;
+
+      const viewerRole = await Role.findOne({ where: { role_name: 'Viewer' } });
+      if (viewerRole && user.role_id !== viewerRole.role_id) {
+        user.role_id = viewerRole.role_id;
+        roleChanged = true;
+      }
     } else {
       user.deletedAt = null;
     }
   }
 
-  if (updateDto.role_name) {
+  if (updateDto.role_name && user.status !== 'Inactive') {
     const role = await Role.findOne({ where: { role_name: updateDto.role_name } });
     if (!role) throw new NotFoundException(`Role with name ${updateDto.role_name} not found`);
 
-    user.role_id = role.role_id;
+    if (user.role_id !== role.role_id) {
+      user.role_id = role.role_id;
+      roleChanged = true;
+    }
   }
 
   await user.save();
 
-  return {
-    message: 'User updated successfully',
-  };
+  if (roleChanged || statusChanged) {
+    let message = `Hello ${user.first_name}, your account has been updated by Admin.`;
+    if (statusChanged) message += ` Your status is now ${updateDto.status}.`;
+
+    if(user.status === 'Inactive'){
+      message += ` Your role is now Viewer.`;
+    }
+    else{
+    if (roleChanged && user.status === 'Active' ) message += ` Your role is now ${updateDto.role_name}.`;
+    }
+
+    try {
+      await this.notificationService.sendNotification({
+        title: 'Account Update Notification',
+        message,
+        userId: user.user_id,
+        channel: NotificationChannel.IN_APP,
+        userEmail: user.email,
+      } as any);
+    } catch (err) {
+      console.error('Failed to send role/status update notification', err);
+    }
+  }
+
+  return { message: 'User updated successfully' };
 }
 
 
@@ -281,7 +329,8 @@ async updatePassword(id: number, updateDto: UpdateUserDto) {
     const token = uuidv4();
     this.resetTokensMap.set(token, { email: user.email, newPassword: updateDto.new_password });
 
-    const resetLink = `${process.env.BACKEND_URL}/users/reset-password?token=${token}`;
+    const resetLink = `${process.env.BACKEND_URL}/public/reset-success.html?token=${token}`;
+
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -325,6 +374,7 @@ async updatePassword(id: number, updateDto: UpdateUserDto) {
 
     return { message: 'Password updated successfully' };
   }
+
   async updateName(userId: number, updateDto: UpdateUserDto): Promise<any> {
   const user = await User.findByPk(userId);
   if (!user) throw new NotFoundException('User not found');
@@ -363,9 +413,6 @@ async deleteUsers(userIds: number[]): Promise<{ message: string }> {
 }
 
 
-
-
-
 @Cron('0 0 * * *')
   async handleDeletion() {
     const users = await this.userModel.findAll({
@@ -401,7 +448,7 @@ async deleteUsers(userIds: number[]): Promise<{ message: string }> {
 
 
 
- async updateUser(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File): Promise<User> {
+ async updateUser(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File){
   const user = await this.userModel.findByPk(id);
   if (!user) {
     throw new NotFoundException('User not found');
@@ -414,7 +461,10 @@ async deleteUsers(userIds: number[]): Promise<{ message: string }> {
   Object.assign(user, updateUserDto);
   await user.save();
 
-  return user;
+  return {
+    message: "Updated Successfully",
+    profile_image: user.profile_image
+  };
 }
 
 async forgetPassword(email: string, hashedPassword: string) {
@@ -423,6 +473,25 @@ async forgetPassword(email: string, hashedPassword: string) {
   user.password_hash = hashedPassword;
   await user.save();
 }
+
+async deleteProfileImage(userId: number): Promise<{ message: string }> {
+  const user = await this.userModel.findByPk(userId);
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  if (!user.profile_image) {
+    throw new BadRequestException('This user does not have a profile image');
+  }
+
+  user.profile_image = null;
+  await user.save();
+
+  return { 
+    message: 'Profile image deleted successfully',
+   };
+}
+
 
 
 }

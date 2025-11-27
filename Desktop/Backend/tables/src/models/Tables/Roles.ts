@@ -4,6 +4,7 @@ import { sequelize } from '../../db';
 export class Role extends Model<InferAttributes<Role>, InferCreationAttributes<Role>> {
   declare role_id: number;
   declare role_name: 'Admin' | 'Accountant' | 'Warehouse' | 'Supplier' | 'Payment Officer' | 'Viewer' ;
+  declare description:Text;
 }
 
 Role.init(
@@ -25,6 +26,7 @@ Role.init(
       allowNull: false,
       unique: true,
     },
+    description:{type: DataTypes.TEXT, allowNull:false}
   },
   {
     sequelize,

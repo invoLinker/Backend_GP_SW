@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionName } from 'src/permission/permission.decorator';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { HistoryCategory, HistorySeverity } from 'src/History/create-history-log.dto';
+import { UpdatDto } from './UpdateRoleDTO';
 
 @Controller('roles')
 export class RolesController {
@@ -79,7 +80,7 @@ export class RolesController {
   @UseGuards(JwtAuthGuard)
   @PermissionName("update_role")
   @Patch(':id')
-  async update(@Param('id') id: number, @Body() roleDto: RoleDto, @Req() req: any) {
+  async update(@Param('id') id: number, @Body() roleDto: UpdatDto, @Req() req: any) {
     try {
       const result = await this.rolesService.update(id, roleDto);
 

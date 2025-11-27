@@ -7,9 +7,11 @@ import { PurchaseOrder } from 'src/PO/po.model';
 import { User } from 'src/users/users.model';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module'; 
+
 
 @Module({
-  imports: [SequelizeModule.forFeature([EditRequest, PurchaseOrder, User, HistoryLog])],
+  imports: [SequelizeModule.forFeature([EditRequest, PurchaseOrder, User, HistoryLog]), NotificationModule],
   providers: [EditRequestService, HistoryLogService],
   controllers: [EditRequestController],
 })

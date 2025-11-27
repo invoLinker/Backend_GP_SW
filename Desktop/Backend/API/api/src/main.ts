@@ -14,8 +14,9 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Serve uploads folder dynamically
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+  app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
   app.useGlobalPipes(new ValidationPipe({
     

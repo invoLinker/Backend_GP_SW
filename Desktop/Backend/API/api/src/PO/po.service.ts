@@ -7,10 +7,13 @@ import { CreatePurchaseOrderDto } from './CreatePurchaseOrderDto';
 import { CreatePurchaseOrderItemDto } from './CreatePurchaseOrderItemDto';
 import { Item } from 'src/Item/item.model';
 import { Supplier } from 'src/Suppliers/supplier.model';
-import { Op } from 'sequelize';
+import { Op, where } from 'sequelize';
 import { EditRequest } from 'src/edit_requests/edit_requests.model';
 import { PaymentMethod } from 'src/supplier-invoices/SupplierInvoiceDto';
-import { User } from 'src/users/users.model';
+import { NotificationService } from 'src/Notification/notification.service';
+import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
+import { User } from 'src/users/users.model'
+import { Role } from 'src/roles/roles.model';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -30,13 +33,13 @@ export class PurchaseOrderService {
     @InjectModel(Supplier)
     private readonly supplierModel: typeof Supplier,
     
-
-    private readonly sequelize: Sequelize, 
+    private readonly notificationService: NotificationService
   ) {}
 
-
-async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
+async create(createPoDto: CreatePurchaseOrderDto, createdBy: number): Promise<PurchaseOrder> {
   const transaction = await this.poModel.sequelize!.transaction();
+
+  let po: PurchaseOrder;
 
   try {
     const supplierUser = await this.userModel.findOne({
@@ -58,55 +61,55 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     }
 
     let subtotal = 0;
-    let vat = 0;
-    let total_amount = 0;
-
     for (const item of createPoDto.items || []) {
       subtotal += item.quantity * item.unit_price;
     }
-    vat = subtotal * 0.16;
-    total_amount = subtotal + vat;
+
+    const vat = subtotal * 0.16;
+    const total_amount = subtotal + vat;
 
     const lastPo = await this.poModel.findOne({
       order: [['po_id', 'DESC']],
       transaction,
     });
+
     const lastNumber = lastPo ? parseInt(lastPo.po_number.split('-')[1]) : 0;
     const po_number = `PO-${lastNumber + 1}`;
 
-    const po = await this.poModel.create(
+    po = await this.poModel.create(
       {
         supplier_id: supplier.supplier_id,
         order_date: createPoDto.order_date ? new Date(createPoDto.order_date) : new Date(),
         subtotal,
         vat,
-        note:createPoDto.note,
+        note: createPoDto.note,
         total_amount,
         expected_delivery: createPoDto.expected_delivery ? new Date(createPoDto.expected_delivery) : null,
         status: createPoDto.status || 'Open',
-        currency:createPoDto.currency,
-        payment_method:createPoDto.payment_method,
+        currency: createPoDto.currency,
+        payment_method: createPoDto.payment_method,
         po_number,
-        company_name:createPoDto.company_name,
-        company_email:createPoDto.company_email,
-        company_phone:createPoDto.company_phone,
-        company_address:createPoDto.company_address,
-        supplier_email:createPoDto.supplier_email,
-        supplier_phone:createPoDto.supplier_phone,
-        supplier_address:createPoDto.supplier_address,
+        company_name: createPoDto.company_name,
+        company_email: createPoDto.company_email,
+        company_phone: createPoDto.company_phone,
+        company_address: createPoDto.company_address,
+        supplier_email: createPoDto.supplier_email,
+        supplier_phone: createPoDto.supplier_phone,
+        supplier_address: createPoDto.supplier_address,
+        created_by: createdBy
       } as any,
       { transaction },
     );
 
     for (const itemDto of createPoDto.items || []) {
-  const existingItem = await Item.findOne({
-    where: {
-      item_code: itemDto.barcode,
-      item_name: itemDto.item_name,
-      status: 'active',
-    },
-    transaction,
-  });
+      const existingItem = await Item.findOne({
+        where: {
+          item_code: itemDto.barcode,
+          item_name: itemDto.item_name,
+          status: 'active',
+        },
+        transaction,
+      });
 
       if (!existingItem) {
         throw new BadRequestException(`Item with name "${itemDto.item_name}" does not exist in the system.`);
@@ -125,18 +128,7 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
       );
     }
 
-    await transaction.commit();
-    const savedPo = await this.poModel.findByPk(po.po_id, {
-      include: [{ model: PurchaseOrderItem, as: 'items' }],
-    });
-
-    if (!savedPo) {
-      throw new InternalServerErrorException(
-        'Purchase Order was created but could not be retrieved.'
-      );
-    }
-
-    return savedPo;
+    await transaction.commit(); 
 
   } catch (error) {
     await transaction.rollback();
@@ -148,6 +140,57 @@ async create(createPoDto: CreatePurchaseOrderDto): Promise<PurchaseOrder> {
     console.error('Error creating Purchase Order:', error);
     throw new InternalServerErrorException('Failed to create Purchase Order');
   }
+
+    try {   
+    // const roles = await Role.findAll({ where: { role_name: 'Admin' } });
+    // const roleIds = roles.map(r => r.role_id); 
+    // const admins = await this.userModel.findAll({ 
+    //   where: { role_id: roleIds } 
+    // });
+    
+    // console.log("Admins:", admins);
+
+    const creator = await this.userModel.findByPk(createdBy, { include: [Role] });
+    let recipients: User[] = [];
+
+    if (creator && creator.role.role_name === 'Admin') {
+      const accountantRole = await Role.findOne({ where: { role_name: 'Accountant' } });
+      recipients = await this.userModel.findAll({ where: { role_id: accountantRole!.id } });
+    } else {
+      const roles = await Role.findAll({ where: { role_name: 'Admin' } });
+      const roleIds = roles.map(r => r.role_id); 
+      recipients = await this.userModel.findAll({ where: { role_id: roleIds } });
+    }
+
+    for (const admin of recipients) {
+      await this.notificationService.sendNotification({
+        title: 'New Purchase Order Created',
+        message: `PO ${po.po_number} has been created by ${po.company_name}.`,
+        userId: admin.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {},
+      });
+
+      // await this.notificationService.sendNotification({
+      //   title: 'New Purchase Order Created',
+      //   message: `PO ${po.po_number} has been created by ${po.company_name}.`,
+      //   userId: admin.user_id.toString(),
+      //   channel: NotificationChannel.PUSH,
+      //   category: NotificationCategory.SYSTEM,
+      //   payload: {},
+      // });
+    }
+
+  } catch (notifErr) {
+    console.error("Notification error:", notifErr);
+  }
+
+  const savedPo = await this.poModel.findByPk(po.po_id, {
+    include: [{ model: PurchaseOrderItem, as: 'items' }],
+  });
+
+  return savedPo!;
 }
 
 
@@ -237,6 +280,10 @@ async findAll(): Promise<PurchaseOrder[]> {
       transaction,
     });
 
+    const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
+    const admins = await this.userModel.findAll({ where: { role_id: adminRole!.id } });
+
+
     if ((po.status === 'Approved' || po.status === 'Open') && !approvedRequest) {
       const editRequest = await this.editRequestModel.create({
         invoice_id: po.po_id,
@@ -245,6 +292,18 @@ async findAll(): Promise<PurchaseOrder[]> {
         status: 'pending',
         is_edit: false, 
       } as any, { transaction });
+
+      for (const admin of admins) {
+        await this.notificationService.sendNotification({
+          title: 'Edit Request Submitted',
+          message: `User requested an edit on PO ${po.po_number}.`,
+          userId: admin.user_id.toString(),
+          channel:NotificationChannel.IN_APP,
+          category: NotificationCategory.SYSTEM,
+          payload: { poId: po.po_id, requestedChanges: updateDto },
+        });
+      }
+
 
       await transaction.commit();
       return editRequest;
@@ -318,6 +377,17 @@ async findAll(): Promise<PurchaseOrder[]> {
 
     await po.save({ transaction });
     await transaction.commit();
+
+    for (const admin of admins) {
+      await this.notificationService.sendNotification({
+        title: 'Purchase Order Updated',
+        message: `PO ${po.po_number} has been updated.`,
+        userId: admin.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: { poId: po.po_id, updatedFields: updateDto },
+      });
+    }
 
     return await this.poModel.findByPk(poId, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],

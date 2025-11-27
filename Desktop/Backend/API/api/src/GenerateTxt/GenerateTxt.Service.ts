@@ -43,13 +43,11 @@ export class GenerateTxtService {
 
 
   try {
-      // ✅ حماية: إذا الرد لسه فيه كلمة "number" أو "yyyy"
       if (cleaned.includes('number') || cleaned.includes('yyyy')) {
         throw new Error('Model returned template JSON, not valid data');
       }
       return JSON.parse(cleaned);
     } catch {
-      // إذا النموذج أرجع كلام زيادة، نحاول نقتطع JSON فقط
       const jsonMatch = reply.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return { error: 'Invalid JSON format', raw: reply };

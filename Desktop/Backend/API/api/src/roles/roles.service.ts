@@ -4,6 +4,7 @@ import { Role } from './roles.model';
 import { User } from '../users/users.model';
 import { RoleDto } from './RoleDto';
 import { BadRequestException,  ConflictException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { UpdatDto } from './UpdateRoleDTO';
 
 const allowedRoles = [
   'Admin',
@@ -23,16 +24,25 @@ export class RolesService {
     @InjectModel(User) private userModel: typeof User,
 ) {}
 
-  async findAll(): Promise<Role[] | { message: string }> {
-  const roles = await this.roleModel.findAll();
+  async findAll(): Promise<{ role_name: string; description: string }[] | { message: string }> {
+  const roles = await this.roleModel.findAll({
+    attributes: ['role_id','role_name', 'description'],
+  });
+
   if (roles.length === 0) {
     return { message: 'There are no roles' };
   }
-  return roles;
+
+  return roles.map(role => ({
+    role_id:role.role_id,
+    role_name: role.role_name,
+    description: role.description,
+  }));
 }
 
+
 async create(roleDto: RoleDto): Promise<Role> {
-  const { role_name } = roleDto;
+  const { role_name, description } = roleDto;
 
   if (!allowedRoles.includes(role_name)) {
     throw new BadRequestException(
@@ -48,39 +58,49 @@ async create(roleDto: RoleDto): Promise<Role> {
   try {
     const role = new Role();
     role.role_name = role_name;
+    role.description = description ; 
     return await role.save();
   } catch (error) {
     throw new InternalServerErrorException('Error creating role');
   }
 }
 
-async update(id: number, roleDto: RoleDto): Promise<Role> {
-  const { role_name } = roleDto;
+
+async update(id: number, roleDto: UpdatDto): Promise<Role> {
+  const { role_name, description } = roleDto;
 
   const role = await Role.findByPk(id);
   if (!role) {
-    throw new NotFoundException(`This role not found`);
+    throw new NotFoundException(`Role with not found`);
   }
 
-  if (!allowedRoles.includes(role_name)) {
-    throw new BadRequestException(
-      `Invalid role: ${role_name}. Allowed values: ${allowedRoles.join(', ')}`
-    );
+  if (role_name) {
+    if (!allowedRoles.includes(role_name)) {
+      throw new BadRequestException(
+        `Invalid role: ${role_name}. Allowed values: ${allowedRoles.join(', ')}`
+      );
+    }
+
+    const existing = await Role.findOne({ where: { role_name } });
+    if (existing && existing.role_id !== id) {
+      throw new ConflictException(`Role ${role_name} already exists`);
+    }
+
+    role.role_name = role_name;
   }
 
-  const existing = await Role.findOne({ where: { role_name } });
-  if (existing && existing.role_id !== id) {
-    throw new ConflictException(`Role ${role_name} already exists`);
+  if (description !== undefined) {
+    role.description = description;
   }
 
   try {
-    role.role_name = role_name;
     await role.save();
     return role;
   } catch (error) {
     throw new InternalServerErrorException('Error updating role');
   }
 }
+
 
 async deleteAll(): Promise<{ message: string }> {
   await this.userModel.destroy({ where: {} }); 

@@ -1,51 +1,3 @@
-// import { DataTypes, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
-// import { sequelize } from '../../db';
-// import { SupplierInvoices } from './SupplierInvoices';
-// import { GoodsReceipt } from './GoodsReceipts';
-// import { PurchaseOrder } from './PurchaseOrders';
-// import { User } from './Users';
-
-// export class PurchaseIncident extends Model<InferAttributes<PurchaseIncident>, InferCreationAttributes<PurchaseIncident>> {
-//   declare incident_id: number;
-//   declare supplier_invoice_id: number | null;
-//   declare goods_receipt_id: number | null;
-//   declare po_number: string | null;
-//   declare incident_type: string;
-//   declare description: string | null;
-//   declare reported_by: number | null;
-//   declare reported_at: Date | null;
-//   declare status: 'Open' | 'Under Investigation' | 'Closed';
-// }
-
-// PurchaseIncident.init(
-//   {
-//     incident_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-//     supplier_invoice_id: { type: DataTypes.INTEGER, allowNull: true },
-//     goods_receipt_id: { type: DataTypes.INTEGER, allowNull: true },
-//     po_number: { type: DataTypes.STRING, allowNull: true },
-//     incident_type: { type: DataTypes.STRING, allowNull: false }, // مثل: Supplier Missing, PO Missing, Mismatch
-//     description: { type: DataTypes.TEXT, allowNull: true },
-//     reported_by: { type: DataTypes.INTEGER, allowNull: true },
-//     reported_at: { type: DataTypes.DATE, allowNull: true },
-//     status: { type: DataTypes.ENUM('Open','Under Investigation','Closed'), defaultValue: 'Open' },
-//   },
-//   { sequelize, tableName: 'purchase_incidents', timestamps: true }
-// );
-
-// // العلاقات
-// SupplierInvoices.hasMany(PurchaseIncident, { foreignKey: 'supplier_invoice_id' });
-// PurchaseIncident.belongsTo(SupplierInvoices, { foreignKey: 'supplier_invoice_id' });
-
-// GoodsReceipt.hasMany(PurchaseIncident, { foreignKey: 'goods_receipt_id' });
-// PurchaseIncident.belongsTo(GoodsReceipt, { foreignKey: 'goods_receipt_id' });
-
-// PurchaseOrder.hasMany(PurchaseIncident, { foreignKey: 'po_number', sourceKey: 'po_number' });
-// PurchaseIncident.belongsTo(PurchaseOrder, { foreignKey: 'po_number', targetKey: 'po_number' });
-
-// User.hasMany(PurchaseIncident, { foreignKey: 'reported_by' });
-// PurchaseIncident.belongsTo(User, { foreignKey: 'reported_by', as: 'reporter' });
-
-
 import { DataTypes, Model, InferAttributes, InferCreationAttributes, ForeignKey } from 'sequelize';
 import { sequelize } from '../../db';
 import { Supplier } from './Suppliers';
@@ -72,7 +24,7 @@ export class InvoiceIncident extends Model<InferAttributes<InvoiceIncident>, Inf
   declare po_number: string | null;
   declare created_by: number | null;
   declare status: 'Pending'|'Resolved';
-
+  declare invoice_image:string|null;
   declare to_name:string;
   declare to_email:string;
   declare to_phone:string;
@@ -80,7 +32,6 @@ export class InvoiceIncident extends Model<InferAttributes<InvoiceIncident>, Inf
   
 }
 
-// تعريف الجدول
 InvoiceIncident.init(
   {
     incident_id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
@@ -105,6 +56,7 @@ InvoiceIncident.init(
     to_email:{type: DataTypes.STRING, allowNull: false},
     to_phone:{type: DataTypes.STRING, allowNull: false},
     to_address:{type: DataTypes.STRING, allowNull: false},
+    invoice_image:{type: DataTypes.TEXT, allowNull: true}
   },
   {
     sequelize,

@@ -16,7 +16,7 @@ export class EditRequest extends Model<EditRequest> {
   user_id: number;
 
   @Column({ type: DataType.TEXT, allowNull: false })
-  message: string; // وصف التعديل المطلوب
+  message: string; 
 
   @Column({
      type: DataType.BOOLEAN,

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Password Reset Status</title>
+<style>
+  body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:'Segoe UI'; background:linear-gradient(135deg,#3b82f6,#2563eb); margin:0; }
+  .container { background:#fff; padding:40px 30px; border-radius:15px; box-shadow:0 15px 25px rgba(0,0,0,0.2); text-align:center; }
+  h2 { color:#4BB543; margin-bottom:10px; }
+  p { color:#333; font-size:16px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h2 id="status">⏳ Updating Password...</h2>
+    <p id="message">Please wait.</p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if(token){
+      fetch(`${window.location.origin}/users/reset-password?token=${token}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('status').textContent = '✔ Password Updated Successfully!';
+          document.getElementById('message').textContent = data.message || 'Password updated successfully';
+        })
+        .catch(err => {
+          document.getElementById('status').textContent = '❌ Failed to update password';
+          document.getElementById('message').textContent = err.message || 'Invalid or expired token.';
+        });
+    } else {
+      document.getElementById('status').textContent = '❌ Invalid token';
+      document.getElementById('message').textContent = 'No token provided.';
+    }
+  </script>
+</body>
+</html>

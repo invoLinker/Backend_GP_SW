@@ -8,6 +8,8 @@ import { GoodsReceiptService } from './GoodsReceipt.service';
 import { GoodsReceiptController } from './GoodsReceipt.controller';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module';
+import { User } from 'src/users/users.model';
 
 @Module({
   imports: [
@@ -16,8 +18,10 @@ import { HistoryLogService } from 'src/History/history-log.service';
       GoodsReceiptItem,
       DeliveryNote,
       PurchaseOrder,
-      HistoryLog
+      HistoryLog,
+      User
     ]),
+    NotificationModule
   ],
   controllers: [GoodsReceiptController],
   providers: [GoodsReceiptService,HistoryLogService],

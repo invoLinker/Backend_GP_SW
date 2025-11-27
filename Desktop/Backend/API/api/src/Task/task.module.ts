@@ -5,9 +5,10 @@ import { TaskService } from './task.service';
 import { TaskController } from './task.controller';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Task, HistoryLog])],
+  imports: [SequelizeModule.forFeature([Task, HistoryLog]), NotificationModule],
   providers: [TaskService, HistoryLogService],
   controllers: [TaskController],
 })

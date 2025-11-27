@@ -29,6 +29,10 @@ export class CreatePurchaseOrderDto {
 
   @IsNumber()
   @IsOptional()
+  created_by:number;
+
+  @IsNumber()
+  @IsOptional()
   total_amount: number;
 
   @IsString()

@@ -12,10 +12,10 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
-import { NotificationService } from 'src/Notification/notification.service';
+import { NotificationModule } from 'src/Notification/notification.module'; 
 
 @Module({
-  imports: [SequelizeModule.forFeature([DeliveryNote, PurchaseOrder, DeliveryNoteItem, Supplier, User, HistoryLog, ]),
+  imports: [SequelizeModule.forFeature([DeliveryNote, PurchaseOrder, DeliveryNoteItem, Supplier, User, HistoryLog, ]),NotificationModule,
   MulterModule.register({
     storage: diskStorage({
       destination: './uploads/DN',

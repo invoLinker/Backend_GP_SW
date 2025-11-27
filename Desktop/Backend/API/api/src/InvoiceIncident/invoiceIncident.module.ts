@@ -7,14 +7,18 @@ import { SupplierIncidentController } from './invoiceIncident.controller';
 import { InvoiceIncidentItem } from './InvoiceIncidentItem';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module';
+import { User } from 'src/users/users.model';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([
     InvoiceIncident,
     InvoiceIncidentItem,
-    HistoryLog
+    HistoryLog,
+    User
     ]),
+    NotificationModule
   ],
   controllers: [SupplierIncidentController],
   providers: [SupplierIncidentService, HistoryLogService],

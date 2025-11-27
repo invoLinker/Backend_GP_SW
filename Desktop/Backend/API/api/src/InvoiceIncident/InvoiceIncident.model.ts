@@ -99,7 +99,7 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
 
    @Column({
     type: DataType.STRING,
-    allowNull: false,
+    allowNull: true,
   })
   invoice_image: string;
 

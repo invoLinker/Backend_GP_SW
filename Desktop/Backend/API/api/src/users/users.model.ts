@@ -51,7 +51,7 @@ export class User extends Model<User> {
     type: DataType.STRING,
     allowNull: true,
   })
-  profile_image: string; 
+  profile_image: string | null; 
 
   @Column({
     type: DataType.STRING, 

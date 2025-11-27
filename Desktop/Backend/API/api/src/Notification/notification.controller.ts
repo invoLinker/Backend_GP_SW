@@ -7,16 +7,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
-  /**
-   * إرسال إشعار جديد
-   */
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   async sendNotification(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any
   ) {
-    // لو body.payload موجود وحاله string، حوّله لكائن
     if (body.payload && typeof body.payload === 'string') {
       try {
         body.payload = JSON.parse(body.payload);
@@ -31,17 +27,11 @@ export class NotificationController {
     return this.notificationService.sendNotification(dto, file);
   }
 
-  /**
-   * جلب جميع الإشعارات لمستخدم معين
-   */
   @Get(':userId')
   async getNotifications(@Param('userId') userId: string) {
     return this.notificationService.getNotificationsByUser(userId);
   }
 
-  /**
-   * تعليم إشعار كمقروء
-   */
   @Patch(':notificationId/read')
   async markAsRead(@Param('notificationId') notificationId: string) {
     return this.notificationService.markAsRead(notificationId);

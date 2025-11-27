@@ -13,6 +13,7 @@ import { extname } from 'path';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { NotificationService } from 'src/Notification/notification.service';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { NotificationService } from 'src/Notification/notification.service';
           cb(null, uniqueSuffix + extname(file.originalname));
         },
       }),
-    }),
+    }), NotificationModule,
     SequelizeModule.forFeature([User,Role, HistoryLog]),
     forwardRef(() => RolesModule),RolePermissionModule,
     JwtModule.register({

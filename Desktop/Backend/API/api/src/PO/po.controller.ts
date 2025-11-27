@@ -23,7 +23,7 @@ export class PurchaseOrderController {
   async create(
     @Body() createPoDto: CreatePurchaseOrderDto, @Request() req): Promise<PurchaseOrder> {
      try {
-      const po = await this.poService.create(createPoDto);
+      const po = await this.poService.create(createPoDto, req.user.userId);
 
       await this.historyLogService.createLog({
         action: 'Purchase Order Created',

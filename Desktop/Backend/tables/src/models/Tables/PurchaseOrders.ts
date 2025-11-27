@@ -31,6 +31,8 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare supplier_phone:string;
   declare supplier_address:string;
   declare installmentsData: JSON | null;
+  declare created_by: number | null;
+
 
 }
 
@@ -91,9 +93,8 @@ PurchaseOrder.init(
     supplier_email:{type: DataTypes.STRING, allowNull: false},
     supplier_phone:{type: DataTypes.STRING, allowNull: false},
     supplier_address:{type: DataTypes.STRING, allowNull: false},
-        installmentsData:{type: DataTypes.JSON, allowNull: true },
-
-    
+    installmentsData:{type: DataTypes.JSON, allowNull: true },
+    created_by: { type: DataTypes.INTEGER, allowNull: true },
   },
   {
     sequelize,

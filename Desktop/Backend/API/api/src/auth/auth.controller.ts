@@ -53,35 +53,13 @@ export class AuthController {
     }
   }
 
+  @Public()
   @Post('refresh')
   async refresh(@Body() body: { refresh_token: string }) {
     return this.authService.refreshToken(body.refresh_token);
   }
 
-  @Post('google')
-  @UseInterceptors(FileInterceptor('ID_image'))
-  async googleCreateOrLogin(
-    @Body('id_token') id_token: string,
-    @UploadedFile() ID_image: Express.Multer.File,
-  ) {
-    return this.authService.loginOrCreateWithGoogle(id_token, ID_image);
-  }
-
-  // @Post('github/callback')
-  // @UseInterceptors(FileInterceptor('ID_image'))
-  // async githubCreateOrLogin(
-  //   @Body('code') code: string,
-  //   @UploadedFile() ID_image: Express.Multer.File,
-  // ) {
-  //   return this.authService.loginOrCreateWithGithub(code, ID_image);
-  // }
-
-  @Post('github/callback')
-  async githubCallback(@Body('code') code: string) {
-    return this.authService.loginOrCreateWithGitHub(code);
-  }
-  
-
+  @Public()
   @Post('forgot-password')
   async forgotPassword(@Body('email') email: string) {
     try {
@@ -113,6 +91,7 @@ export class AuthController {
     }
   }
 
+  @Public()
   @Post('verify-code')
   async verifyCode(@Body() body: { email: string; code: string }) {
     try {
@@ -144,6 +123,7 @@ export class AuthController {
     }
   }
 
+  @Public()
   @Post('reset-password')
   async resetPassword(@Body() body: { email: string; newPassword: string }) {
     try {
@@ -174,7 +154,34 @@ export class AuthController {
       throw error;
     }
   }
+  
+///////////////////////////////////////////////////
 
+  @Post('google')
+  @UseInterceptors(FileInterceptor('ID_image'))
+  async googleCreateOrLogin(
+    @Body('id_token') id_token: string,
+    @UploadedFile() ID_image: Express.Multer.File,
+  ) {
+    return this.authService.loginOrCreateWithGoogle(id_token, ID_image);
+  }
+
+  // @Post('github/callback')
+  // @UseInterceptors(FileInterceptor('ID_image'))
+  // async githubCreateOrLogin(
+  //   @Body('code') code: string,
+  //   @UploadedFile() ID_image: Express.Multer.File,
+  // ) {
+  //   return this.authService.loginOrCreateWithGithub(code, ID_image);
+  // }
+
+  @Post('github/callback')
+  async githubCallback(@Body('code') code: string) {
+    return this.authService.loginOrCreateWithGitHub(code);
+  }
+  
+
+  
   @Post('upload-id')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('ID_image'))

@@ -4,12 +4,16 @@ import { EditRequest } from './edit_requests.model';
 import { PurchaseOrder } from 'src/PO/po.model';
 import { User } from 'src/users/users.model';
 import { UpdateEditRequestDto } from './UpdateEditRequestDto';
+import { NotificationService } from 'src/Notification/notification.service';
+import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
+
 
 @Injectable()
 export class EditRequestService {
   constructor(
     @InjectModel(EditRequest)
     private editRequestModel: typeof EditRequest,
+    private readonly notificationService: NotificationService
   ) {}
 
 
@@ -56,12 +60,29 @@ async update(id: number, data: UpdateEditRequestDto): Promise<EditRequest> {
   const request = await this.editRequestModel.findByPk(id);
 
   if (!request) throw new NotFoundException(`EditRequest with id ${id} not found`);
+ 
+  const po = await PurchaseOrder.findByPk(request?.invoice_id);
+   
+  if (!po) throw new NotFoundException(`PO for this edit request does not exist.`);
+
 
   if (!request.is_edit) {
     if (data.message !== undefined) request.message = data.message;
     if (data.status !== undefined) request.status = data.status;
 
     await request.save();
+
+    if (request.user) {
+      await this.notificationService.sendNotification({
+        title: `Edit Request ${data.status}`,
+        message: `Your edit request for purchase order #${po?.po_number} with request (${request.message}) has been ${data.status}.`,
+        userId: request.user.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {},
+      });
+    }
+
     return request;
   }
 

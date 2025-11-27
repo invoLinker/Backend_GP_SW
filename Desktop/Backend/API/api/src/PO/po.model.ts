@@ -130,6 +130,12 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   })
   supplier_address: string;
 
+  @Column({
+  type: DataType.INTEGER,
+  allowNull: false,
+  })
+  created_by: number; 
+
   @BelongsTo(() => Supplier, { as: 'supplier' })
   supplier: Supplier;
 

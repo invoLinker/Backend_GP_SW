@@ -13,10 +13,11 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
   imports: [SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Supplier, User,
-     InvoiceIncident, InvoiceIncidentItem, User, Supplier, HistoryLog]),
+     InvoiceIncident, InvoiceIncidentItem, User, Supplier, HistoryLog]), NotificationModule,
   MulterModule.register({
   storage: diskStorage({
     destination: './uploads/invoices',

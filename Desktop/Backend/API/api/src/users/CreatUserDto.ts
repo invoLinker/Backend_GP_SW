@@ -5,7 +5,8 @@ import {
   IsOptional, 
   IsEnum, 
   IsInt, 
-  IsDateString ,
+  IsDateString, 
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -47,10 +48,11 @@ export class CreateUserDto {
 
   // @IsString()
   // @IsOptional()
-  profile_image?: Express.Multer.File; 
+  profile_image?: Express.Multer.File | null; 
 
   // @IsString()
   // @IsNotEmpty()
+  @IsOptional()
   ID_image?:  Express.Multer.File; 
 
   @IsEnum(Gender, { message: 'gender must be either Male or Female' })
@@ -65,6 +67,15 @@ export class CreateUserDto {
   @IsOptional()
   @Type(() => Number)
   role_id?: number;
+ 
+  @IsEnum(['Admin','Accountant','Warehouse','Supplier','Payment Officer', 'Viewer'])
+  @IsOptional()
+  role_name?:'Admin'|'Accountant'|'Warehouse'|'Supplier'|'Payment Officer'| 'Viewer';
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  sendWelcomeEmail?: boolean;
 
   @IsEnum(UserStatus, { message: 'status must be either Active or Inactive' })
   @IsOptional()
