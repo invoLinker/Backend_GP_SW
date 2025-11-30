@@ -16,9 +16,9 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare subtotal: number;
   declare vat: number;
   declare total_amount: number;
-  declare expected_delivery: Date | null;
-  declare status: 'Open'| 'Closed' | 'Cancelled' | 'Draft' |'Approved'| 'Sent' |'Incident'| 'ReadyForPaid';
-  declare document_images: string | null;
+  declare status: 'Pending'| 'Closed' | 'Rejected' | 'Draft' |'Approved'| 'Sent' |'Incident'| 'ReadyForPaid';
+  declare pdfUrl: string | null;
+  declare excelUrl: string | null;
   declare note: Text | null;
   declare is_verified: boolean;
   declare currency: 'USD'|'ILS'|'JOD';
@@ -32,7 +32,7 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare supplier_address:string;
   declare installmentsData: JSON | null;
   declare created_by: number | null;
-
+  declare text: string ;
 
 }
 
@@ -72,16 +72,13 @@ PurchaseOrder.init(
       allowNull: false,
       defaultValue: 0,
     },
-    expected_delivery: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
     status: {
-      type: DataTypes.ENUM('Open', 'Closed', 'Cancelled', 'Draft', 'Approved', 'Sent', 'Incident', 'ReadyForPaid'),
+      type: DataTypes.ENUM('Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent', 'Incident', 'ReadyForPaid'),
       allowNull: false,
-      defaultValue: 'Open',
+      defaultValue: 'Pending',
     },
-    document_images: { type: DataTypes.TEXT, allowNull: true },
+    pdfUrl: { type: DataTypes.TEXT, allowNull: true },
+    excelUrl:{ type: DataTypes.TEXT, allowNull: true },
     note:{type:DataTypes.TEXT, allowNull:true},
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
@@ -95,6 +92,7 @@ PurchaseOrder.init(
     supplier_address:{type: DataTypes.STRING, allowNull: false},
     installmentsData:{type: DataTypes.JSON, allowNull: true },
     created_by: { type: DataTypes.INTEGER, allowNull: true },
+    text:{type: DataTypes.STRING, allowNull:false}
   },
   {
     sequelize,

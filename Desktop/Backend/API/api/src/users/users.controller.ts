@@ -79,6 +79,11 @@ export class UsersController {
     return this.usersService.findOne(req.user.userId);
   }
 
+  @Get('full-names')
+  async getFullNames() {
+    return this.usersService.getAllFullNames();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@Request() req) {

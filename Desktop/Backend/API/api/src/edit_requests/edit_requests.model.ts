@@ -24,8 +24,14 @@ export class EditRequest extends Model<EditRequest> {
   })
    is_edit?: boolean; 
 
-  @Column({ type: DataType.ENUM('pending', 'approved', 'rejected'), defaultValue: 'pending' })
-  status: 'pending' | 'approved' | 'rejected';
+   @Column({
+  type: DataType.JSON,
+  allowNull: true,
+  })
+  requested_changes: any;
+
+  @Column({ type: DataType.ENUM('Pending', 'Approved', 'Rejected'), defaultValue: 'Pending' })
+  status: 'Pending' | 'Approved' | 'Rejected';
 
   @BelongsTo(() => PurchaseOrder, 'invoice_id')
   invoice: PurchaseOrder;

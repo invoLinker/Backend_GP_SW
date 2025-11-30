@@ -492,6 +492,16 @@ async deleteProfileImage(userId: number): Promise<{ message: string }> {
    };
 }
 
+async getAllFullNames() {
+  const users = await this.userModel.findAll({
+    attributes: ['user_id', 'first_name', 'last_name'],
+  });
+
+  return users.map(u => ({
+    id: u.user_id,
+    full_name: `${u.first_name} ${u.last_name}`,
+  }));
+}
 
 
 }

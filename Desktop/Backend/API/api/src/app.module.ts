@@ -52,7 +52,7 @@ import { HistoryLog } from './History/history-log.model';
 import { NotificationModule } from './Notification/notification.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { APP_GUARD } from '@nestjs/core';
-// import { ChatBotModule } from './ChatBot/ChatBotModule';
+import { RagModule } from './rag/rag.module';
 
 
 @Module({
@@ -99,8 +99,7 @@ import { APP_GUARD } from '@nestjs/core';
     TaskModule,
     HistoryLogModule,
     NotificationModule,
-    // ChatBotModule
-    
+    RagModule
   ],
   providers: [ JwtStrategy,
     {

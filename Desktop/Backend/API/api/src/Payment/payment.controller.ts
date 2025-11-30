@@ -135,7 +135,7 @@ export class PaymentsController {
   @PermissionName('update_payment')
   async updatePaymentDetails(@Param('id') payment_id: number, @Body() dto: CreatePaymentDto, @Request() req) {
      try {
-      const result = await this.paymentsService.deletePayment(payment_id);
+      const result = await this.paymentsService.updatePayment(payment_id, dto);
 
       await this.historyLogService.createLog({
         action: 'Payment Updated',

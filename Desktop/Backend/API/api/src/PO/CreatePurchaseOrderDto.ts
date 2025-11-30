@@ -39,14 +39,14 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsEnum(['USD','ILS','JOD'])
   currency: 'USD'|'ILS'|'JOD'
-  
-  @IsOptional()
-  @IsDateString()
-  expected_delivery!: Date | null;
 
   @IsString()
   @IsNotEmpty()
   company_name: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  text: string;
 
   @IsString()
   @IsNotEmpty()
@@ -55,6 +55,11 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @IsNotEmpty()
   company_phone: string;
+
+  pdfUrl?: Express.Multer.File
+
+  excelUrl?: Express.Multer.File
+
 
   @IsString()
   @IsNotEmpty()
@@ -73,8 +78,8 @@ export class CreatePurchaseOrderDto {
   supplier_address: string;
 
   @IsOptional()
-  @IsEnum(['Open', 'Closed', 'Cancelled', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'])
-  status?: 'Open'| 'Closed'| 'Cancelled'| 'Draft'| 'Approved'| 'Sent' | 'Incident'|'ReadyForPaid';
+  @IsEnum(['Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'])
+  status?: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'|'ReadyForPaid';
 
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseOrderItemDto)

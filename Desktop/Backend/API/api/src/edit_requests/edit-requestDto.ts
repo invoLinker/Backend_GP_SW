@@ -16,8 +16,8 @@ export class CreateEditRequestDto {
   is_edit?: boolean; 
 
   @IsOptional()
-  @IsEnum(['pending', 'approved', 'rejected'])
-  status?: 'pending' | 'approved' | 'rejected'; 
+  @IsEnum(['Pending', 'Approved', 'Rejected'])
+  status?: 'Pending' | 'Approved' | 'Rejected'; 
 }
 
 

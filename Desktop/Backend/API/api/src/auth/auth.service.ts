@@ -64,7 +64,7 @@ export class AuthService {
 
     return {
       message: 'Login successful',
-      access_token: this.jwtService.sign(payload, { expiresIn: '1h' }), 
+      access_token: this.jwtService.sign(payload, { expiresIn: '2m' }), 
       refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }), 
       user: { 
         id: user.user_id, 
@@ -74,18 +74,44 @@ export class AuthService {
     };
   }
 
+  // async refreshToken(token: string) {
+  //   try {
+  //     const payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET || 'secretKey' });
+  //     const newAccessToken = this.jwtService.sign(
+  //       { sub: payload.sub, email: payload.email, role: payload.role_name },
+  //       { expiresIn: '15m' }
+  //     );
+  //     return { access_token: newAccessToken };
+  //   } catch (e) {
+  //     throw new UnauthorizedException('Invalid refresh token');
+  //   }
+  // }
+
   async refreshToken(token: string) {
-    try {
-      const payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET || 'secretKey' });
-      const newAccessToken = this.jwtService.sign(
-        { sub: payload.sub, email: payload.email, role: payload.role },
-        { expiresIn: '15m' }
-      );
-      return { access_token: newAccessToken };
-    } catch (e) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+  try {
+    const payload = this.jwtService.verify(token, { 
+      secret: process.env.JWT_SECRET || 'secretKey' 
+    });
+
+    // Generate NEW **Access Token**, short-lived
+    const newAccessToken = this.jwtService.sign(
+      {
+        sub: payload.sub,
+        email: payload.email,
+        role_name: payload.role_name,
+      },
+      { expiresIn: '2m' }   // Same as login (or more, your choice)
+    );
+
+    return {
+      access_token: newAccessToken      // ✔ Correct field
+    };
+
+  } catch (e) {
+    throw new UnauthorizedException('Invalid refresh token');
   }
+}
+
 
 
 //////////////////////////////////////////////////// continue with google

@@ -23,7 +23,7 @@ export class EditRequestController {
   @Get('status/:status')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_edit_request')
-  findByStatus(@Param('status') status: 'pending' | 'approved' | 'rejected'): Promise<EditRequest[]> {
+  findByStatus(@Param('status') status: 'Pending' | 'Approved' | 'Rejected'): Promise<EditRequest[]> {
   return this.editRequestService.findByStatus(status);
   }
 

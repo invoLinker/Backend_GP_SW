@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { PurchaseOrder } from './po.model';
 import { PurchaseOrderItem } from './PoItem.model';
@@ -12,16 +12,18 @@ import { Supplier } from 'src/Suppliers/supplier.model';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { NotificationModule } from 'src/Notification/notification.module';
+import { EditRequestModule } from 'src/edit_requests/edit-request.module';
 
 @Module({
   imports: [
-  SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest, User, Supplier, HistoryLog]),
-  RolePermissionModule,
-  PurchaseOrderItemModule,
-  NotificationModule
-],
-
+    SequelizeModule.forFeature([PurchaseOrder, PurchaseOrderItem, EditRequest, User, Supplier, HistoryLog]),
+    RolePermissionModule,
+    PurchaseOrderItemModule,
+    NotificationModule,
+    forwardRef(() => EditRequestModule)
+  ],
   controllers: [PurchaseOrderController],
   providers: [PurchaseOrderService, HistoryLogService],
+  exports: [PurchaseOrderService]
 })
 export class PurchaseOrderModule {}

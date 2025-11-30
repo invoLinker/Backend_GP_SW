@@ -5,8 +5,12 @@ export class CreatePurchaseOrderItemDto {
   @IsNotEmpty()
   item_name: string;
 
+  @IsOptional()
+  @IsNumber()
+  po_item_id?: number;  
+
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   barcode: string;
 
   @IsNumber()

@@ -40,16 +40,16 @@ export class TaskService {
     payload: { taskId: task.id, dueDate: task.dueDate },
   });
 
-  await this.notificationService.sendNotification({
-    title: 'New Task Assigned',
-    message: `You have been assigned a new task: "${dto.title}"`,
-    userId: assignee.user_id.toString(),
-    channel: NotificationChannel.PUSH,
-    category: NotificationCategory.TASK,
-    payload: { taskId: task.id, dueDate: task.dueDate },
-  });
+  // await this.notificationService.sendNotification({
+  //   title: 'New Task Assigned',
+  //   message: `You have been assigned a new task: "${dto.title}"`,
+  //   userId: assignee.user_id.toString(),
+  //   channel: NotificationChannel.PUSH,
+  //   category: NotificationCategory.TASK,
+  //   payload: { taskId: task.id, dueDate: task.dueDate },
+  // });
 
-  return task;
+ return {message: 'Task Created Successfully'}
 }
 
 async getAllTasks() {
@@ -60,14 +60,14 @@ async getAllTasks() {
     return tasks; 
   }
 
-  async getTasks(status: 'Pending' | 'In_Progress' | 'Completed'): Promise<Task[]> {
+  async getTasks(status: 'Pending' | 'In Progress' | 'Completed'): Promise<Task[]> {
   return this.taskModel.findAll({
     where: {status: status},
     order: [['dueDate', 'ASC']],
   } as any);
 }
 
-  async updateStatus(taskId: number): Promise<Task> {
+  async updateStatus(taskId: number) {
     const task = await this.taskModel.findByPk(taskId);
     if (!task) throw new NotFoundException('Task not found');
 
@@ -88,7 +88,7 @@ async getAllTasks() {
     payload: { taskId: task.id, newStatus: task.status },
   });
   
-    return task;
+    return {message: 'Task Updated successfully'};
   }
 
   async deleteTask(taskId: number): Promise<{ message: string }> {
@@ -101,7 +101,7 @@ async getAllTasks() {
 
   async getTasksByUser(
   fullName: string,
-  status?: 'Pending' | 'In_Progress' | 'Completed'
+  status?: 'Pending' | 'In Progress' | 'Completed'
 ): Promise<Task[]> {
   const whereClause: any = { assignedTo: fullName };
   if (status) whereClause.status = status;

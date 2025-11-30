@@ -21,7 +21,7 @@ export class TaskController {
 
       await this.historyLogService.createLog({
         action: 'Task Created',
-        description: `Task id=${result.id} created`,
+        description: `Task created`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -46,7 +46,7 @@ export class TaskController {
 
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
-  async updateStatus(@Param('id') id: string, @Request() req): Promise<Task> {
+  async updateStatus(@Param('id') id: string, @Request() req){
     try {
       const result = await this.taskService.updateStatus(+id);
 
@@ -114,7 +114,7 @@ export class TaskController {
 
   @Get('status')
   @UseGuards(JwtAuthGuard)
-  async getTasks(@Body('status') status: 'Pending' | 'In_Progress' | 'Completed'): Promise<Task[]> {
+  async getTasks(@Body('status') status: 'Pending' | 'In Progress' | 'Completed'): Promise<Task[]> {
     return this.taskService.getTasks(status);
   }
 
@@ -122,7 +122,7 @@ export class TaskController {
   @UseGuards(JwtAuthGuard)
   async getTasksByUser(
     @Body('name') fullName: string,
-    @Body('status') status?: 'Pending' | 'In_Progress' | 'Completed'
+    @Body('status') status?: 'Pending' | 'In Progress' | 'Completed'
   ): Promise<Task[]> {
     return this.taskService.getTasksByUser(fullName, status);
   }

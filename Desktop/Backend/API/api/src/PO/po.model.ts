@@ -1,10 +1,11 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, AllowNull } from 'sequelize-typescript';
 import { Supplier } from '../Suppliers/supplier.model';
 import { PurchaseOrderItem } from './PoItem.model';
 import { Type } from 'class-transformer';
 
 @Table({
-  tableName: 'PurchaseOrders',
+  tableName: 'purchaseorders',
+  freezeTableName: true,
   timestamps: true,
 })
 export class PurchaseOrder extends Model<PurchaseOrder> {
@@ -48,6 +49,12 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   })
   vat: number;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull:false,
+  })
+  text: string;
+
   @Column({type: DataType.BOOLEAN, defaultValue: false})
   is_verified:boolean;
 
@@ -56,12 +63,6 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
     defaultValue: 0,
   })
   total_amount: number;
-
-  @Column({
-    type: DataType.DATE,
-    allowNull: true,
-  })
-  expected_delivery?: Date | null;
 
   @Column({
     type: DataType.TEXT,
@@ -76,11 +77,11 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   currency:string;
 
   @Column({
-    type: DataType.ENUM('Open', 'Closed', 'Cancelled', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'),
+    type: DataType.ENUM('Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'),
     allowNull: false,
-    defaultValue: 'Open',
+    defaultValue: 'Pending',
   })
-  status: 'Open'| 'Closed'| 'Cancelled'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
+  status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
 
    @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
@@ -135,6 +136,18 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   allowNull: false,
   })
   created_by: number; 
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  pdfUrl: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  excelUrl: string;
 
   @BelongsTo(() => Supplier, { as: 'supplier' })
   supplier: Supplier;

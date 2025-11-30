@@ -98,6 +98,10 @@ export class OcrService {
         - currency (USD or ILS or JOD by default ILS)
         - bank_name
         - bank_account
+        - to_name
+        - to_email
+        - to_phone
+        - to_address
         Return valid JSON only, no explanations.
         Text:
         """${text}"""
@@ -114,6 +118,11 @@ export class OcrService {
         - supplier_address
         - dn_date (YYYY-MM-DD)
         - items (product_name, quantity, unit, barcode)
+        - notes
+        - to_name
+        - to_email
+        - to_phone
+        - to_address
         Return valid JSON only, no explanations.
         Text:
         """${text}"""

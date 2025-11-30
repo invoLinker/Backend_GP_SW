@@ -1,5 +1,5 @@
 import { Model, InferAttributes, InferCreationAttributes, DataTypes } from 'sequelize';
-import {sequelize} from '../../db'; // اتصال قاعدة البيانات
+import {sequelize} from '../../db'; 
 import { PurchaseOrder } from './PurchaseOrders';
 import { User } from './Users';
 
@@ -11,17 +11,16 @@ export class EditRequest extends Model<
   declare invoice_id: number;
   declare user_id: number;
   declare message: string;
-  declare status: 'pending' | 'approved' | 'rejected';
+  declare status: 'Pending' | 'Approved' | 'Rejected';
   declare is_edit: Boolean;
-
-  // هاد للحفظ بالعلاقات، ممكن تستخدمها عند الـ includes
   declare invoice?: PurchaseOrder;
   declare user?: User;
+  declare requested_changes:JSON;
 }
 
-// تعريف الجدول بدون ديكوريتر
 EditRequest.init(
   {
+    requested_changes:{type: DataTypes.JSON, allowNull:true},
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
@@ -40,8 +39,8 @@ EditRequest.init(
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
-      defaultValue: 'pending',
+      type: DataTypes.ENUM('Pending', 'Approved', 'Rejected'),
+      defaultValue: 'Pending',
     },
     is_edit:{
       type:DataTypes.BOOLEAN,
@@ -56,6 +55,13 @@ EditRequest.init(
   }
 );
 
-// العلاقات
-EditRequest.belongsTo(PurchaseOrder, { foreignKey: 'invoice_id', as: 'invoice' });
-EditRequest.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+EditRequest.belongsTo(PurchaseOrder, {
+  foreignKey: 'invoice_id',
+  as: 'invoice',
+  onDelete: 'CASCADE',        // ← أهم سطر
+});
+
+EditRequest.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});

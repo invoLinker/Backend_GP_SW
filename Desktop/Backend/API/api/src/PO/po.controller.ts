@@ -9,6 +9,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { LOADIPHLPAPI } from 'dns';
 import { HistoryLogService } from '../History/history-log.service';
 import { HistoryCategory, HistorySeverity } from '../History/create-history-log.dto';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 
 @Controller('purchase-orders')
@@ -50,6 +52,19 @@ export class PurchaseOrderController {
     }
   }
 
+   @Get('pending-approvals')
+  @UseGuards(JwtAuthGuard)
+  async getPendingApprovals() {
+    return this.poService.getPendingApprovals();
+  }
+
+   @Patch('approval')
+@UseGuards(JwtAuthGuard)
+async approveOrReject(
+  @Body() body: { type: 'Order' | 'Edit Request', id: number, status: 'Approved' | 'Rejected' }
+) {
+  return this.poService.approveOrReject(body);
+}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -83,25 +98,29 @@ export class PurchaseOrderController {
   @Get('status/:status')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')
-  getByStatus(@Param('status') status: 'Open'| 'Closed'| 'Cancelled'| 'Draft'| 'Approved'| 'Sent' |'Incident'|'ReadyForPaid') {
+  getByStatus(@Param('status') status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' |'Incident'|'ReadyForPaid') {
     return this.poService.findByStatus(status);
   }
 
-  @Patch(':id')
+  @Patch(':po_number')
   @UseGuards(JwtAuthGuard)
   @PermissionName('update_purchase_order')
   async update(
-    @Param('id') id: string,
+    @Param('po_number') po_number: string,
     @Body() updateDto: Partial<CreatePurchaseOrderDto>,
     @Req() req: any  
   ) {
     try {
+    
       const userId = req.user.userId;
-      const updated = await this.poService.update(+id, updateDto, userId);
+      const userRole = req.user.role; 
+
+      console.log("REQ USER:", req.user);
+      const updated = await this.poService.update(po_number, updateDto, userId, userRole);
 
       await this.historyLogService.createLog({
         action: 'Purchase Order Updated',
-        description: `PO with ID ${id} updated successfully`,
+        description: `PO with # ${po_number} updated successfully`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -124,16 +143,16 @@ export class PurchaseOrderController {
     }
   }
 
-  @Delete(':id')
+  @Delete(':poNumber')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')
-  async deleteById(@Param('id') id: string, @Req() req) {
+  async deleteById(@Param('poNumber') poNumber: string, @Req() req) {
     try {
-      const result = await this.poService.deleteById(Number(id));
+      const result = await this.poService.deleteById(poNumber);
 
       await this.historyLogService.createLog({
         action: 'Purchase Order Deleted',
-        description: `PO with ID ${id} deleted`,
+        description: `PO with # ${poNumber} deleted`,
         user: req.user.email,
         userRole: req.user.role,
         category: HistoryCategory.DATA,
@@ -253,4 +272,67 @@ export class PurchaseOrderController {
       throw error;
     }
   }
+
+
+@Post(':po_number/upload-file')
+@UseGuards(JwtAuthGuard)
+@PermissionName('upload_purchase_order_file')
+@UseInterceptors(
+  FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/purchase-orders',
+      filename: (req, file, cb) => {
+        const ext = extname(file.originalname);
+        const filename = `${req.params.po_number}${ext}`;
+        cb(null, filename);
+      },
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedMimeTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        return cb(
+          new BadRequestException('Only PDF or Excel files are allowed!'),
+          false
+        );
+      }
+
+      cb(null, true);
+    },
+  })
+)
+async uploadFile(
+  @Param('po_number') po_number: string,
+  @UploadedFile() file: Express.Multer.File
+) {
+  if (!file) {
+    throw new BadRequestException('No file uploaded!');
+  }
+
+  console.log("FILE RECEIVED:", file);
+  console.log("PO Number:", po_number);
+
+  return await this.poService.saveFilePath(po_number, file.path);
+}
+
+
+
+  @Get(':po_number/file')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_purchase_order_file')
+  async getPurchaseOrderFile(
+    @Param('po_number') po_number: string,
+    @Query('type') type: 'pdf' | 'excel'
+  ) {
+    return this.poService.getFile(po_number, type);
+  }
+
+
+
+
+
 }

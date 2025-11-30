@@ -16,14 +16,14 @@ export class OcrController {
     }
 
     try {
-      // 1️⃣ استخراج النص من الصورة / PDF / Excel
+      // ocr
       const text = await this.ocrService.extractText(file);
 
-      // 2️⃣ تمرير النص للـ AI لاستخراج البيانات المنظمة
+      // this for ai to extract info from the text
       const invoiceData = await this.ocrService.extractDataByType(text);
 
       return {
-        extractedText: text,
+        // extractedText: text,
         invoiceData: invoiceData,
       };
     } catch (err) {
