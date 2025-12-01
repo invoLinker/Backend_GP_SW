@@ -21,7 +21,7 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
   })
   incident_id: number;
 
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.STRING, allowNull: false})
   invoice_number: string;
 
   @Column(DataType.DATE)

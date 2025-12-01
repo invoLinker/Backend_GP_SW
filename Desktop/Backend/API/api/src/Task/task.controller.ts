@@ -118,13 +118,12 @@ export class TaskController {
     return this.taskService.getTasks(status);
   }
 
-  @Get('by-user')
+
+  @Get('assigned/:userId')
   @UseGuards(JwtAuthGuard)
-  async getTasksByUser(
-    @Body('name') fullName: string,
-    @Body('status') status?: 'Pending' | 'In Progress' | 'Completed'
-  ): Promise<Task[]> {
-    return this.taskService.getTasksByUser(fullName, status);
+  async getAssignedTasks(@Param('userId') userId: string) {
+    return this.taskService.getTasksAssignedToUser(Number(userId));
   }
+
 
 }

@@ -84,13 +84,13 @@ export class StockController {
   async update(@Body() updateStockDto: UpdateStockDto, @Req() req: any) {
     try {
       const result = await this.stockService.takeFromStockByName(
-        updateStockDto.product_name!,
+        updateStockDto.item_name!,
         updateStockDto.quantity!
       );
 
       await this.historyLogService.createLog({
         action: 'Stock Quantity Updated',
-        description: `Stock of ${updateStockDto.product_name} decreased by ${updateStockDto.quantity}`,
+        description: `Stock of ${updateStockDto.item_name} decreased by ${updateStockDto.quantity}`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,

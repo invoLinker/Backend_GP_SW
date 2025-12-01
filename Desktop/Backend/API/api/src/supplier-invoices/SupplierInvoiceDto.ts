@@ -67,16 +67,20 @@ export class CreateSupplierInvoiceDto {
   received_date: string;
 
   @IsNumber()
+  @Type(() => Number)
   subtotal: number;
 
   @IsNumber()
+  @Type(() => Number)
   vat: number;
 
   @IsNumber()
   @IsOptional()
+  @Type(() => Number)
   discount?: number;
 
   @IsNumber()
+  @Type(() => Number)
   total_amount: number;
 
   @IsEnum(PaymentMethod)
@@ -111,12 +115,15 @@ export class CreateSupplierInvoiceDto {
   @IsNotEmpty()
   to_address: string;
 
-
   @IsNumber()
   @IsOptional()
   created_by?: number;
 
-  invoice_image?: Express.Multer.File
+  pdfUrl?: Express.Multer.File
+
+  excelUrl?: Express.Multer.File
+
+  imgUrl?: Express.Multer.File
 
   @IsArray()
   @ValidateNested({ each: true })

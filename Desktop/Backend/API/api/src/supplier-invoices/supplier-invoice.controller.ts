@@ -7,6 +7,8 @@ import { SupplierInvoiceItemDto } from './SupplierInvoiceItemDto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { HistoryLogService } from '../History/history-log.service';
 import { HistoryCategory, HistorySeverity } from '../History/create-history-log.dto';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 
 @Controller('supplier-invoices')
@@ -18,10 +20,22 @@ export class SupplierInvoiceController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_supplier-invoices')
-  async createInvoice(@Body() body:  CreateSupplierInvoiceDto, @Request() req) {
+  @UseInterceptors(
+      FileInterceptor('file', {
+        storage: diskStorage({
+          destination: './uploads/supplier-invoices',
+          filename: (req, file, cb) => {
+          const ext = extname(file.originalname);
+          const finalName = `${req.body.invoice_number}${ext}`;
+          cb(null, finalName);
+        }
+        }),
+      })
+    )
+  async createInvoice(@Body() body:  CreateSupplierInvoiceDto, @UploadedFile() file: Express.Multer.File, @Request() req) {
     try {
       const userId = req.user.userId;
-      const result = await this.supplierInvoiceService.createInvoice(body, userId);
+      const result = await this.supplierInvoiceService.createInvoice(body, userId ,file);
 
       await this.historyLogService.createLog({
         action: 'Supplier Invoice Created',
@@ -48,20 +62,31 @@ export class SupplierInvoiceController {
     }
   }
 
-  @Post('upload-image/:id')
+  @Post('upload-file/:invoice_number')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('invoice_image'))
-  async updateUser(
-      @Param('id', ParseIntPipe) id: number,
-      @UploadedFile() invoice_image: Express.Multer.File,
-      @Request() req
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/supplier-invoices',
+        filename: (req, file, cb) => {
+          const ext = extname(file.originalname);
+          const finalName = `${req.params.invoice_number}${ext}`;
+          cb(null, finalName);
+        }
+      }),
+    })
+  )
+  async uploadImage(
+    @Param('invoice_number') invoice_number: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req
   ) {
     try {
-      const result = await this.supplierInvoiceService.saveInvoiceImage(invoice_image , id);
+      const result = await this.supplierInvoiceService.saveInvoiceImage(file.path, invoice_number);
 
       await this.historyLogService.createLog({
         action: 'Invoice Image Uploaded',
-        description: `Invoice id=${id} image uploaded`,
+        description: `Invoice #${invoice_number} image uploaded`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -70,6 +95,7 @@ export class SupplierInvoiceController {
       });
 
       return result;
+
     } catch (error) {
       await this.historyLogService.createLog({
         action: 'Invoice Image Upload Failed',
@@ -80,9 +106,11 @@ export class SupplierInvoiceController {
         severity: HistorySeverity.ERROR,
         details: error,
       });
+
       throw error;
     }
   }
+
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
@@ -127,6 +155,12 @@ export class SupplierInvoiceController {
     return this.supplierInvoiceService.getAllInvoices(search);
   }
 
+  // @Get('si-numberItem/:si_number')
+  // @UseGuards(JwtAuthGuard)
+  // @PermissionName('get_supplier_invoice_item')
+  // getItemBarName(@Param('si_number') si_number: string){
+  //   return this.supplierInvoiceService.getItemBarName(si_number);
+  // }
   
   @Get('status/:status')
   @UseGuards(JwtAuthGuard)

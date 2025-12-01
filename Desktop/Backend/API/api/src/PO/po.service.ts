@@ -16,6 +16,7 @@ import { User } from 'src/users/users.model'
 import { Role } from 'src/roles/roles.model';
 import { text } from 'stream/consumers';
 import { EditRequestService } from 'src/edit_requests/edit-request.service';
+import { threadId } from 'worker_threads';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -958,6 +959,33 @@ async approveOrReject(body: { type: 'Order' | 'Edit Request', id: number, status
 
 
   throw new BadRequestException('Invalid type');
+}
+
+
+
+async getItemBarName(id: string) {
+  const po = await this.poModel.findOne({
+    where: { po_number: id },
+    include: [
+      {
+        model: PurchaseOrderItem,
+        as: 'items',
+        attributes: ['item_name', 'barcode', 'quantity', 'unit_price', 'unit']
+      }
+    ]
+  });
+
+  if (!po) {
+    throw new NotFoundException(`Purchase Order with #${id} not found`);
+  }
+
+  return po.items.map(item => ({
+    item_name: item.item_name,
+    barcode: item.barcode,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    unit: item.unit
+  }));
 }
 
 

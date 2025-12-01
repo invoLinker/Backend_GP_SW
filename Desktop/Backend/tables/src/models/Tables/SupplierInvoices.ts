@@ -36,7 +36,9 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare to_email:string;
   declare to_phone:string;
   declare to_address:string;
-  declare invoice_image:string;
+  declare imgUrl:string | null;
+  declare pdfUrl: string | null;
+  declare excelUrl: string | null;
 }
 
 
@@ -45,7 +47,7 @@ SupplierInvoices.init(
     invoice_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     supplier_id: { type: DataTypes.INTEGER, allowNull: true },
     po_number: { type: DataTypes.STRING, allowNull: true },
-    invoice_number: { type: DataTypes.STRING, allowNull: false },
+    invoice_number: { type: DataTypes.STRING, allowNull: false, unique: true },
     invoice_date: { type: DataTypes.DATEONLY, allowNull: false },
     received_date: { type: DataTypes.DATEONLY, allowNull: false },
     subtotal: { type: DataTypes.DECIMAL, allowNull: false },
@@ -76,7 +78,9 @@ SupplierInvoices.init(
     to_email:{type: DataTypes.STRING, allowNull: false},
     to_phone:{type: DataTypes.STRING, allowNull: false},
     to_address:{type: DataTypes.STRING, allowNull: false},
-    invoice_image: { type: DataTypes.STRING, allowNull: true }
+    imgUrl: { type: DataTypes.STRING, allowNull: true },
+    pdfUrl: { type: DataTypes.TEXT, allowNull: true },
+    excelUrl:{ type: DataTypes.TEXT, allowNull: true },
 
   },
   { sequelize, tableName: 'supplier_invoices', timestamps: true }

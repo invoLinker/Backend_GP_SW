@@ -4,7 +4,7 @@ import { DeliveryNotes } from './DeliveryNote';
 
 export class Stock extends Model<InferAttributes<Stock>, InferCreationAttributes<Stock>> {
   declare stock_id: number;
-  declare product_name: string;
+  declare item_name: string;
   declare barcode: string;
   declare dn_id: number | null;
   declare quantity: number;
@@ -20,7 +20,7 @@ Stock.init(
       autoIncrement: true,
       primaryKey: true,
     },
-    product_name: {
+    item_name: {
       type: DataTypes.STRING,
       allowNull: false,
     },

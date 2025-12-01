@@ -12,7 +12,7 @@ export class DeliveryNote extends Model<DeliveryNote> {
   })
   dn_id!: number;
 
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.STRING, allowNull: false, unique:true })
   dn_number!: string;
 
   @Column({ type: DataType.DATEONLY, allowNull: false })
@@ -61,10 +61,22 @@ export class DeliveryNote extends Model<DeliveryNote> {
   is_verified!: boolean;
 
   @Column({ type: DataType.TEXT, allowNull: true })
-  notes!: string;
+  notes: string;
 
   @Column({ type: DataType.TEXT, allowNull: true })
-  document_images!: string;
+  imgUrl: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  pdfUrl: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  excelUrl: string;
 
   @Column({ type: DataType.STRING, allowNull: false})
   to_name: string;

@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 
 export class GoodsReceiptItemDto {
   @IsNotEmpty()
-  product_name!: string;
+  item_name!: string;
 
   @IsNotEmpty()
   received_quantity!: number;

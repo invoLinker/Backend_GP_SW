@@ -1,11 +1,13 @@
+import { Type } from 'class-transformer';
 import { IsString, IsNotEmpty, IsNumber, IsOptional, isNotEmpty, } from 'class-validator';
 
 export class DeliveryNoteItemDto {
   @IsString()
   @IsNotEmpty()
-  product_name: string;
+  item_name: string;
 
   @IsNumber()
+  @Type(() => Number)
   quantity: number;
 
   @IsString()

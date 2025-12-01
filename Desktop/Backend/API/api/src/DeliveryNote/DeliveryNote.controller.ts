@@ -7,6 +7,9 @@ import { request } from 'node:http';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { HistoryLogService } from '../History/history-log.service';
 import { HistoryCategory, HistorySeverity } from '../History/create-history-log.dto';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+
 
 
 @Controller('delivery-notes')
@@ -15,17 +18,70 @@ export class DeliveryNoteController {
               private readonly historyLogService: HistoryLogService
   ) {}
 
+  // @Post()
+  // @UseGuards(JwtAuthGuard)
+  // @PermissionName('create_supplier-invoices')
+  // async create(@Body() body: CreateDeliveryNoteDto, @Request() req) {
+  //   const userId = req.user.userId;
+
+  //   try {
+  //     const note = await this.service.createDeliveryNote(body, userId);
+  //     await this.historyLogService.createLog({
+  //       action: 'Delivery Note Created',
+  //       description: `DN with #${body.dn_number} created`,
+  //       user: req.user?.email ?? 'Unknown',
+  //       userRole: req.user?.role ?? 'Unknown',
+  //       category: HistoryCategory.DATA,
+  //       severity: HistorySeverity.SUCCESS,
+  //       details: note,
+  //     });
+
+  //     return note;
+
+  //   } catch (error) {
+  //     await this.historyLogService.createLog({
+  //       action: 'Delivery Note Creation Failed',
+  //       description: error.message,
+  //       user: req.user?.email ?? 'Unknown',
+  //       userRole: req.user?.role ?? 'Unknown',
+  //       category: HistoryCategory.DATA,
+  //       severity: HistorySeverity.ERROR,
+  //       details: error,
+  //     });
+
+  //     throw error;
+  //   }
+  // }
+
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_supplier-invoices')
-  async create(@Body() body: CreateDeliveryNoteDto, @Request() req) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/DN',
+        filename: (req, file, cb) => {
+        const ext = extname(file.originalname);
+        const finalName = `${req.body.dn_number}${ext}`;
+        cb(null, finalName);
+      }
+      }),
+    })
+  )
+  async create(
+    @Body() body: CreateDeliveryNoteDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req
+  ) {
     const userId = req.user.userId;
 
     try {
-      const note = await this.service.createDeliveryNote(body, userId);
+      const note = await this.service.createDeliveryNote(body, userId, file);
+
       await this.historyLogService.createLog({
         action: 'Delivery Note Created',
-        description: `DN with id=${note!.dn_number} created`,
+        description: `DN with #${body.dn_number} created`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -53,19 +109,31 @@ export class DeliveryNoteController {
 
 
      
-  @Post('upload-image/:id')
+  @Post('upload-file/:dn_number')
   @UseGuards(JwtAuthGuard)
-  async updateUser(
-    @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() DN_image: Express.Multer.File,
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/DN',
+        filename: (req, file, cb) => {
+          const ext = extname(file.originalname);
+          const finalName = `${req.params.dn_number}${ext}`;
+          cb(null, finalName);
+        }
+      }),
+    })
+  )
+  async UploadImg(
+    @Param('dn_number') dn_number: string,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req
   ) {
     try {
-      const result = await this.service.saveInvoiceImage(DN_image, id);
+      const result = await this.service.saveInvoiceImage(file.path, dn_number);
 
       await this.historyLogService.createLog({
         action: 'Delivery Note Image Uploaded',
-        description: `Image uploaded for DN with id=${id}`,
+        description: `Image uploaded for DN with #${dn_number}`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,

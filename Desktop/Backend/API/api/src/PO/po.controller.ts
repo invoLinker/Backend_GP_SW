@@ -87,6 +87,13 @@ async approveOrReject(
     return this.poService.findByPONumber(id);
   }
 
+  @Get('po-numberItem/:po_number')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_purchase_order')
+   getItemBarName(@Param('po_number') po_number: string){
+    return this.poService.getItemBarName(po_number);
+  }
+  
 
   @Get('supplier/:id')
   @UseGuards(JwtAuthGuard)

@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 
 export class CreateStockDto {
   @IsString()
-  product_name: string;
+  item_name: string;
 
   @IsString()
   barcode: string;

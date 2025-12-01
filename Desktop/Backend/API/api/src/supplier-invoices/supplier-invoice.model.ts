@@ -30,7 +30,7 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   @Column(DataType.STRING)
   po_number: string | null;
 
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.STRING, allowNull: false, unique:true})
   invoice_number: string;
 
   @Column(DataType.STRING)
@@ -161,11 +161,24 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   })
   to_address: string;
  
+ @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  pdfUrl: string;
+
   @Column({
     type: DataType.STRING,
     allowNull: true,
   })
-  invoice_image: string;
+  excelUrl: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  imgUrl: string;
+  
 
   
   @BelongsTo(() => Supplier)

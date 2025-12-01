@@ -1,5 +1,5 @@
 import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, Min, IsInt } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 
 export class SupplierInvoiceItemDto {
@@ -9,23 +9,22 @@ export class SupplierInvoiceItemDto {
   @IsString()
   barcode!: string;
 
- @IsNumber()
-@Transform(({ value }) => parseFloat(value))
-quantity!: number;
+  @IsNumber()
+  @Type(() => Number)
+  @Transform(({ value }) => parseFloat(value))
+  quantity!: number;
 
-@IsNumber()
-@Transform(({ value }) => parseFloat(value))
-unit_price!: number;
+  @IsNumber()
+  @Transform(({ value }) => parseFloat(value))
+  unit_price!: number;
 
-@IsNumber()
-@Transform(({ value }) => parseFloat(value))
-total_price!: number;
+  @IsNumber()
+  @Transform(({ value }) => parseFloat(value))
+  total_price!: number;
 
   @IsString()
   @IsOptional()
   unit?: string;
-
- 
 
   @IsString()
   @IsOptional()

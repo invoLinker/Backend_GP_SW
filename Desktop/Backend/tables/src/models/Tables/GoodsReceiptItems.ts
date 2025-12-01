@@ -1,44 +1,3 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../db');
-// const GoodsReceipts = require('./GoodsReceipts');
-
-// const GoodsReceiptItem = sequelize.define('GoodsReceiptItem', {
-//     gr_item_id:{
-//         type: DataTypes.INTEGER,
-//         primaryKey: true,
-//         autoIncrement: true
-//     },
-//     gr_id:{
-//         type: DataTypes.INTEGER,
-//         allowNull:false
-//     },
-//     item_name:{
-//         type:DataTypes.STRING,
-//         unique:true,
-//         allowNull:false
-//     },
-//     quantity_received:{
-//         type:DataTypes.DOUBLE,
-//         allowNull:false
-//     },
-//     unit:{
-//         type:DataTypes.STRING, // KG, pieces...
-//     },
-//     unit_price:{
-//         type: DataTypes.DECIMAL(12, 2),
-//         allowNull: false
-//     },
-// }, {
-//     tableName: 'GoodsReceiptItems',
-//     timestamps: true
-// });
-
-
-// GoodsReceiptItem.belongsTo(GoodsReceipts, { foreignKey: 'gr_id' });
-// GoodsReceipts.hasMany(GoodsReceiptItem, { foreignKey: 'gr_id' });
-
-// module.exports = GoodsReceiptItem;
-
 import { DataTypes, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
 import { sequelize } from '../../db';
 import { GoodsReceipts } from './GoodsReceipts';
@@ -46,7 +5,7 @@ import { GoodsReceipts } from './GoodsReceipts';
 export class GoodsReceiptItem extends Model<InferAttributes<GoodsReceiptItem>, InferCreationAttributes<GoodsReceiptItem>> {
   declare gri_id: number;
   declare gr_id: number | null; 
-  declare product_name: string;
+  declare item_name: string;
   declare received_quantity: number; 
   declare unit: string | null;
   declare barcode: string ; 
@@ -66,7 +25,7 @@ GoodsReceiptItem.init(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    product_name: {
+    item_name: {
       type: DataTypes.STRING,
       allowNull: false,
     },

@@ -57,7 +57,7 @@ export class StockService {
         } else {
           // المنتج غير موجود، نضيفه كسطر جديد
           const stockItem = await this.stockModel.create({
-            product_name: item.product_name,
+            product_name: item.item_name,
             barcode: item.barcode,
             dn_id: gr.dn_id,
             quantity: item.received_quantity,
@@ -77,7 +77,7 @@ export class StockService {
 async takeFromStockByName(productName: string, quantityNeeded: number): Promise<string> {
   // 1️⃣ جلب كل السجلات للمنتج
   const stocks = await this.stockModel.findAll({
-    where: { product_name: productName },
+    where: { item_name: productName },
   });
 
   if (stocks.length === 0) {
@@ -224,10 +224,10 @@ async updateStockExpiration(stockId: number, newExpiration: string | Date): Prom
     const grouped: Record<string, any> = {};
 
     for (const stock of stocks) {
-      const key = stock.product_name; // أو stock.barcode
+      const key = stock.item_name; // أو stock.barcode
       if (!grouped[key]) {
         grouped[key] = {
-          product_name: stock.product_name,
+          product_name: stock.item_name,
           barcode: stock.barcode,
           total_quantity: 0,
           batches: [],
@@ -267,7 +267,7 @@ async updateStockExpiration(stockId: number, newExpiration: string | Date): Prom
     where: {
       [Op.or]: [
         { barcode: { [Op.like]: `%${name}%` } },
-        { product_name: { [Op.like]: `%${name}%` } },
+        { item_name: { [Op.like]: `%${name}%` } },
         { unit: { [Op.like]: `%${name}%` } },
       ],
     },
@@ -282,12 +282,12 @@ async updateStockExpiration(stockId: number, newExpiration: string | Date): Prom
     // ⚠️ السماح بالحذف فقط لو الحالة OutOfStock أو Expired
     if (stock.status !== 'OutOfStock' && stock.status !== 'Expired') {
       throw new ConflictException(
-        `Cannot delete stock item "${stock.product_name}" because it is still available.`
+        `Cannot delete stock item "${stock.item_name}" because it is still available.`
       );
     }
 
     await stock.destroy();
-    return { message: `Stock item "${stock.product_name}" deleted successfully.` };
+    return { message: `Stock item "${stock.item_name}" deleted successfully.` };
   }
 
   
@@ -295,10 +295,10 @@ async updateStockExpiration(stockId: number, newExpiration: string | Date): Prom
     const grouped: Record<string, any> = {};
 
     for (const stock of stocks) {
-      const key = stock.product_name; // أو stock.barcode حسب ما تحب
+      const key = stock.item_name; // أو stock.barcode حسب ما تحب
       if (!grouped[key]) {
         grouped[key] = {
-          product_name: stock.product_name,
+          product_name: stock.item_name,
           barcode: stock.barcode,
           total_quantity: 0,
           batches: [],

@@ -64,7 +64,7 @@ export class AuthService {
 
     return {
       message: 'Login successful',
-      access_token: this.jwtService.sign(payload, { expiresIn: '2m' }), 
+      access_token: this.jwtService.sign(payload, { expiresIn: '1h' }), 
       refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }), 
       user: { 
         id: user.user_id, 
@@ -100,7 +100,7 @@ export class AuthService {
         email: payload.email,
         role_name: payload.role_name,
       },
-      { expiresIn: '2m' }   // Same as login (or more, your choice)
+      { expiresIn: '1h' }   // Same as login (or more, your choice)
     );
 
     return {

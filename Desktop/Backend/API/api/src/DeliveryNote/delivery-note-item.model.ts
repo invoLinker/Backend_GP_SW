@@ -15,7 +15,7 @@ export class DeliveryNoteItem extends Model<DeliveryNoteItem> {
   dn_id: number;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  product_name: string;
+  item_name: string;
 
   @Column({ type: DataType.DECIMAL(10, 2), allowNull: false })
   quantity: number;

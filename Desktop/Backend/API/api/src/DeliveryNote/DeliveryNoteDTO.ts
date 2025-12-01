@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsEmail, IsDateString, IsEnum, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsEmail, IsDateString, IsEnum, IsNotEmpty, IsArray, ValidateNested, IsOptional } from 'class-validator';
 import { DeliveryNoteItemDto } from './DeliveryNoteItemDto';
 
 export enum DeliveryNoteStatus {
@@ -20,35 +20,44 @@ export class CreateDeliveryNoteDto {
   dn_number?:string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   supplier_name: string;
 
   @IsEmail()
+  @IsOptional()
   supplier_email: string;
 
   @IsString()
+  @IsOptional()
   supplier_phone?: string;
 
   @IsString()
+  @IsOptional()
   supplier_address?: string;
 
   @IsDateString()
   dn_date: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   to_name: string;
 
+  pdfUrl?: Express.Multer.File
+
+  excelUrl?: Express.Multer.File
+
+  imgUrl?: Express.Multer.File
+
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   to_email: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   to_phone: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   to_address: string;
 
   @IsArray()

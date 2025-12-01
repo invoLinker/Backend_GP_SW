@@ -14,7 +14,7 @@ export class Stock extends Model<Stock> {
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  product_name: string;
+  item_name: string;
 
   @AllowNull(false)
   @Column(DataType.STRING)

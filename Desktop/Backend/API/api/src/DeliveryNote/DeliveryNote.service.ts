@@ -23,11 +23,10 @@ export class DeliveryNoteService {
     private readonly notificationService: NotificationService
   ) {}
 
-  async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number) {
+  async createDeliveryNote(dto: CreateDeliveryNoteDto, createdBy: number, file?: Express.Multer.File) {
   const transaction = await this.deliveryNoteModel.sequelize!.transaction();
   const errors: string[] = [];
 
-  try {
     const po = await this.poModel.findOne({ where: { po_number: dto.po_number }, transaction });
     if (!po) errors.push('PO number not found');
 
@@ -56,6 +55,43 @@ export class DeliveryNoteService {
         }
     
 
+     const existingInvoice = await this.deliveryNoteModel.findOne({
+    where: { dn_number: dto.dn_number},
+    transaction,
+    });
+
+    if (existingInvoice) {
+      await transaction.rollback();
+      throw new BadRequestException(
+        `DN with number ${dto.dn_number} already exists`
+      );
+    }
+    
+       let pdfUrl: string | null = null;
+  let invoice_image: string | null = null;
+  let excelUrl: string | null = null;
+
+  if (file) {
+    const extRaw = file.originalname.split(".").pop();
+    if (!extRaw) {
+      throw new BadRequestException("Cannot detect file type");
+    }
+
+    const ext = extRaw.toLowerCase();
+    const filePath = `/uploads/DN/${file.filename}`;
+
+    if (ext === "pdf") {
+      pdfUrl = filePath;
+    } else if (["jpg", "jpeg", "png"].includes(ext)) {
+      invoice_image = filePath;
+    } else if (["xls", "xlsx"].includes(ext)) {
+      excelUrl = filePath;
+    } else {
+      await transaction.rollback();
+      throw new BadRequestException(`Unsupported file type .${ext}`);
+    }
+  }
+
       const deliveryNote = await this.deliveryNoteModel.create({
       supplier_id: supplier? supplier.supplier_id : null,
       dn_number: dto.dn_number,
@@ -66,12 +102,15 @@ export class DeliveryNoteService {
       supplier_phone: dto.supplier_phone ?? null,
       supplier_address: dto.supplier_address ?? null,
       created_by: createdBy,
-      to_name: dto.to_name,
-      to_email:dto.to_email,
-      to_phone:dto.to_phone,
-      to_address:dto.to_address,
+      to_name: dto.to_name ?? null,
+      to_email:dto.to_email ?? null ,
+      to_phone:dto.to_phone ?? null,
+      to_address:dto.to_address ?? null,
       status: errors.length > 0 ? 'Incident' : 'Pending', 
       notes: errors.length > 0 ? errors.join('; ') : null,
+      pdfUrl,
+      invoice_image,
+      excelUrl,
       }as any, { transaction });
 
 
@@ -81,12 +120,6 @@ export class DeliveryNoteService {
         dn_id: deliveryNote.dn_id,
       } as any, { transaction });
     }
-
-    const noteWithItems = await this.deliveryNoteModel.findOne({
-      where: { dn_id: deliveryNote.dn_id },
-      include: [{ model: this.deliveryNoteItemModel, as: 'items' }],
-      transaction,
-    });
 
     await transaction.commit();
 
@@ -100,24 +133,53 @@ export class DeliveryNoteService {
     );
     }
 
-    return noteWithItems;
+    return {
+     deliveryNote,
+     path: pdfUrl || invoice_image || excelUrl || null
+    };
 
-
-  } catch (err) {
-    await transaction.rollback();
-    throw new InternalServerErrorException(err.message);
-  }
 }
 
-async saveInvoiceImage( image: Express.Multer.File, Id: number,){
-    const dn = await this.deliveryNoteModel.findByPk(Id);
-    if (!dn){
-        throw new NotFoundException("Supplier invoice not found");
-    }
+async saveInvoiceImage( filePath: string, dn_number: string,){
+     const si = await this.deliveryNoteModel.findOne({ where: { dn_number: dn_number } });
 
-    dn.document_images = `/uploads/DN/${image.filename}`; 
-    await dn.save();
-    return "​✔️​ The image was uploaded successfully."
+  if (!si) {
+    throw new NotFoundException(`Delivery Note with #${dn_number} not found`);
+  }
+
+  const extension = filePath.split('.').pop()?.toLowerCase();
+
+  if (!extension) {
+    throw new BadRequestException('Cannot detect file type');
+  }
+
+  let response: any = { message: '' };
+
+  if (extension === 'pdf') {
+    si.pdfUrl = filePath;
+    response = {
+      message: 'PDF uploaded successfully',
+      pathPdf: filePath,
+    };
+  }
+
+  else if (extension === 'xlsx' || extension === 'xls') {
+    si.excelUrl = filePath;
+    response = {
+      message: 'Excel uploaded successfully',
+      pathExcel: filePath,
+    };
+  }
+
+  else {
+    throw new BadRequestException(
+      `Unsupported file type ".${extension}". Only PDF or Excel are allowed.`
+    );
+  }
+
+  await si.save();
+
+  return response;
 
     }
 
@@ -290,7 +352,13 @@ async deleteInvoiceById(id: number) {
 
 private async notifyUsers(roles: string[], title: string, message: string) {
   const users = await this.userModel.findAll({
-    where: { role: roles },
+    include: [
+      {
+        model: Role,
+        as: 'role',
+        where: { role_name: roles }
+      }
+    ]
   });
 
   for (const user of users) {
@@ -304,6 +372,7 @@ private async notifyUsers(roles: string[], title: string, message: string) {
     });
   }
 }
+
 
 
 

@@ -99,17 +99,18 @@ async getAllTasks() {
     return { message: 'Task deleted successfully.' };
   }
 
-  async getTasksByUser(
-  fullName: string,
-  status?: 'Pending' | 'In Progress' | 'Completed'
-): Promise<Task[]> {
-  const whereClause: any = { assignedTo: fullName };
-  if (status) whereClause.status = status;
+
+async getTasksAssignedToUser(userId: number): Promise<Task[]> {
+  const user = await User.findByPk(userId);
+  if (!user) throw new NotFoundException('User not found');
+
+  const fullName = `${user.first_name} ${user.last_name}`.trim();
 
   return this.taskModel.findAll({
-    where: whereClause,
+    where: { assignedTo: fullName },
     order: [['dueDate', 'ASC']],
   });
 }
+
 
 }

@@ -12,7 +12,7 @@ export class GoodsReceiptItem extends Model<GoodsReceiptItem> {
   gr_id!: number | null;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  product_name!: string;
+  item_name!: string;
 
   @Column({ type: DataType.INTEGER, allowNull: false })
   received_quantity!: number;

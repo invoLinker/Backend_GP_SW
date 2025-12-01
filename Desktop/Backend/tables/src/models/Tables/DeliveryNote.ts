@@ -24,8 +24,9 @@ export class DeliveryNotes extends Model<InferAttributes<DeliveryNotes>, InferCr
   declare verification_notes: string | null;
   declare verified_at: Date | null;
   declare is_verified: boolean;
-  declare document_images: string | null;
-
+  declare imgUrl:string | null;
+  declare pdfUrl: string | null;
+  declare excelUrl: string | null;
   declare to_name:string;
   declare to_email:string;
   declare to_phone:string;
@@ -38,7 +39,7 @@ DeliveryNotes.init(
     dn_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     supplier_id: { type: DataTypes.INTEGER, allowNull: true },
     po_number: { type: DataTypes.STRING, allowNull: true },
-    dn_number: { type: DataTypes.STRING, allowNull: false },
+    dn_number: { type: DataTypes.STRING, allowNull: false, unique:true },
     dn_date: { type: DataTypes.DATEONLY, allowNull: false },
     status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Received', 'Incident'), defaultValue: 'Pending' },
     notes: { type: DataTypes.TEXT, allowNull: true },
@@ -53,8 +54,9 @@ DeliveryNotes.init(
     verification_notes:{ type: DataTypes.TEXT, allowNull: true },
     verified_at:{ type: DataTypes.DATE, allowNull: true },
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
-    document_images: { type: DataTypes.TEXT, allowNull: true },
-    to_name:{type: DataTypes.STRING, allowNull: false},
+    imgUrl: { type: DataTypes.STRING, allowNull: true },
+    pdfUrl: { type: DataTypes.TEXT, allowNull: true },
+    excelUrl:{ type: DataTypes.TEXT, allowNull: true },    to_name:{type: DataTypes.STRING, allowNull: false},
     to_email:{type: DataTypes.STRING, allowNull: false},
     to_phone:{type: DataTypes.STRING, allowNull: false},
     to_address:{type: DataTypes.STRING, allowNull: false},
