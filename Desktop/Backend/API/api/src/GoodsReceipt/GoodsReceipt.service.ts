@@ -9,6 +9,7 @@ import { Op, where } from 'sequelize';
 import { NotificationService } from 'src/Notification/notification.service';
 import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
 import { User } from 'src/users/users.model';
+import { Role } from 'src/roles/roles.model';
 
 
 @Injectable()
@@ -31,8 +32,7 @@ export class GoodsReceiptService {
   async createGR(dto: CreateGoodsReceiptDto, userId: number) {
     const transaction = await this.grModel.sequelize!.transaction();
 
-    try {
-      const dn = await this.dnModel.findOne({
+    const dn = await this.dnModel.findOne({
         where: { dn_number: dto.dn_number },
         transaction,
       });
@@ -44,7 +44,7 @@ export class GoodsReceiptService {
 
         
       if (!po || !dn) {
-        throw new Error('Purchase Order or Delivery Note not found');
+        throw new NotFoundException('Purchase Order number or Delivery Note number not found');
       }
 
       const generatedGRNumber = await this.generateGRNumber();
@@ -83,10 +83,7 @@ export class GoodsReceiptService {
       await this.notifyAdmins(['Admin', 'Accountant'],`New Goods Receipt Created`, `GR ${gr.gr_number} has been created for DN ${dto.dn_number}.`);
 
       return grWithItems;
-    } catch (err) {
-      await transaction.rollback();
-      throw new InternalServerErrorException(err.message);
-    }
+    
   }
 
   async getAll() {
@@ -211,21 +208,42 @@ async getByStatus(status: string) {
     }
   }
 
-  private async notifyAdmins(roles: string[], title: string, message: string) {
+  // private async notifyAdmins(roles: string[], title: string, message: string) {
+  // const users = await this.userModel.findAll({
+  //   where: { role: roles },
+  // });
+
+  // for (const user of users) {
+  //     await this.notificationService.sendNotification({
+  //       title,
+  //       message,
+  //       userId: user.user_id.toString(),
+  //       channel: NotificationChannel.IN_APP,
+  //       category: NotificationCategory.SYSTEM,
+  //       payload: {},
+  //     });
+  //   }
+  // }
+private async notifyAdmins(roleNames: string[], title: string, message: string) {
   const users = await this.userModel.findAll({
-    where: { role: roles },
+    include: [
+      {
+        model: Role,
+        where: { role_name: roleNames }, // فلترة حسب اسم الدور
+      },
+    ],
   });
 
   for (const user of users) {
-      await this.notificationService.sendNotification({
-        title,
-        message,
-        userId: user.user_id.toString(),
-        channel: NotificationChannel.IN_APP,
-        category: NotificationCategory.SYSTEM,
-        payload: {},
-      });
-    }
+    await this.notificationService.sendNotification({
+      title,
+      message,
+      userId: user.user_id.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: {},
+    });
   }
+}
 
 }

@@ -6,11 +6,14 @@ import { PermissionName } from 'src/permission/permission.decorator';
 import { CreatePaymentDto } from './CreatePaymentDto';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { HistoryCategory, HistorySeverity } from 'src/History/create-history-log.dto';
+import { StripePaymentService } from './stripe-payment.service';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService,
               private readonly historyLogService: HistoryLogService,
+              private readonly stripeService: StripePaymentService
+
   ) {}
 
   @Post(':PO_id')
@@ -27,7 +30,7 @@ export class PaymentsController {
         userRole: req?.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: payment,
+        details: payment.message,
       });
 
       return payment;
@@ -89,6 +92,13 @@ export class PaymentsController {
   @PermissionName('get_all_payment_for_invoice')
   async getInvoicePayments(@Param('id') invoice_id: number) {
     return this.paymentsService.getInvoicePayments(invoice_id);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_all_payment')
+  async getAllPayment() {
+    return this.paymentsService.getAllPayment();
   }
 
   @Get(':id')
@@ -177,12 +187,10 @@ export class PaymentsController {
     return await this.paymentsService.getPaymentsByStatus(status);
   }
 
-  //test
-  // @Post()
-  // parsePayment(@Body() body: { notes: string; totalAmount: number }) {
-  //   const { notes, totalAmount } = body;
-  //   return PaymentParser.parseInstallments(notes, totalAmount);
-  // }
+  @Post("stripe-intent")
+async createStripeIntent(@Body("amount") amount: number, @Body("currency") currency: string) {
+  return this.stripeService.createPaymentIntent(amount, currency);
+}
 
 
    

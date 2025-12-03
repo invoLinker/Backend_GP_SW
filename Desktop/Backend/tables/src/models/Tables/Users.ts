@@ -19,6 +19,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare deletedAt: Date;
 }
 
+
 User.init(
   {
     user_id: {
@@ -78,7 +79,8 @@ User.init(
     ID_image: {
       type: DataTypes.STRING,
       allowNull: true, 
-    }
+    },
+    
   },
   {
     sequelize,

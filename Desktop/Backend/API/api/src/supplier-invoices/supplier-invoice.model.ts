@@ -113,7 +113,7 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   currency:string;
 
   @Column({
-    type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
+    type: DataType.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),
     defaultValue: 'Cash',
   })
   payment_method: string;

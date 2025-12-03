@@ -51,7 +51,7 @@ export class StockService {
 
         if (existingStock) {
           // المنتج موجود مسبقًا، نجمع الكميات
-          existingStock.quantity += item.received_quantity;
+          existingStock.quantity += item.quantity;
           await existingStock.save();
           stockItems.push(existingStock);
         } else {
@@ -60,7 +60,7 @@ export class StockService {
             product_name: item.item_name,
             barcode: item.barcode,
             dn_id: gr.dn_id,
-            quantity: item.received_quantity,
+            quantity: item.quantity,
             unit: item.unit,
             expiration_date: item.expiration_date || null,
             status: 'Available',

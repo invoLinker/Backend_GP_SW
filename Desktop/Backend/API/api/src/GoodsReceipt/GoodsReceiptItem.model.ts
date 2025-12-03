@@ -15,7 +15,7 @@ export class GoodsReceiptItem extends Model<GoodsReceiptItem> {
   item_name!: string;
 
   @Column({ type: DataType.INTEGER, allowNull: false })
-  received_quantity!: number;
+  quantity!: number;
 
   @Column({ type: DataType.STRING, allowNull: true })
   unit!: string | null;

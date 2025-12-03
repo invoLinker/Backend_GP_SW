@@ -6,7 +6,7 @@ export class GoodsReceiptItem extends Model<InferAttributes<GoodsReceiptItem>, I
   declare gri_id: number;
   declare gr_id: number | null; 
   declare item_name: string;
-  declare received_quantity: number; 
+  declare quantity: number; 
   declare unit: string | null;
   declare barcode: string ; 
   declare notes: string | null;
@@ -29,7 +29,7 @@ GoodsReceiptItem.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    received_quantity: {
+    quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,
     },

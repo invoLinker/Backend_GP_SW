@@ -989,5 +989,38 @@ async getItemBarName(id: string) {
 }
 
 
+ async getReadyForPaidInvoices() {
+  const pos = await this.poModel.findAll({
+    where: { status: ['ReadyForPaid', 'Partial_paid'] },
+    include: [{ model: PurchaseOrderItem, as: 'items' }],
+    order: [['createdAt', 'DESC']],
+  });
+
+  const enriched: any[] = []; // حل الخطأ
+
+  for (const po of pos) {
+    let supplierFullName: string | null = null;
+
+    if (po.supplier_email) {
+      const user = await this.userModel.findOne({
+        where: { email: po.supplier_email },
+        attributes: ['first_name', 'last_name'],
+      });
+
+      if (user) {
+        supplierFullName = `${user.first_name} ${user.last_name}`;
+      }
+    }
+
+    enriched.push({
+      ...po.toJSON(),
+      supplier_name: supplierFullName,
+    });
+  }
+
+  return enriched;
+}
+
+
 
 }

@@ -330,6 +330,7 @@ export class UsersController {
     }
   }
 
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('profile_image'))

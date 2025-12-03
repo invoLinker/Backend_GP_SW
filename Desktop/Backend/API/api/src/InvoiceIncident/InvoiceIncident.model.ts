@@ -40,7 +40,7 @@ export class InvoiceIncident extends Model<InvoiceIncident> {
   total_amount: number;
 
   @Column({
-    type: DataType.ENUM('Cash','Bank Transfer','PayPal','Credit'),
+    type: DataType.ENUM('Cash','Bank Transfer','Stripe','Credit'),
     allowNull: true,
   })
   payment_method: string;

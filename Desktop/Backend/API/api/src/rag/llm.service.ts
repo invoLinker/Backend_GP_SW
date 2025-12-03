@@ -25,21 +25,22 @@
 //     const systemPrompt = `
 // You are an expert MySQL SQL generator for a financial/accounting system.
 
-// Your ONLY task:
-// Convert natural-language questions (Arabic or English) into a VALID MySQL SELECT query.
+// Your ONLY job:
+// Convert a natural-language question into one valid MySQL SELECT query.
 
 // STRICT OUTPUT RULES:
-// - Return SQL ONLY.
-// - NO markdown.
-// - NO backticks.
-// - NO explanations.
-// - NO comments.
-// - ONLY a valid SELECT query.
-// - NEVER generate UPDATE, INSERT, DELETE.
+// - Output SQL ONLY.
+// - No markdown.
+// - No backticks.
+// - No explanations.
+// - No comments.
+// - No CTEs unless required.
+// - MUST be a single SELECT – never multi-statement.
+// - NEVER use INSERT/UPDATE/DELETE.
 
-// ---------------------------------------
-// VALID TABLE NAMES (USE EXACTLY THESE):
-// ---------------------------------------
+// ------------------------------------------------------
+// DATABASE TABLES (use EXACT lowercase names ONLY)
+// ------------------------------------------------------
 // purchaseorders
 // purchaseorderitems
 // supplier_invoices
@@ -50,112 +51,179 @@
 // goods_receipt_items
 // user
 
-// IMPORTANT TABLE RULES:
-// - ALL table names MUST be lowercase.
-// - NEVER use PascalCase or camelCase versions.
-// - NEVER invent table names.
-// - NEVER use "users" (plural). Correct table name is: user
+// ------------------------------------------------------
+// RELATION RULES (ALWAYS APPLY THEM)
+// ------------------------------------------------------
+// purchaseorderitems.po_id          = purchaseorders.po_id
+// supplier_invoices.po_number       = purchaseorders.po_number
+// supplier_invoice_items.invoice_id = supplier_invoices.invoice_id
 
-// RELATION RULES:
-// - purchaseorderitems.po_id = purchaseorders.po_id
-// - supplier_invoices.po_number = purchaseorders.po_number
-// - supplier_invoice_items.invoice_id = supplier_invoices.invoice_id
-// - delivery_notes.po_number = purchaseorders.po_number
-// - delivery_note_items.dn_id = delivery_notes.dn_id
-// - goods_receipts.po_number = purchaseorders.po_number
-// - goods_receipt_items.gr_id = goods_receipts.gr_id
-// - For comparing items: item_name/item_name and barcode must match.
+// delivery_notes.po_number          = purchaseorders.po_number
+// delivery_note_items.dn_id         = delivery_notes.dn_id
 
-// ------------------------------------------
-// AGGREGATION SAFETY RULES (VERY IMPORTANT):
-// ------------------------------------------
-// To avoid multiplying rows:
+// goods_receipts.po_number          = purchaseorders.po_number
+// goods_receipt_items.gr_id         = goods_receipts.gr_id
 
-// 1) When summing PO quantities:
-//    Use:
-//       SUM(poi.quantity)
-//    NEVER join PO → GR items directly without grouping.
+// Item matching MUST use BOTH:
+// - item_name
+// - barcode
 
-// 2) When summing GR quantities:
-//    Use:
-//       SUM(gri.received_quantity)
-//    Join:
-//       goods_receipts gr ON gr.po_number = po.po_number
-//       goods_receipt_items gri ON gri.gr_id = gr.gr_id
+// ------------------------------------------------------
+// 🚨 CRITICAL REALITY OF THIS SYSTEM
+// ------------------------------------------------------
+// The SAME item (same name + barcode) may appear in MULTIPLE rows in:
+// - purchaseorderitems
+// - delivery_note_items
+// - goods_receipt_items
+// - supplier_invoice_items
 
-// 3) When summing Invoice quantities:
-//    Use:
-//       SUM(sii.quantity)
-//    Join:
-//       supplier_invoice_items sii ON sii.invoice_id = si.invoice_id
+// THEREFORE:
+// ❌ NEVER compare row-level quantities.
+// ✔ ALWAYS aggregate per item using SUM().
+// ✔ ALWAYS group by item_name + barcode.
 
-// 4) NEVER let JOINs between PO × GR × Invoice multiply rows.
-//    ALWAYS aggregate per item or use separate subquery aggregations.
+// ------------------------------------------------------
+// 🚨 FAN-OUT RULE — NEVER SUM OVER JOINED TABLES
+// ------------------------------------------------------
+// Joining PO × DN × GR creates row multiplication → WRONG totals.
 
-// --------------------------------------
-// FULL SAFE JOIN TEMPLATE (USE THIS):
-// --------------------------------------
+// To avoid this:
+// ✔ ALL SUM operations MUST be isolated per table (subqueries).
+// ✔ NEVER put SUM(...) directly on joined tables.
+
+// ------------------------------------------------------
+// ✔ TEMPLATE FOR ITEM-WISE QUANTITY COMPARISON
+// ------------------------------------------------------
+// You MUST generate SQL following this structure:
+
 // SELECT
 //   poi.item_name,
-//   poi.quantity AS po_quantity,
-//   dni.quantity AS dn_quantity,
-//   gri.received_quantity AS gr_quantity,
-//   sii.quantity AS invoice_quantity,
-//   po.po_number,
-//   dn.dn_number,
-//   gr.gr_number,
-//   si.invoice_number
+//   poi.barcode,
+
+//   (SELECT SUM(quantity)
+//    FROM purchaseorderitems
+//    WHERE po_id = poi.po_id
+//      AND item_name = poi.item_name
+//      AND barcode = poi.barcode
+//   ) AS po_quantity,
+
+//   (SELECT SUM(dni.quantity)
+//    FROM delivery_note_items dni
+//    JOIN delivery_notes dn ON dn.dn_id = dni.dn_id
+//    WHERE dn.po_number = po.po_number
+//      AND dni.item_name = poi.item_name
+//      AND dni.barcode = poi.barcode
+//   ) AS dn_quantity,
+
+//   (SELECT SUM(gri.quantity)
+//    FROM goods_receipt_items gri
+//    JOIN goods_receipts gr ON gr.gr_id = gri.gr_id
+//    WHERE gr.po_number = po.po_number
+//      AND gri.item_name = poi.item_name
+//      AND gri.barcode = poi.barcode
+//   ) AS gr_quantity,
+
+//   (SELECT SUM(sii.quantity)
+//    FROM supplier_invoice_items sii
+//    JOIN supplier_invoices si ON si.invoice_id = sii.invoice_id
+//    WHERE si.po_number = po.po_number
+//      AND sii.item_name = poi.item_name
+//      AND sii.barcode = poi.barcode
+//   ) AS invoice_quantity
+
 // FROM purchaseorderitems poi
 // JOIN purchaseorders po ON poi.po_id = po.po_id
-// LEFT JOIN delivery_notes dn ON dn.po_number = po.po_number
-// LEFT JOIN delivery_note_items dni
-//   ON dni.dn_id = dn.dn_id
-//   AND dni.item_name = poi.item_name
-//   AND dni.barcode = poi.barcode
-// LEFT JOIN supplier_invoices si ON si.po_number = po.po_number
-// LEFT JOIN supplier_invoice_items sii
-//   ON sii.invoice_id = si.invoice_id
-//   AND sii.item_name = poi.item_name
-//   AND sii.barcode = poi.barcode
-// LEFT JOIN goods_receipts gr ON gr.po_number = po.po_number
-// LEFT JOIN goods_receipt_items gri
-//   ON gri.gr_id = gr.gr_id
-//   AND gri.item_name = poi.item_name
-//   AND gri.barcode = poi.barcode
-// WHERE <condition>;
+// WHERE po.po_number = '<PO_NUMBER>'
+// GROUP BY poi.item_name, poi.barcode;
 
-// ============================================================
-// ### 🚨 CRITICAL NEW RULE — PREVENT WRONG TOTALS
-// ============================================================
-// When calculating totals (ordered vs received vs delivered), ALWAYS use SEPARATE aggregated subqueries.
+// ------------------------------------------------------
+// ✔ FILTER RULES (use HAVING with aggregated/subquery values ONLY)
+// ------------------------------------------------------
+// Example filters:
+// HAVING gr_quantity <> dn_quantity
+// HAVING po_quantity < gr_quantity
 
-// NEVER join purchaseorderitems with goods_receipt_items or delivery_note_items directly when using SUM, because it causes row-duplication and incorrect totals.
+// ------------------------------------------------------
+// 🚨 SPECIAL CORRECTNESS RULE FOR GR vs INVOICE MISMATCH
+// ------------------------------------------------------
+// ❌ DO NOT compute mismatch counts using CASE WHEN comparisons between row-level records.
+// ❌ NEVER compare gri.quantity <> sii.quantity row-to-row.
 
-// Correct pattern:
+// ✔ ALWAYS compare total received vs total invoiced per item using subqueries.
+// ✔ Return mismatches ONLY where:
+// - aggregated totals differ, OR
+// - invoice total is NULL.
+
+// Correct template (must be followed):
+
+// SELECT
+//   gri.item_name,
+//   gri.barcode,
+//   (SELECT SUM(quantity)
+//    FROM goods_receipt_items gri2
+//    JOIN goods_receipts gr2 ON gr2.gr_id = gri2.gr_id
+//    WHERE gr2.po_number='<PO>'
+//      AND gri2.item_name=gri.item_name
+//      AND gri2.barcode=gri.barcode
+//   ) AS gr_quantity,
+//   (SELECT SUM(quantity)
+//    FROM supplier_invoice_items sii
+//    JOIN supplier_invoices si ON si.invoice_id=sii.invoice_id
+//    WHERE si.po_number='<PO>'
+//      AND sii.item_name=gri.item_name
+//      AND sii.barcode=gri.barcode
+//   ) AS invoice_quantity
+// FROM goods_receipt_items gri
+// JOIN goods_receipts gr ON gr.gr_id=gri.gr_id
+// WHERE gr.po_number='<PO>'
+// GROUP BY gri.item_name,gri.barcode
+// HAVING invoice_quantity IS NULL
+//    OR invoice_quantity <> gr_quantity;
+
+// ------------------------------------------------------
+// ✔ TOTAL PO-LEVEL AGGREGATION (NEVER in joined queries!)
+// ------------------------------------------------------
+// Always generate totals using isolated subqueries.
+
+// Example:
 
 // SELECT
 //   (SELECT SUM(quantity)
 //    FROM purchaseorderitems
-//    WHERE po_id = (SELECT po_id FROM purchaseorders WHERE po_number = 'PO-X')
+//    WHERE po_id = (SELECT po_id FROM purchaseorders WHERE po_number='PO-X')
 //   ) AS total_ordered,
 
-//   (SELECT SUM(gri.received_quantity)
-//    FROM goods_receipts gr
-//    JOIN goods_receipt_items gri ON gri.gr_id = gr.gr_id
-//    WHERE gr.po_number = 'PO-X'
+//   (SELECT SUM(dni.quantity)
+//    FROM delivery_note_items dni
+//    JOIN delivery_notes dn ON dn.dn_id = dni.dn_id
+//    WHERE dn.po_number='PO-X'
+//   ) AS total_delivered,
+
+//   (SELECT SUM(quantity)
+//    FROM goods_receipt_items gri
+//    JOIN goods_receipts gr ON gr.gr_id = gri.gr_id
+//    WHERE gr.po_number='PO-X'
 //   ) AS total_received;
 
-// This is the ONLY correct way to compute totals.
-// --------------------------------------
-// USER NAME RULE:
-// --------------------------------------
+// ------------------------------------------------------
+// ✔ USER FULL NAME RULE
+// ------------------------------------------------------
 // To match full name:
 //   CONCAT(user.first_name, ' ', user.last_name)
 
-// --------------------------------------
-// DATABASE SCHEMA:
-// --------------------------------------
+// ------------------------------------------------------
+// FINAL BEHAVIOR GUARANTEES
+// ------------------------------------------------------
+// - ALWAYS use isolated subqueries.
+// - NEVER aggregate across JOINs.
+// - NEVER compare individual rows between GR and Invoice.
+// - ALWAYS group by item_name + barcode.
+// - ALWAYS return SQL ONLY.
+
+// ------------------------------------------------------
+// DATABASE SCHEMA REFERENCE:
 // ${DB_SCHEMA}
+
 // `;
 
 //     const res = await this.client.chat.completions.create({
@@ -284,6 +352,7 @@
 //   }
 // }
 
+
 import { Injectable } from "@nestjs/common";
 import OpenAI from "openai";
 import { DB_SCHEMA } from "./db-schema";
@@ -309,22 +378,23 @@ export class LlmService {
    */
   async generateSQL(question: string): Promise<string> {
     const systemPrompt = `
-You are an expert MySQL SQL generator for a financial/accounting system.
+You are an elite MySQL query generator for an ERP/Accounting system.
 
-Your ONLY task:
-Convert natural-language questions (Arabic or English) into a VALID MySQL SELECT query.
+Your ONLY duty:
+Convert a natural-language question into ONE valid MySQL SELECT query.
 
 STRICT OUTPUT RULES:
 - Output SQL ONLY.
 - No markdown.
-- No comments.
-- No explanations.
 - No backticks.
-- A single SELECT query only.
-- NEVER generate UPDATE, INSERT, DELETE, or multiple statements.
+- No explanations.
+- No comments.
+- No CTEs unless unavoidable.
+- MUST be a single SELECT statement.
+- NEVER produce INSERT/UPDATE/DELETE.
 
 ------------------------------------------------------
-VALID TABLE NAMES (USE EXACTLY THESE — LOWERCASE ONLY)
+DATABASE TABLES (USE EXACT NAMES — LOWERCASE ONLY)
 ------------------------------------------------------
 purchaseorders
 purchaseorderitems
@@ -336,14 +406,8 @@ goods_receipts
 goods_receipt_items
 user
 
-IMPORTANT NAMING RULES:
-- All table names MUST be lowercase.
-- NEVER use PascalCase or camelCase.
-- NEVER invent new table names.
-- The users table is EXACTLY: user (NOT users).
-
 ------------------------------------------------------
-RELATION RULES (MUST ALWAYS FOLLOW THESE)
+RELATION RULES (MUST ALWAYS APPLY)
 ------------------------------------------------------
 purchaseorderitems.po_id          = purchaseorders.po_id
 supplier_invoices.po_number       = purchaseorders.po_number
@@ -355,43 +419,36 @@ delivery_note_items.dn_id         = delivery_notes.dn_id
 goods_receipts.po_number          = purchaseorders.po_number
 goods_receipt_items.gr_id         = goods_receipts.gr_id
 
-Item matching rules:
-purchaseorderitems.item_name = delivery_note_items.item_name
-purchaseorderitems.item_name = goods_receipt_items.item_name
-purchaseorderitems.item_name = supplier_invoice_items.item_name
-barcode MUST match across all tables.
+Item matching ALWAYS uses BOTH:
+item_name AND barcode.
 
 ------------------------------------------------------
-### 🚨 CRITICAL RULE — ITEMS MAY APPEAR IN MULTIPLE ROWS
+🚨 CRITICAL SYSTEM REALITY
 ------------------------------------------------------
-An item (same item_name + barcode) may appear multiple times in:
+The SAME item (same name + barcode) may appear in multiple rows in:
 - purchaseorderitems
 - delivery_note_items
 - goods_receipt_items
 - supplier_invoice_items
 
 THEREFORE:
-- NEVER compare row-level quantities.
-- ALWAYS aggregate using SUM().
-- ALWAYS group per item_name + barcode.
+❌ NEVER compare row-level quantities.
+✔ ALWAYS aggregate per item using SUM().
+✔ ALWAYS group by item_name + barcode (+ po_number when needed).
 
 ------------------------------------------------------
-### 🚨 ABSOLUTE RULE — NEVER SUM OVER JOINED TABLES
+🚨 FAN-OUT PREVENTION RULE
 ------------------------------------------------------
-JOINING PO × DN × GR × Invoice multiplies rows (Fan-out problem):
-This leads to wrong totals (e.g., 50 × 2 = 100).
+Joining PO × DN × GR × Invoice creates row multiplication → WRONG totals.
 
-To avoid WRONG TOTALS:
-ALL AGGREGATIONS MUST BE DONE USING **SEPARATE SUBQUERIES ONLY**.
-
-DO NOT place SUM() on joined tables directly.
-DO NOT aggregate inside a multi-table JOIN.
+To avoid this:
+✔ ALL SUM operations MUST be in isolated subqueries.
+✔ NEVER apply SUM() over joined tables directly.
 
 ------------------------------------------------------
-### 🚨 TEMPLATE FOR CORRECT PER-ITEM COMPARISON
+✔ THE ONLY CORRECT PATTERN FOR ITEM FLOW COMPARISON
 ------------------------------------------------------
-When comparing PO vs DN vs GR vs Invoice quantities,
-you MUST generate SQL using **subqueries per item**, like this:
+You MUST build logic using this template shape:
 
 SELECT
   poi.item_name,
@@ -412,7 +469,7 @@ SELECT
      AND dni.barcode = poi.barcode
   ) AS dn_quantity,
 
-  (SELECT SUM(gri.received_quantity)
+  (SELECT SUM(gri.quantity)
    FROM goods_receipt_items gri
    JOIN goods_receipts gr ON gr.gr_id = gri.gr_id
    WHERE gr.po_number = po.po_number
@@ -430,28 +487,23 @@ SELECT
 
 FROM purchaseorderitems poi
 JOIN purchaseorders po ON poi.po_id = po.po_id
-WHERE po.po_number = '<PO_NUMBER>'
+WHERE <CONDITION>
 GROUP BY poi.item_name, poi.barcode;
 
 ------------------------------------------------------
-### 🚨 ALWAYS GROUP BY ITEM_NAME AND BARCODE
+✔ HAVING RULES FOR MISMATCH DETECTION
 ------------------------------------------------------
-When subqueries are used per item:
-  GROUP BY poi.item_name, poi.barcode
+You MUST use HAVING only on aggregated/subquery output values.
+
+Examples:
+HAVING po_quantity <> dn_quantity
+HAVING gr_quantity > po_quantity
+HAVING invoice_quantity IS NULL
 
 ------------------------------------------------------
-### 🚨 ITEM-LEVEL FILTER RULE
+✔ TOTAL-PER-PO METRICS (MUST NEVER be computed in joined queries)
 ------------------------------------------------------
-When filtering based on quantity differences:
-ALWAYS use HAVING with aggregated values, like:
-
-HAVING gr_quantity <> dn_quantity
-HAVING po_quantity < gr_quantity
-
-------------------------------------------------------
-### 🚨 TOTAL PO VALUES MUST USE SUBQUERIES
-------------------------------------------------------
-For entire PO totals (not per item) ALWAYS generate:
+Totals MUST follow isolated-subquery structure:
 
 SELECT
  (SELECT SUM(quantity)
@@ -465,33 +517,30 @@ SELECT
   WHERE dn.po_number = 'PO-X'
  ) AS total_delivered,
 
- (SELECT SUM(gri.received_quantity)
+ (SELECT SUM(gri.quantity)
   FROM goods_receipt_items gri
   JOIN goods_receipts gr ON gr.gr_id = gri.gr_id
   WHERE gr.po_number = 'PO-X'
  ) AS total_received;
 
 ------------------------------------------------------
-USER FULL NAME RULE
+✔ USER NAME RULE
 ------------------------------------------------------
-To match full name:
-CONCAT(user.first_name, ' ', user.last_name)
+To return full name:
+  CONCAT(user.first_name, ' ', user.last_name)
 
 ------------------------------------------------------
-FINAL RULES SUMMARY:
+FINAL ENFORCEMENT
 ------------------------------------------------------
-- ALWAYS aggregate using isolated subqueries.
-- NEVER sum directly across JOINs.
-- NEVER allow PO × DN × GR × Invoice fan-out.
-- ALWAYS group by item_name + barcode for item comparison.
-- ALWAYS return SQL ONLY.
-- NEVER invent table names or fields.
-
+- ALWAYS isolate SUM() using subqueries.
+- NEVER aggregate inside joined result sets.
+- NEVER allow fan-out multiplication.
+- ALWAYS group by item_name + barcode when returning item-level results.
+- ALWAYS output one valid SELECT query and nothing else.
 
 ------------------------------------------------------
-DATABASE SCHEMA:
+DATABASE REFERENCE:
 ${DB_SCHEMA}
-
 
 `;
 
@@ -620,4 +669,5 @@ ${JSON.stringify(cleanRows)}
     return res.choices[0].message?.content?.trim() ?? "No answer.";
   }
 }
+
 

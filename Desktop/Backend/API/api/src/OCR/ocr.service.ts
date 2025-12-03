@@ -87,7 +87,7 @@ export class OcrService {
         - vat
         - discount
         - total_amount
-        - payment_method (Cash or Bank Transfer or PayPal or Credit by default Bank Transfer)
+        - payment_method (Cash or Bank Transfer or Stripe or Credit by default Bank Transfer)
         - notes
         - supplier_email
         - supplier_name

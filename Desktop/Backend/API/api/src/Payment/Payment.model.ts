@@ -1,6 +1,14 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, CreatedAt, UpdatedAt } from 'sequelize-typescript';
 import { SupplierInvoice } from '../supplier-invoices/supplier-invoice.model'; 
 
+export enum PaymentMethod {
+  CASH = 'Cash',
+  BANK_TRANSFER = 'Bank Transfer',
+  STRIPE = 'Stripe',
+  CREDIT = 'Credit',
+}
+
+
 @Table({
   tableName: 'payments',
   timestamps: true
@@ -43,16 +51,16 @@ export class Payment extends Model<Payment> {
   remaining_amount: number;
 
   @Column({
-    type: DataType.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
+    type: DataType.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),
     allowNull: false
   })
-  payment_method: 'Cash'| 'Bank Transfer'| 'PayPal'| 'Credit'; 
+  payment_method: PaymentMethod; 
 
   @Column({
     type: DataType.ENUM('USD' , 'ILS' , 'JOD'),
     defaultValue: 'ILS'
   })
-  currency: 'USD' | 'ILS' | 'JOD';
+  currency:string;
 
   @Column({
     type: DataType.TEXT,
@@ -87,6 +95,6 @@ installment_amount: number;
   defaultValue: 'ILS',
   comment: 'Currency used for payment' 
 })
-currency_paid: 'USD' | 'ILS' | 'JOD';
+currency_paid: string;
 
 }

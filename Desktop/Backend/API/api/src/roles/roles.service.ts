@@ -11,7 +11,7 @@ const allowedRoles = [
   'Accountant',
   'Warehouse',
   'Supplier',
-  'Payment Officer',
+  'PaymentOfficer',
   'Viewer',
 ];
 

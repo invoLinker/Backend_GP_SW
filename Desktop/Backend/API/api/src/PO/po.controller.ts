@@ -95,6 +95,13 @@ async approveOrReject(
   }
   
 
+  @Get('status/ReadyForPaid')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('search_supplier-invoices')
+  async getReadyForPaidInvoices() {
+    return this.poService.getReadyForPaidInvoices();
+  }
+
   @Get('supplier/:id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')

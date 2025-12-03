@@ -1,47 +1,3 @@
-// const { DataTypes } = require('sequelize');
-// const sequelize = require('../../db'); 
-// const GoodsReceipt = require('./GoodsReceipts')
-
-// const Payment = sequelize.define('Payment',{
-//     payment_id:{
-//     type: DataTypes.INTEGER,
-//     primaryKey: true,
-//     autoIncrement: true
-//   },
-//   gr_id:{
-//     type: DataTypes.INTEGER,
-//     allowNull: false
-//   },
-//   amount:{
-//     type: DataTypes.DECIMAL(12,2),
-//     allowNull: true
-//   },
-//   payment_date:{
-//      type:DataTypes.DATE,
-//   },
-//   payment_method:{
-//         type:DataTypes.ENUM(
-//             'Cash','Credit','PayPal','Stripe'
-//         ), defaultValue:'Cash',
-//   },
-//   currency:{
-//         type:DataTypes.ENUM(
-//             'USD',
-//             'ILS',
-//             'JOD'
-//         ),defaultValue:'ILS',
-//         allowNull:false
-//     }
-// },{
-//     tableName: 'Payments',
-//   timestamps: true
-// });
-
-// GoodsReceipt.hasMany(Payment , {foreignKey: 'gr_id'});
-// Payment.belongsTo(GoodsReceipt,{foreignKey: 'gr_id'});
-
-// module.exports = Payment;
-
 import { DataTypes, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
 import { sequelize } from '../../db';
 import { GoodsReceipts } from './GoodsReceipts';
@@ -52,7 +8,7 @@ export class Payment extends Model<InferAttributes<Payment>, InferCreationAttrib
   declare invoice_id: number;
   declare amount?: number;
   declare payment_date?: Date;
-  declare payment_method: 'Cash' | 'Bank Transfer' | 'PayPal' | 'Credit';
+  declare payment_method: 'Cash' | 'Bank Transfer' | 'Stripe' | 'Credit';
   declare currency: 'USD' | 'ILS' | 'JOD';
   declare amount_paid: number;
   declare remaining_amount: number;
@@ -89,7 +45,7 @@ Payment.init(
       allowNull: false,
     },
     payment_method: {
-      type: DataTypes.ENUM('Cash', 'Bank Transfer', 'PayPal', 'Credit'),
+      type: DataTypes.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),
       allowNull: false,
     },
     currency: {

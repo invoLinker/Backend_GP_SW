@@ -12,6 +12,12 @@ export class CreateGoodsReceiptDto {
   @IsOptional()
   po_number?: string;
 
+  @IsOptional()
+  gr_date?: string;
+
+  @IsOptional()
+  note?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => GoodsReceiptItemDto)

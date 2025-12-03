@@ -162,12 +162,6 @@ export class SupplierInvoiceController {
   //   return this.supplierInvoiceService.getItemBarName(si_number);
   // }
   
-  @Get('status/:status')
-  @UseGuards(JwtAuthGuard)
-  @PermissionName('search_supplier-invoices')
-  async getInvoicesByStatus(@Param('status') status: string) {
-    return this.supplierInvoiceService.getInvoicesByStatus(status);
-  }
 
   @Get('all')
   @UseGuards(JwtAuthGuard)

@@ -15,7 +15,7 @@ pdfUrl (TEXT, nullable)
 note (TEXT, nullable)
 is_verified (BOOLEAN)
 currency (ENUM: 'USD','ILS','JOD')
-payment_method (ENUM: 'Cash','Bank Transfer','PayPal','Credit')
+payment_method (ENUM: 'Cash','Bank Transfer','Stripe','Credit')
 company_name (VARCHAR)
 company_email (VARCHAR)
 company_phone (VARCHAR)
@@ -66,7 +66,7 @@ TABLE: supplier_invoices
     'Pending Verification','On Hold','Received','Incident',
     'Partial_paid','ReadyForPaid'
   ),
-  payment_method ENUM('Cash','Bank Transfer','PayPal','Credit'),
+  payment_method ENUM('Cash','Bank Transfer','Stripe','Credit'),
   notes TEXT,
   created_by INT,
   createdAt DATETIME,
@@ -180,7 +180,7 @@ TABLE: goods_receipt_items
 gri_id (INT, PK, auto_increment)
 gr_id (INT, FK -> goods_receipts.gr_id)
 item_name (VARCHAR)
-received_quantity (INT)
+quantity (INT)
 unit (VARCHAR)
 barcode (VARCHAR)
 notes (TEXT)

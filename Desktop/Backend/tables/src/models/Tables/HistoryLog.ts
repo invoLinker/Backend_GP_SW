@@ -5,7 +5,7 @@ export class HistoryLog extends Model<InferAttributes<HistoryLog>, InferCreation
   declare id: number;
   declare timestamp: Date;
   declare action: string;
-  declare description: string;
+  declare description: Text;
   declare user: string;
   declare userRole: string;
   declare category: 'auth' | 'system' | 'user' | 'security' | 'data' | 'config';
@@ -30,7 +30,7 @@ HistoryLog.init(
       allowNull: false,
     },
     description: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     user: {

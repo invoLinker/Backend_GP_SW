@@ -3,7 +3,7 @@ import { sequelize } from '../../db';
 
 export class Role extends Model<InferAttributes<Role>, InferCreationAttributes<Role>> {
   declare role_id: number;
-  declare role_name: 'Admin' | 'Accountant' | 'Warehouse' | 'Supplier' | 'Payment Officer' | 'Viewer' ;
+  declare role_name: 'Admin' | 'Accountant' | 'Warehouse' | 'Supplier' | 'PaymentOfficer' | 'Viewer' ;
   declare description:Text;
 }
 
@@ -20,7 +20,7 @@ Role.init(
       'Accountant',
       'Warehouse',
       'Supplier',
-      'Payment Officer',
+      'PaymentOfficer',
       'Viewer'
       ),
       allowNull: false,

@@ -24,7 +24,7 @@ export class Role extends Model<Role> {
       'Accountant',
       'Warehouse',
       'Supplier',
-      'Payment Officer',
+      'PaymentOfficer',
       'Viewer',
     ),
     allowNull: false,

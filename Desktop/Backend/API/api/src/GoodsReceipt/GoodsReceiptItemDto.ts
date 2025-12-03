@@ -6,7 +6,7 @@ export class GoodsReceiptItemDto {
   item_name!: string;
 
   @IsNotEmpty()
-  received_quantity!: number;
+  quantity!: number;
 
   @IsNotEmpty()
   unit!: string;
