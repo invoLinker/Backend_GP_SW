@@ -139,16 +139,18 @@ export class ChatService {
       'كيف حالك', 'كيفك', 'شلونك', 'شلون', 'وينك', 'وين',
       'صباح الخير', 'مساء الخير', 'مساء النور',
       'شكرا', 'شكراً', 'مشكور', 'تسلم', 'الله يسلمك',
-      'مع السلامة', 'باي', 'وداع',
+      'مع السلامة', 'باي', 'وداع', 'يسلمو',
 
       'hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening',
       'how are you', 'how do you do', 'what\'s up', 'sup',
       'thanks', 'thank you', 'bye', 'goodbye', 'see you',
       
       'ما هو المشروع', 'عن المشروع', 'عن النظام', 'ما هو النظام',
-      'ماذا تفعل', 'ماذا تقدر', 'شو تقدر', 'شو بتقدر',
+      'ماذا يفعل', 'ماذا تفعل', 'ماذا تقدر', 'شو تقدر', 'شو بتقدر',
+      'شو فكرته', 'شو فكرة', 'ما فكرته', 'ما فكرة', 'فكرة المشروع', 'فكرة النظام', 'فكرة',
       'what is the project', 'about the project', 'what is this system',
-      'what can you do', 'what do you do', 'tell me about',
+      'what can you do', 'what do you do', 'tell me about', 'what does it do', 'what does the project do',
+      'what is the idea', 'idea of', 'idea of the', 'what is the app', 'what is the application',
       'help', 'مساعدة', 'مساعدة', 'help me',
     ];
 
@@ -161,51 +163,66 @@ export class ChatService {
     const trimmedQuestion = question.trim().toLowerCase();
 
     const projectInfo = isArabic
-      ? `نظام إدارة المشتريات والفواتير (ERP/Accounting System)
+      ? `🔍 نظام إدارة المشتريات والفواتير (ERP/Accounting System)
 
-      هذا النظام يساعدك في إدارة:
-      - طلبات الشراء (Purchase Orders)
-      - فواتير الموردين (Supplier Invoices)
-      - سندات التسليم (Delivery Notes)
-      - إيصالات الاستلام (Goods Receipts)
-      - المدفوعات (Payments)
-      - المخزون (Stock)
-      - المهام (Tasks)
-      - المستخدمين والأدوار (Users & Roles)
+      هذا النظام يساعدك في:
+      - استقبال فواتير الموردين
+      - مطابقة الفواتير مع أوامر الشراء وسندات الاستلام
+      - كشف الأخطاء والتضارب تلقائيًا باستخدام الذكاء الاصطناعي
+      - تنبيه المسؤولين لاتخاذ القرار المناسب
+      - تتبع دورة حياة الفاتورة من الإنشاء حتى الدفع والموافقة
 
       يمكنني مساعدتك في:
-      - الإجابة على أسئلة عن البيانات في قاعدة البيانات
-      - تحليل البيانات والإحصائيات
+      - تحليل الفواتير والبيانات
       - البحث عن معلومات محددة
-      - مقارنة البيانات
+      - مقارنة البيانات بين المستندات
+      - كشف حالات الشذوذ وإعطاء ملاحظات
 
-      فقط اسألني أي سؤال عن البيانات وسأجيبك!`
-            : `Purchase Orders & Invoices Management System (ERP/Accounting)
+      فقط اسألني أي سؤال عن الفواتير أو النظام وسأساعدك!`
+      : `🔍 Purchase Orders & Invoices Management System (ERP/Accounting)
 
-      This system helps you manage:
-      - Purchase Orders
-      - Supplier Invoices
-      - Delivery Notes
-      - Goods Receipts
-      - Payments
-      - Stock
-      - Tasks
-      - Users & Roles
+      This platform helps you:
+      - Receive supplier invoices
+      - Match invoices with purchase orders and receipts
+      - Automatically detect discrepancies and errors using AI
+      - Notify responsible teams for review and decision-making
+      - Track invoice lifecycle from creation to approval and payment
 
       I can help you with:
-      - Answering questions about database data
-      - Data analysis and statistics
+      - Invoice analysis and data insight
       - Searching for specific information
-      - Comparing data
+      - Comparing invoices with reference documents
+      - Detecting anomalies and providing recommendations
 
-      Just ask me any question about the data and I'll answer!`;
+      Just ask me anything about invoices or the system — I'm here to help!`;
+
 
     if (trimmedQuestion.includes('مرحبا') || trimmedQuestion.includes('hello') || 
         trimmedQuestion.includes('hi') || trimmedQuestion.includes('hey') ||
         trimmedQuestion.includes('أهلا') || trimmedQuestion.includes('هلا')) {
       const greeting = isArabic
-        ? 'مرحباً! أهلاً وسهلاً بك. أنا مساعدك الذكي لمساعدتك في الإجابة على أسئلتك عن قاعدة البيانات.\n\n' + projectInfo
-        : 'Hello! Welcome. I\'m your smart assistant to help you answer questions about the database.\n\n' + projectInfo;
+        ? `مرحباً! 👋
+
+    أنا مساعدك الذكي في نظام ERP لإدارة المشتريات والفواتير.
+
+    هذا النظام يساعدك في:
+    • تتبع المشتريات وطلبات الشراء
+    • تدقيق الفواتير والمطابقة مع المستندات
+    • إدارة المخزون والمدفوعات
+    • تحليل البيانات والإحصائيات
+
+    اسألني أي سؤال عن البيانات وسأساعدك! 💬`
+            : `Hello! 👋
+
+    I'm your smart assistant for the ERP system for managing purchases and invoices.
+
+    This system helps you with:
+    • Tracking purchases and purchase orders
+    • Auditing invoices and matching with documents
+    • Managing inventory and payments
+    • Data analysis and statistics
+
+    Ask me any question about the data and I'll help you! 💬`;
       
       return {
         success: true,
@@ -218,9 +235,30 @@ export class ChatService {
       };
     }
 
+    // رد على "كيفك" أو "كيف حالك"
+    if (trimmedQuestion.includes('كيفك') || trimmedQuestion.includes('كيف حالك') ||
+        trimmedQuestion.includes('شلونك') || trimmedQuestion.includes('شلون') ||
+        trimmedQuestion.includes('how are you') || trimmedQuestion.includes('how do you do')) {
+      const howAreYou = isArabic
+        ? 'تمام وانت كيفك؟ 😊\n\nإذا عندك أي سؤال عن البيانات أو النظام، أنا جاهز!'
+        : 'I\'m doing great, thanks! How are you? 😊\n\nIf you have any questions about the data or system, I\'m here to help!';
+      
+      return {
+        success: true,
+        answer: howAreYou,
+        rows: [],
+        metadata: {
+          rowCount: 0,
+          executionTime: `${Date.now() - startTime}ms`,
+        },
+      };
+    }
+
     if (trimmedQuestion.includes('مشروع') || trimmedQuestion.includes('نظام') ||
         trimmedQuestion.includes('project') || trimmedQuestion.includes('system') ||
-        trimmedQuestion.includes('ماذا تفعل') || trimmedQuestion.includes('what can you')) {
+        trimmedQuestion.includes('app') || trimmedQuestion.includes('idea') ||
+         trimmedQuestion.includes('فكرة') ||
+        trimmedQuestion.includes('ماذا يفعل') || trimmedQuestion.includes('what can you')) {
       return {
         success: true,
         answer: projectInfo,
@@ -232,8 +270,8 @@ export class ChatService {
       };
     }
 
-    if (trimmedQuestion.includes('شكر') || trimmedQuestion.includes('thanks') ||
-        trimmedQuestion.includes('thank')) {
+    if (trimmedQuestion.includes('شكرا') || trimmedQuestion.includes('thanks') ||
+        trimmedQuestion.includes('thank') || trimmedQuestion.includes('يسلمو')) {
       const thanks = isArabic
         ? 'العفو! أنا هنا لمساعدتك دائماً. إذا كان لديك أي سؤال عن البيانات، فقط اسألني.'
         : 'You\'re welcome! I\'m always here to help. If you have any questions about the data, just ask me.';

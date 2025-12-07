@@ -96,6 +96,24 @@ export class ChatPermissionService {
   async checkQuestionPermissions(userRole: string, question: string): Promise<{ allowed: boolean; reason?: string }> {
     const questionLower = question.toLowerCase();
     
+    // Check if it's a general question about the system - ALLOW FOR EVERYONE
+    const generalKeywords = [
+      'مرحبا', 'hello', 'hi', 'hey', 'أهلا', 'هلا',
+      'مشروع', 'نظام', 'project', 'system', 'app', 'application',
+      'ماذا يفعل', 'ماذا تفعل', 'ماذا تقدر', 'شو تقدر', 'شو بتقدر',
+      'شو فكرته', 'شو فكرة', 'ما فكرته', 'ما فكرة', 'فكرة المشروع', 'فكرة النظام', 'فكرة',
+      'ما هو المشروع', 'عن المشروع', 'عن النظام', 'ما هو النظام',
+      'what is the project', 'about the project', 'what is this system',
+      'what can you do', 'what do you do', 'tell me about', 'what does it do', 'what does the project do',
+      'what is the idea', 'idea of', 'idea of the', 'what is the app', 'what is the application',
+      'help', 'مساعدة', 'شكرا', 'thanks', 'thank'
+    ];
+    
+    const isGeneral = generalKeywords.some(keyword => questionLower.includes(keyword));
+    if (isGeneral) {
+      return { allowed: true }; // General questions allowed for everyone
+    }
+    
     const normalizedRole = this.normalizeRoleName(userRole);
     console.log(`[Permission Check] Original role: "${userRole}", Normalized: "${normalizedRole}"`);
     const allowedTables = this.roleTables.get(normalizedRole) || [];
