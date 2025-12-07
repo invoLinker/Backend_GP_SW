@@ -26,7 +26,11 @@ export class GoodsReceipts extends Model<GoodsReceipts> {
   @Column({ type: DataType.TEXT, allowNull: true })
   notes!: string | null;
 
-  @Column({ type: DataType.ENUM('Pending', 'Received', 'Verified', 'Incident'), defaultValue: 'Pending' })
+  @Column({ type: DataType.ENUM('Pending', // اول ما ارفعها
+     'Received',
+      'Verified', // كلو تمام من الفيريفيكيشن
+      'Incident'), // في غلط بالفيريفيكيشن
+      defaultValue: 'Pending' })
   status!: 'Pending' | 'Received' | 'Verified' | 'Incident';
 
   @Column({ type: DataType.STRING, allowNull: true })

@@ -51,6 +51,7 @@
     "fetch-blob": "^4.0.0",
     "firebase-admin": "^13.5.0",
     "google-auth-library": "^10.5.0",
+    "groq-sdk": "^0.37.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.15.1",
     "node-fetch": "^2.7.0",

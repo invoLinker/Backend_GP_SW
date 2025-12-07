@@ -8,6 +8,7 @@ import { UpdateStockDto } from './UpdateStockDTO';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Op } from 'sequelize';
 import { FilterStockDto } from './FilterStockDto';
+import { PurchaseOrder } from 'src/PO/po.model';
 
 
 @Injectable()
@@ -18,67 +19,70 @@ export class StockService {
     @InjectModel(GoodsReceipts) private goodModel: typeof GoodsReceipts,
   ) {}
 
-  async create(invoiceId: number): Promise<Stock[]> {
-    // 1. تحقق أن الفاتورة جاهزة
-    const invoice = await this.invoiceModel.findByPk(invoiceId);
-    if (!invoice) throw new ConflictException('Invoice not found');
-    if (invoice.status !== 'ReadyForPaid') {
-      throw new ConflictException('Invoice is not ready to be added to stock');
-    }
+  async create(po_number: string){
+  // 1. validate PO exists
+  const po = await PurchaseOrder.findOne({
+    where: { po_number },
+  });
 
-    // 2. جلب كل GoodsReceipt الخاصة بهذه الفاتورة
-    const goodsReceipts = await this.goodModel.findAll({
-      where: { dn_id: invoiceId }, // تأكد من العلاقة الصحيحة
-      include: ['items'],
-    });
+  if (!po) throw new ConflictException('Purchase Order not found');
 
-    if (goodsReceipts.length === 0) {
-      throw new ConflictException('No goods receipts found for this invoice');
-    }
+  // 2. fetch goods receipts linked to this PO
+  const goodsReceipts = await this.goodModel.findAll({
+    where: { po_number },
+    include: ['items'],
+  });
 
-    const stockItems: Stock[] = [];
-
-    for (const gr of goodsReceipts) {
-      for (const item of gr.items) {
-        // البحث عن نفس المنتج بنفس barcode + expiration_date + dn_id
-        const existingStock = await this.stockModel.findOne({
-          where: {
-            dn_id: gr.dn_id,
-            barcode: item.barcode,
-            expiration_date: item.expiration_date || null,
-          },
-        }as any);
-
-        if (existingStock) {
-          // المنتج موجود مسبقًا، نجمع الكميات
-          existingStock.quantity += item.quantity;
-          await existingStock.save();
-          stockItems.push(existingStock);
-        } else {
-          // المنتج غير موجود، نضيفه كسطر جديد
-          const stockItem = await this.stockModel.create({
-            product_name: item.item_name,
-            barcode: item.barcode,
-            dn_id: gr.dn_id,
-            quantity: item.quantity,
-            unit: item.unit,
-            expiration_date: item.expiration_date || null,
-            status: 'Available',
-          } as any);
-          stockItems.push(stockItem);
-        }
-      }
-    }
-
-    return stockItems;
+  if (!goodsReceipts.length) {
+    throw new ConflictException('No Goods Receipts found for this PO');
   }
 
+  const stockItems: Stock[] = [];
 
-async takeFromStockByName(productName: string, quantityNeeded: number): Promise<string> {
+  for (const gr of goodsReceipts) {
+    for (const item of gr.items) {
+
+      const existingStock = await this.stockModel.findOne({
+        where: {
+          // item_name: item.item_name,
+          barcode:item.barcode,
+          expiration_date: item.expiration_date ?? null,
+        },
+      } as any);
+
+      if (existingStock) {
+        existingStock.quantity += item.quantity;
+        await existingStock.save();
+        stockItems.push(existingStock);
+      } else {
+        const stockItem = await this.stockModel.create({
+          item_name: item.item_name,
+          barcode: item.barcode,
+          quantity: item.quantity,
+          dn_id: gr.dn_id,   
+          unit: item.unit,
+          expiration_date: item.expiration_date ?? null,
+          po_number: po_number,  
+          status: 'Available',
+        } as any);
+        
+        stockItems.push(stockItem);
+      }
+    }
+  }
+
+  return {message: "Add Items To Stock Successfully"};
+}
+
+
+
+async takeFromStockByName(productName: string, quantityNeeded: number) {
   // 1️⃣ جلب كل السجلات للمنتج
-  const stocks = await this.stockModel.findAll({
-    where: { item_name: productName },
-  });
+ const stock = await this.stockModel.findAll();
+
+const stocks = stock.filter(s =>
+  s.item_name?.toLowerCase().trim() === productName.toLowerCase().trim()
+);
 
   if (stocks.length === 0) {
     throw new NotFoundException(`No stock found for product: ${productName}`);
@@ -126,66 +130,18 @@ async takeFromStockByName(productName: string, quantityNeeded: number): Promise<
   }
 
   // 5️⃣ رسالة للمستخدم
-  return `✅ Taken ${quantityNeeded} units of "${productName}". Use first the batches with expiration: ${usedBatches.join(', ')}`;
+return {
+  message: `✅ Taken ${quantityNeeded} units of "${productName}". Use first the batches with expiration: ${usedBatches.join(', ')}`
+};
 }
 
-async updateStockState(stockId: number, newStatus: 'Available' | 'Expired' | 'Reserved'|'OutOfStock'): Promise<Stock> {
-  const stock = await this.stockModel.findByPk(stockId);
-  if (!stock) throw new NotFoundException('Stock item not found');
-
-  const today = new Date();
-
-  // ⚠️ أول شي نفحص الكمية والصلاحية
-  if (stock.quantity === 0) {
-    stock.status = 'OutOfStock';
-      await stock.save();
-
-    throw new ConflictException('Cannot update status: stock quantity is zero (OutOfStock).');
-
-  } else if (stock.expiration_date && stock.expiration_date < today) {
-    stock.status = 'Expired';
-      await stock.save();
-
-    throw new ConflictException('Cannot update status: product is expired.');
-
-  } else {
-    stock.status = newStatus!;
-  }
-
-  await stock.save();
-  return stock;
-}
-
-async updateStockExpiration(stockId: number, newExpiration: string | Date): Promise<Stock> {
-  const stock = await this.stockModel.findByPk(stockId);
-  if (!stock) throw new NotFoundException('Stock item not found');
-
-  const today = new Date();
-  const newExpDate = newExpiration instanceof Date ? newExpiration : new Date(newExpiration);
-
-  if (stock.quantity === 0) {
-    stock.status = 'OutOfStock';
-      await stock.save();
-
-    throw new ConflictException('Cannot update expiration date: stock  is already (OutOfStock).');
-  } else {
-    if (newExpDate < today) {
-      stock.expiration_date = newExpDate;
-      stock.status = 'Expired';
-    } else {
-      stock.expiration_date = newExpDate;
-      stock.status = 'Available';
-    }
-  }
-
-  await stock.save();
-  return stock;
-}
 
 
 
 @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async checkExpiredStock() {
+      console.log('⭐ CRON is running - expiration check started');
+
     const today = new Date();
 
     // جلب كل السجلات اللي حالتها مش Expired
@@ -315,4 +271,113 @@ async updateStockExpiration(stockId: number, newExpiration: string | Date): Prom
 
     return Object.values(grouped);
   }
+
+  async returnToStockByName(
+  productName: string,
+  qtyReturned: number
+) {
+
+  // 1️⃣ fetch records case-insensitive
+  const stockRecords = await this.stockModel.findAll();
+
+  const stocks = stockRecords.filter(s =>
+    s.item_name?.toLowerCase().trim() === productName.toLowerCase().trim()
+  );
+
+  if (stocks.length === 0) {
+    throw new NotFoundException(`No stock found for product: ${productName}`);
+  }
+
+  // 2️⃣ sort by expiry — earliest first
+  const sortedStocks = stocks.sort((a, b) => {
+    if (!a.expiration_date && !b.expiration_date) return 0;
+    if (!a.expiration_date) return 1;
+    if (!b.expiration_date) return -1;
+    return a.expiration_date.getTime() - b.expiration_date.getTime();
+  });
+
+  let remaining = qtyReturned;
+  const returnedInfo: string[] = [];
+
+  for (const stock of sortedStocks) {
+    if (remaining <= 0) break;
+
+    // simulate FIFO return — return batch-by-batch
+    const exp = stock.expiration_date
+      ? stock.expiration_date.toISOString().split("T")[0]
+      : "No Expiration Date";
+
+    // add to this batch only the amount returned against what was consumed
+    const qtyToReturn = remaining; // FIFO: return first to earliest batch
+
+    stock.quantity += qtyToReturn;
+    await stock.save();
+
+    remaining -= qtyToReturn;
+  }
+
+  return {message: "♻ Return to Stock successfully"};
+}
+
+
+ async updateStockRecord(
+  stockId: number,
+  status?: 'Available' | 'Expired' | 'Reserved' | 'OutOfStock',
+  expiration_date?: Date | null
+) {
+  const stock = await this.stockModel.findByPk(stockId);
+  if (!stock) throw new NotFoundException('Stock item not found');
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
+  // ✔ تطبيق التاريخ أولاً إذا كان محدداً
+  if (expiration_date !== undefined) {
+    stock.expiration_date = expiration_date;
+  }
+
+  // ✔ فحص expiration_date أولاً
+  const expirationDate = stock.expiration_date ? new Date(stock.expiration_date) : null;
+  if (expirationDate) {
+    expirationDate.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    // إذا التاريخ expired، status يجب أن يكون 'Expired' دائماً
+    if (expirationDate < today) {
+      stock.status = 'Expired';
+      await stock.save();
+      return {message: "Stock updated successfully - Status set to Expired because expiration date has passed"};
+    }
+    
+    // إذا التاريخ لسا مطول (لم ينتهي) والمستخدم حط status 'Expired'، نصححه
+    if (expirationDate >= today && status === 'Expired') {
+      // التاريخ لم ينتهي بعد، نصحح status إلى 'Available' (أو نتركه كما هو إذا كان مناسب)
+      if (stock.quantity === 0) {
+        stock.status = 'OutOfStock';
+      } else {
+        stock.status = 'Available';
+      }
+      await stock.save();
+      return {message: "Stock updated successfully - Status corrected to Available because expiration date has not passed yet"};
+    }
+  }
+
+  // ✔ تطبيق الحالة إذا لم يكن expired
+  if (status !== undefined) {
+    if (status === 'Available' && stock.quantity === 0) {
+      stock.status = 'OutOfStock';
+    } else {
+      stock.status = status;
+    }
+  } else {
+    // إذا المستخدم ما حدد status، نفحص الكمية تلقائياً
+    if (stock.quantity === 0 && stock.status !== 'Expired') {
+      stock.status = 'OutOfStock';
+    }
+  }
+
+  await stock.save();
+  return {message: "Stock updated successfully"};
+}
+
+
 }

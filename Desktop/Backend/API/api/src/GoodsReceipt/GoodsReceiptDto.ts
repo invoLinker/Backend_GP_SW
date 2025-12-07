@@ -3,8 +3,8 @@ import { Type } from 'class-transformer';
 import { GoodsReceiptItemDto } from './GoodsReceiptItemDto';
 
 export class CreateGoodsReceiptDto {
-  @IsNotEmpty()
-  dn_number!: string;
+  @IsOptional()
+  dn_number?: string;
 
   @IsOptional()
   notes?: string;
@@ -19,7 +19,8 @@ export class CreateGoodsReceiptDto {
   note?: string;
 
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => GoodsReceiptItemDto)
-  items!: GoodsReceiptItemDto[];
+  items?: GoodsReceiptItemDto[];
 }

@@ -31,7 +31,13 @@ export class DeliveryNote extends Model<DeliveryNote> {
   supplier_address!: string;
 
   @Column({ 
-    type: DataType.ENUM('Pending','Verified','Approved','Rejected','Received','Incident'), 
+    type: DataType.ENUM(
+      'Pending', // اول ما ارفعها
+      'Verified',// جاهزة من الفيريفيكيشن وكلو تمام
+      'Approved',
+      'Rejected',
+      'Received',
+      'Incident'), // في خلل بالفيريفيكيشن
     defaultValue: 'Pending' 
   })
   status!: string;

@@ -62,7 +62,7 @@ export class GoodsReceiptService {
         { transaction },
       );
 
-      for (const item of dto.items) {
+      for (const item of dto.items!) {
         await this.grItemModel.create(
           {
             ...item,
@@ -140,9 +140,9 @@ async getByStatus(status: string) {
   try {
     const gr = await this.grModel.findByPk(gr_id, { transaction });
     if (!gr) throw new NotFoundException('Goods Receipt not found');
-
+     let dn: DeliveryNote | null= null;
     if (dto.dn_number) {
-      const dn = await this.dnModel.findOne({
+       dn = await this.dnModel.findOne({
         where: { dn_number: dto.dn_number },
         transaction,
       });
@@ -160,29 +160,29 @@ async getByStatus(status: string) {
     await gr.update(
       {
         notes: dto.notes ?? gr.notes,
+        dn_id: dn ? dn.dn_id : gr.dn_id,
         po_number: dto.po_number ?? gr.po_number,
       },
       { transaction },
     );
 
+    if (dto.items) {
     await this.grItemModel.destroy({ where: { gr_id }, transaction });
 
-    for (const item of dto.items) {
+    for (const item of dto.items!) {
       await this.grItemModel.create(
         { ...item, gr_id } as any,
         { transaction },
       );
     }
-
+  }
     await transaction.commit();
          
     await this.notifyAdmins(['Accountant'],`Goods Receipt Updated`, `GR ${gr.gr_number} has been updated.`);
 
 
-    return this.grModel.findOne({
-      where: { gr_id },
-      include: [{ model: this.grItemModel, as: 'items' }],
-    });
+    return {message: 'Good receipt updated successfully'};
+
   } catch (err) {
     await transaction.rollback();
     throw new InternalServerErrorException(err.message);

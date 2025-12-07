@@ -180,13 +180,26 @@ export class DeliveryNoteController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+      FileInterceptor('file', {
+        storage: diskStorage({
+          destination: './uploads/DN',
+          filename: (req, file, cb) => {
+          const ext = extname(file.originalname);
+          const finalName = `${req.body.invoice_number}${ext}`;
+          cb(null, finalName);
+        }
+        }),
+      })
+    )
   async replaceIncident(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: CreateDeliveryNoteDto,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req
   ) {
     try {
-      const note = await this.service.UpdateDN(+id, body, req.user.userId);
+      const note = await this.service.UpdateDN(+id, body, req.user.userId, file);
 
       await this.historyLogService.createLog({
         action: 'Update Delivery Note',
@@ -243,4 +256,14 @@ export class DeliveryNoteController {
       throw error;
     }
   }
+
+  @Get(':dn_number/file')
+    @UseGuards(JwtAuthGuard)
+    @PermissionName('get_supplier_invoice_file')
+    async getPurchaseOrderFile(
+      @Param('dn_number') dn_number: string,
+      @Query('type') type: 'pdf' | 'excel' | 'img'
+    ) {
+      return this.service.getFile(dn_number, type);
+    }
 }

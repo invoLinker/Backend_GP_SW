@@ -14,7 +14,8 @@ export class GoodsReceiptItem extends Model<GoodsReceiptItem> {
   @Column({ type: DataType.STRING, allowNull: false })
   item_name!: string;
 
-  @Column({ type: DataType.INTEGER, allowNull: false })
+  @Column({ type: DataType.DOUBLE,
+      defaultValue: 0, })
   quantity!: number;
 
   @Column({ type: DataType.STRING, allowNull: true })

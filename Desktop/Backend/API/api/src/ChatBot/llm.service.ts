@@ -365,7 +365,7 @@ export class LlmService {
 
   constructor() {
     this.client = new OpenAI({
-      apiKey: process.env.HF_TOKEN,
+      apiKey: process.env.HF_TOKEN2,
       baseURL: "https://router.huggingface.co/v1",
     });
 
@@ -398,13 +398,90 @@ DATABASE TABLES (USE EXACT NAMES — LOWERCASE ONLY)
 ------------------------------------------------------
 purchaseorders
 purchaseorderitems
+suppliers
 supplier_invoices
 supplier_invoice_items
 delivery_notes
 delivery_note_items
 goods_receipts
 goods_receipt_items
+payments
+stock
 user
+roles
+permissions
+role_permissions
+tasks
+history_log
+invoice_incidents
+invoice_incident_items
+edit_requests
+
+------------------------------------------------------
+🚨 CRITICAL: "suppliers" vs "user" - NEVER CONFUSE!
+------------------------------------------------------
+⚠️ "suppliers" table = Vendors/Suppliers (الموردين)
+- Columns: supplier_id, supplier_name, email, phone, address
+- Use for: Questions about suppliers, vendors, most used supplier
+- Examples: "ما هو اكثر مورد", "most used supplier", "supplier count"
+
+⚠️ "user" table = System Users/Employees (المستخدمين/الموظفين)
+- Columns: user_id, first_name, last_name, email, role_id, status
+- Use for: Questions about system users, employees, staff
+- Examples: "كم عدد المستخدمين", "active users", "user count"
+
+❌ NEVER use "user" table for supplier questions!
+❌ NEVER use "suppliers" table for user/employee questions!
+
+If question asks about "مورد" or "supplier" → USE "suppliers" table
+If question asks about "مستخدم" or "user" → USE "user" table
+
+------------------------------------------------------
+🚨 STOCK TABLE INFORMATION
+------------------------------------------------------
+"stock" table contains ALL product/inventory information:
+- Columns: stock_id, item_name, barcode, dn_id, quantity, unit, expiration_date, status
+- ✅ HAS barcode column
+- ✅ HAS expiration_date column
+- ✅ HAS quantity column
+- Use for: Current stock levels, expired products, available products, warehouse inventory, all product queries
+
+RULES:
+- Questions about "expired products" → USE "stock" table (has expiration_date)
+- Questions about "available products" → USE "stock" table (has status='Available')
+- Questions about "products in stock" → USE "stock" table
+- Questions about "inventory" → USE "stock" table
+- Questions about "warehouse" → USE "stock" table
+- Questions about "items" or "products" → USE "stock" table
+- ALL product/item queries → USE "stock" table
+
+------------------------------------------------------
+🚨 SUPPLIERS TABLE - CRITICAL
+------------------------------------------------------
+"suppliers" table contains supplier/vendor information:
+- Columns: supplier_id, supplier_name, email, phone, address, createdAt, updatedAt
+- Use for: Questions about suppliers, vendors, most used suppliers, supplier analysis
+- ❌ NEVER use "user" table for supplier questions
+- ❌ "user" table is for system users/employees, NOT suppliers
+
+RULES:
+- Questions about "suppliers" or "مورد" → USE "suppliers" table
+- Questions about "most used supplier" → USE "suppliers" table with JOIN to purchaseorders
+- Questions about "supplier count" → USE "suppliers" table
+- Questions about "supplier analysis" → USE "suppliers" table
+- NEVER confuse "suppliers" (vendors) with "user" (system users)
+
+Example: "What is the most used supplier?"
+✅ CORRECT:
+SELECT s.supplier_name, COUNT(po.po_id) AS order_count
+FROM suppliers s
+LEFT JOIN purchaseorders po ON po.supplier_id = s.supplier_id
+GROUP BY s.supplier_id, s.supplier_name
+ORDER BY order_count DESC
+LIMIT 1;
+
+❌ WRONG (using user table):
+SELECT * FROM user WHERE ... (WRONG - user is for employees, not suppliers)
 
 ------------------------------------------------------
 RELATION RULES (MUST ALWAYS APPLY)
@@ -419,8 +496,14 @@ delivery_note_items.dn_id         = delivery_notes.dn_id
 goods_receipts.po_number          = purchaseorders.po_number
 goods_receipt_items.gr_id         = goods_receipts.gr_id
 
-Item matching ALWAYS uses BOTH:
-item_name AND barcode.
+suppliers.supplier_id             = purchaseorders.supplier_id
+suppliers.supplier_id             = supplier_invoices.supplier_id
+suppliers.supplier_id             = delivery_notes.supplier_id
+
+Item matching in stock table:
+- Use item_name for product/item names
+- Use barcode for barcode matching
+- Always match BOTH item_name AND barcode when comparing items
 
 ------------------------------------------------------
 🚨 CRITICAL SYSTEM REALITY
@@ -530,6 +613,34 @@ To return full name:
   CONCAT(user.first_name, ' ', user.last_name)
 
 ------------------------------------------------------
+✔ STOCK/INVENTORY QUERIES EXAMPLES
+------------------------------------------------------
+Example 1: "What are expired products?"
+✅ CORRECT:
+SELECT item_name, barcode, quantity, unit, expiration_date, status
+FROM stock
+WHERE expiration_date < CURDATE() OR status = 'Expired';
+
+Example 2: "What products are available in stock?"
+✅ CORRECT:
+SELECT item_name, barcode, quantity, unit, expiration_date
+FROM stock
+WHERE status = 'Available';
+
+Example 3: "How many products are in stock?"
+✅ CORRECT:
+SELECT SUM(quantity) AS total_quantity
+FROM stock
+WHERE status = 'Available';
+
+REMEMBER: Always use "stock" table for:
+- Expired products (expiration_date)
+- Available products (status)
+- Inventory levels (quantity)
+- Warehouse queries
+- Product stock queries
+
+------------------------------------------------------
 FINAL ENFORCEMENT
 ------------------------------------------------------
 - ALWAYS isolate SUM() using subqueries.
@@ -635,18 +746,114 @@ ${DB_SCHEMA}
   async formatAnswer(question: string, rows: any[]): Promise<string> {
     const cleanRows = this.sanitizeRows(rows);
 
-    const systemPrompt = `
+    // Detect language from question
+    const isArabic = /[\u0600-\u06FF]/.test(question);
+
+    const systemPrompt = isArabic
+      ? `
+أنت مساعد ذكي يشرح نتائج قاعدة البيانات لنظام إدارة المشتريات والفواتير.
+
+القواعد الصارمة:
+- أجب بالعربية فقط. لا تستخدم الإنجليزية أبداً.
+- لا تخرج JSON.
+- لا تظهر SQL.
+- لا تخرج markdown.
+- لا تخترع بيانات غير موجودة.
+- إذا كانت هناك صفوف، أجب بناءً عليها 100%.
+- إذا كانت الصفوف فارغة، قل بوضوح: "لا توجد بيانات مطابقة."
+- إذا كان السؤال عن تحليل أو إحصائيات، قدم ملخصاً واضحاً بالعربية.
+- استخدم أرقام واضحة عند ذكر المبالغ أو الكميات.
+- استخدم مصطلحات عربية واضحة ومفهومة.
+`
+      : `
 You explain database results for Purchase Orders, Supplier Invoices, Delivery Notes, and Goods Receipts.
 
-RULES:
-- Answer in clean, understandable English.
+STRICT RULES:
+- Answer ONLY in English. Never use Arabic.
 - NEVER output JSON.
 - NEVER show SQL.
 - NEVER output markdown.
 - NEVER invent missing data.
 - If rows exist, ALWAYS answer based 100% on them.
 - If rows are empty, say clearly: "There is no matching data."
+- If the question asks for analysis or statistics, provide a clear summary in English.
+- Use clear numbers and formatting when mentioning amounts or quantities.
+- Use clear and professional English terminology.
 `;
+
+    const userPrompt = isArabic
+      ? `
+السؤال:
+${question}
+
+البيانات (لا تخرج JSON):
+${JSON.stringify(cleanRows)}
+
+أجب بالعربية فقط بناءً على البيانات أعلاه.
+`
+      : `
+Question:
+${question}
+
+Data (DO NOT output JSON):
+${JSON.stringify(cleanRows)}
+
+Answer in English only based on the data above.
+`;
+
+    const res = await this.client.chat.completions.create({
+      model: this.answerModel,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt.trim() },
+      ],
+      temperature: 0.3,
+    });
+
+    const answer = res.choices[0].message?.content?.trim();
+    
+    // Fallback based on language
+    if (!answer) {
+      return isArabic ? "لا توجد إجابة متاحة." : "No answer available.";
+    }
+
+    return answer;
+  }
+
+  /**
+   * Format answer specifically for analysis queries
+   */
+  async formatAnalysisAnswer(question: string, rows: any[], statistics?: any): Promise<string> {
+    const cleanRows = this.sanitizeRows(rows);
+    const isArabic = /[\u0600-\u06FF]/.test(question);
+
+    const systemPrompt = isArabic
+      ? `
+أنت محلل بيانات محترف. قم بتحليل البيانات التالية وتقديم رؤى واضحة.
+
+القواعد الصارمة:
+- قدم تحليلاً شاملاً بالعربية فقط. لا تستخدم الإنجليزية.
+- اذكر الإحصائيات الرئيسية (المجموع، المتوسط، الأعلى، الأدنى).
+- حدد الأنماط أو الاتجاهات المهمة.
+- كن واضحاً ومختصراً.
+- لا تخرج JSON أو SQL.
+- استخدم مصطلحات عربية واضحة.
+`
+      : `
+You are a professional data analyst. Analyze the following data and provide clear insights.
+
+STRICT RULES:
+- Provide comprehensive analysis in English ONLY. Never use Arabic.
+- Mention key statistics (totals, averages, maximums, minimums).
+- Identify important patterns or trends.
+- Be clear and concise.
+- Do NOT output JSON or SQL.
+- Use clear and professional English terminology.
+`;
+
+    const statisticsText = statistics
+      ? `\n\nStatistics:\n${JSON.stringify(statistics, null, 2)}`
+      : '';
 
     const res = await this.client.chat.completions.create({
       model: this.answerModel,
@@ -655,18 +862,21 @@ RULES:
         {
           role: "user",
           content: `
-User question:
+Analysis question:
 ${question}
 
-Cleaned rows (DO NOT output JSON):
-${JSON.stringify(cleanRows)}
+Data (first 20 rows):
+${JSON.stringify(cleanRows.slice(0, 20), null, 2)}
+${statisticsText}
+
+Provide a comprehensive analysis based on this data.
           `.trim(),
         },
       ],
-      temperature: 0,
+      temperature: 0.4, // Higher temperature for more creative analysis
     });
 
-    return res.choices[0].message?.content?.trim() ?? "No answer.";
+    return res.choices[0].message?.content?.trim() ?? "Analysis unavailable.";
   }
 }
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch, ParseIntPipe } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateStockDto } from './CreateStockDto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -16,16 +16,16 @@ export class StockController {
 
   ) {}
 
-  @Post(':inv_id')
+  @Post(':po_number')
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_stock')
-  async create(@Param('inv_id') inv_id: number, @Req() req: any) {
+  async createByPO(@Param('po_number') po_number: string, @Req() req: any) {
     try {
-      const result = await this.stockService.create(inv_id);
+      const result = await this.stockService.create(po_number);
 
       await this.historyLogService.createLog({
         action: 'Stock Created',
-        description: `Stock for invoice with ID ${inv_id} created`,
+        description: `Stock for PO ${po_number} created`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -44,9 +44,11 @@ export class StockController {
         severity: HistorySeverity.ERROR,
         details: error,
       });
+
       throw error;
     }
   }
+
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -76,6 +78,29 @@ export class StockController {
   @PermissionName('get_stock')
   async search(@Query('q') q: string) {
     return this.stockService.searchStocks(q);
+  }
+
+  @Patch('return')
+  @UseGuards(JwtAuthGuard)
+  async returnStock(
+    @Body('item_name') item_name: string,
+    @Body('quantity') quantity: number
+  ) {
+    if (!item_name || item_name.trim() === '') {
+      return {
+        message: 'Product name is required',
+      };
+    }
+
+    if (!quantity || quantity <= 0) {
+      return {
+        message: 'Returned quantity must be greater than 0',
+      };
+    }
+
+    return await this.stockService.returnToStockByName(item_name, quantity);
+
+
   }
 
   @Patch()
@@ -113,81 +138,33 @@ export class StockController {
     }
   }
 
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard)
-  @PermissionName('update_stock')
-  async updateState(@Param('id') id: number, @Body() updateStockDto: UpdateStockDto, @Req() req: any) {
-    try {
-      const result = await this.stockService.updateStockState(id, updateStockDto.status!);
 
-      await this.historyLogService.createLog({
-        action: 'Stock State Updated',
-        description: `Stock id=${id} status changed to ${updateStockDto.status}`,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.DATA,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
+ @Patch(':id')
+async updateStock(
+  @Param('id', ParseIntPipe) stockId: number,
+  @Body() body: { status?: string; expiration_date?: string }
+) {
+  const exp = body.expiration_date ? new Date(body.expiration_date) : undefined;
 
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'Update Stock State Failed',
-        description: error.message,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.DATA,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
-  }
+  return this.stockService.updateStockRecord(
+    stockId,
+    body.status as any,
+    exp
+  );
+}
 
-  @Patch('date/:id')
-  @UseGuards(JwtAuthGuard)
-  @PermissionName('update_stock')
-  async updateDate(@Param('id') id: number, @Body() updateStockDto: UpdateStockDto, @Req() req: any) {
-    try {
-      const result = await this.stockService.updateStockExpiration(id, updateStockDto.expiration_date!);
-
-      await this.historyLogService.createLog({
-        action: 'Stock Expiration Updated',
-        description: `Stock id=${id} expiration date updated to ${updateStockDto.expiration_date}`,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.DATA,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
-
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'Update Stock Expiration Failed',
-        description: error.message,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.DATA,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
-  }
 
  
-  @Delete(':id')
+  @Delete(':stock_id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_stock')
-  async remove(@Param('id') stockId: number, @Req() req: any) {
+  async remove(@Param('stock_id') stock_id: number, @Req() req: any) {
     try {
-      const result = await this.stockService.deleteStock(stockId);
+      const result = await this.stockService.deleteStock(stock_id);
 
       await this.historyLogService.createLog({
         action: 'Stock Deleted',
-        description: `Stock id=${stockId} deleted`,
+        description: `Stock id=${stock_id} deleted`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -210,4 +187,6 @@ export class StockController {
     }
   }
 
+
+  
 }

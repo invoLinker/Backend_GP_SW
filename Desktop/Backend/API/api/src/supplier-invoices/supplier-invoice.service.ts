@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { SupplierInvoice } from './supplier-invoice.model';
 import { SupplierInvoiceItem } from './supplier-invoice-item.model';
@@ -241,12 +241,11 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
   };
 }
 
-
-
 async updateInvoice(
   id: number,
   updateDto: CreateSupplierInvoiceDto,
-  userId: number
+  userId: number,
+  file?: Express.Multer.File
 ) {
   const invoice = await this.supplierInvoiceModel.findByPk(id, {
     include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
@@ -254,11 +253,23 @@ async updateInvoice(
 
   if (!invoice) throw new NotFoundException('Invoice not found');
 
+  if (updateDto.po_number) {
+    const poExists = await PurchaseOrder.findOne({
+      where: { po_number: updateDto.po_number },
+    });
+
+    if (!poExists) {
+      throw new ConflictException(
+        `PO Number "${updateDto.po_number}" does not exist`
+      );
+    }
+  }
+
   const fieldsToClear = [
     'invoice_number', 'invoice_date', 'received_date', 'subtotal',
     'vat', 'discount', 'total_amount', 'payment_method', 'notes',
     'supplier_name', 'supplier_email', 'supplier_phone', 'supplier_address',
-    'to_name', 'to_email', 'to_phone', 'to_address', 'po_number'
+    'to_name', 'to_email', 'to_phone', 'to_address'
   ];
 
   for (const field of fieldsToClear) {
@@ -273,9 +284,33 @@ async updateInvoice(
 
   invoice.created_by = userId;
 
+  if (file) {
+
+    this.deleteIfExists(invoice.pdfUrl);
+    this.deleteIfExists(invoice.imgUrl);
+    this.deleteIfExists(invoice.excelUrl);
+
+    const ext = file.originalname.split(".").pop()?.toLowerCase();
+    const filePath = `/uploads/supplier-invoices/${file.filename}`;
+
+    if (!ext) {
+      throw new BadRequestException("Cannot detect file type");
+    }
+
+    if (ext === "pdf") {
+      invoice.pdfUrl = filePath;
+    } else if (["jpg", "jpeg", "png"].includes(ext)) {
+      invoice.imgUrl = filePath;
+    } else if (["xls", "xlsx"].includes(ext)) {
+      invoice.excelUrl = filePath;
+    } else {
+      throw new BadRequestException(`Unsupported file type .${ext}`);
+    }
+  }
+
   await invoice.save();
 
-  if (updateDto.items && updateDto.items.length > 0) {
+  if (updateDto.items?.length) {
     for (const item of updateDto.items) {
       await this.supplierInvoiceItemModel.create({
         ...item,
@@ -284,12 +319,8 @@ async updateInvoice(
     }
   }
 
-  const updatedInvoice = await this.supplierInvoiceModel.findByPk(id, {
-    include: [{ model: this.supplierInvoiceItemModel, as: 'items' }],
-  });
-
   const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
-  const admins = await this.userModel.findAll({ where: { role_id: adminRole!.id } });
+  const admins = await this.userModel.findAll({ where: { role_id: adminRole!.role_id } });
 
   const updatedByUser = await this.userModel.findByPk(userId);
   const recipients = [...admins, ...(updatedByUser ? [updatedByUser] : [])];
@@ -301,13 +332,24 @@ async updateInvoice(
       userId: user.user_id.toString(),
       channel: NotificationChannel.IN_APP,
       category: NotificationCategory.SYSTEM,
-      payload: { invoiceId: invoice.invoice_id, updatedFields: updateDto },
+      payload: {
+        invoiceId: invoice.invoice_id,
+        updatedFields: JSON.parse(JSON.stringify(updateDto)),
+      },
     });
   }
 
-  return { message: 'Invoice fully replaced', invoice: updatedInvoice };
+  return { message: 'Invoice fully replaced' };
 }
 
+ deleteIfExists(filePath: string | null) {
+  if (filePath) {
+    const fullPath = path.join(__dirname, `../../..${filePath}`);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+  }
+}
 
 
   async getAllInvoices(search?: string) {
@@ -376,28 +418,36 @@ async deleteInvoiceById(id: number) {
   return { message: 'Invoice deleted successfully' };
 }
 
-// async getItemBarName(id: string) {
-//   const si = await this.supplierInvoiceModel.findOne({
-//     where: { invoice_number: id },
-//     include: [
-//       {
-//         model: this.supplierInvoiceItemModel,
-//         as: 'items',
-//         attributes: ['item_name', 'barcode', 'quantity', 'unit']
-//       }
-//     ]
-//   });
+async getFile(invoice_number: string, type: 'pdf' | 'excel' | 'img') {
+  const si = await this.supplierInvoiceModel.findOne({
+    where: { invoice_number: invoice_number },
+  });
 
-//   if (!si) {
-//     throw new NotFoundException(`Supplier Invoice with #${id} not found`);
-//   }
+  if (!si) {
+    throw new NotFoundException(`Supplier invoice with number ${invoice_number} not found`);
+  }
 
-//   return si.items.map(item => ({
-//     item_name: item.item_name,
-//     barcode: item.barcode,
-//     quantity: item.quantity,
-//     unit: item.unit
-//   }));
-// }
+  if (type === 'pdf') {
+    if (!si.pdfUrl) {
+      throw new NotFoundException(`PDF file not found for Supplier invoice ${invoice_number}`);
+    }
+    return { pathPdf: si.pdfUrl };
+  }
 
+  if (type === 'excel') {
+    if (!si.excelUrl) {
+      throw new NotFoundException(`Excel file not found for Supplier invoice ${invoice_number}`);
+    }
+    return { pathExcel: si.excelUrl };
+  }
+
+  if (type === 'img') {
+    if (!si.imgUrl) {
+      throw new NotFoundException(`Image not found for Supplier invoice ${invoice_number}`);
+    }
+    return { pathImg: si.imgUrl };
+  }
+
+  throw new BadRequestException('Invalid type. Must be "pdf" or "excel".');
+}
 }

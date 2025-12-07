@@ -30,6 +30,7 @@ import { DeliveryNotes } from '../models/Tables/DeliveryNote';
 import { Stock } from '../models/Tables/Stock';
 import { Task } from '../models/Tables/Tasks';
 import { HistoryLog } from '../models/Tables/HistoryLog';
+import { verification_exceptions } from '../models/Tables/verification_exceptions';
 
 
 
@@ -65,6 +66,7 @@ DeliveryNotes;
 Stock;
 Task;
 HistoryLog;
+verification_exceptions;
 
 
 async function main() {

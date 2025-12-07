@@ -13,7 +13,7 @@ import axios from 'axios';
 @Injectable()
 export class OcrService {
   private client: OpenAI;
-  private hf_api_token = process.env.HF_TOKEN;
+  private hf_api_token = process.env.HF_TOKEN2;
 
   constructor() {
     this.client = new OpenAI({
@@ -117,7 +117,7 @@ export class OcrService {
         - supplier_phone
         - supplier_address
         - dn_date (YYYY-MM-DD)
-        - items (product_name, quantity, unit, barcode)
+        - items (item_name, quantity, unit, barcode)
         - notes
         - to_name
         - to_email

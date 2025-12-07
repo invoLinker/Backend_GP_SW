@@ -8,7 +8,7 @@ export class GenerateTxtService {
   constructor() {
     this.client = new OpenAI({
       baseURL: 'https://router.huggingface.co/v1',
-      apiKey: process.env.HF_TOKEN,
+      apiKey: process.env.HF_TOKEN2,
     });
   }
 

@@ -77,11 +77,24 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   currency:string;
 
   @Column({
-    type: DataType.ENUM('Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'),
+    type: DataType.ENUM('Pending', 'Closed','Rejected','Draft', 'Approved','Sent', 'Incident','ReadyForPaid'),
     allowNull: false,
     defaultValue: 'Pending',
   })
   status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
+  // @Column({
+  //   type: DataType.ENUM('Pending', 
+  //     'Closed',// لما تخلص دفعها
+  //      'Rejected',// لما يرفضها الادمن 
+  //       'Draft', 
+  //       'Approved',//  لما يقبلها الادمن
+  //        'Sent',// لما ابعتها للمورد
+  //        'Incident',// لما يكون صار في غلط اثناء الفيريفيكيشن
+  //        'ReadyForPaid'),// بس يكون كلو تمام بالفيريفيكيشن
+  //   allowNull: false,
+  //   defaultValue: 'Pending',
+  // })
+  // status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
 
    @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),

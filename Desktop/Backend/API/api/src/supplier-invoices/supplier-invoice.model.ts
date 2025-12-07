@@ -52,16 +52,20 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
   @Column(DataType.DATE)
   received_date: Date;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+    defaultValue: 0, })
   subtotal: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+    defaultValue: 0,})
   vat: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+      defaultValue: 0, })
   discount: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+      defaultValue: 0, })
   total_amount: number;
 
   @Column({ type: DataType.STRING, allowNull: true })
@@ -73,18 +77,18 @@ export class SupplierInvoice extends Model<SupplierInvoice> {
 
   @Column({
     type: DataType.ENUM(
-      'Pending',/////اول ما ارفعها
+      'Pending',// بس توصل من المورد
       'Pending Verification',
-      'Verified',////// لما اشيك لسا بس هي والبيرشز اوردر 
-      'Approved',
-      'Rejected',////// في حال صار اغلاط 
-      'Paid',///// بس اخلص الدفع
-      'Cancelled',///////// بس الغيها
+      'Verified',
+      'Approved', 
+      'Rejected',
+      'Paid',// لما اكون دفعتها
+      'Cancelled',// في حال لغيتها
       'On Hold',
       'Received',
-      'Incident',////////// اول ما ارفعها لما يشيك ع السبلاير ورقم الطلب
-      'Partial_paid',//////////// لما تكون اقساط ولسا مش كل الدفعات اندفعوا
-      'ReadyForPaid' ////////// بس اخلص التدقيق كامل فبتكون جاهزة ادفع
+      'Incident',// بحال صار غلط بالفيريفيكيشن
+      'Partial_paid',// لما تكون ع اقساط
+      'ReadyForPaid' // لما تكون جاهزة من الفيريفيكشن
     ),
     defaultValue: 'Pending',
   })

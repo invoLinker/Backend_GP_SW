@@ -10,7 +10,7 @@ export class CreateStockDto {
   barcode: string;
 
   @IsInt()
-  dn_id?: number; // رقم delivery note اختياري
+  dn_id?: number; 
 
   @IsInt()
   quantity: number;
@@ -22,7 +22,7 @@ export class CreateStockDto {
   @IsDate()
   @Type(() => Date)
   @IsOptional()
-  expiration_date?: Date;
+  expiration_date?: Date | null;
 
   @IsEnum(['Available', 'Expired', 'Reserved','OutOfStock'])
   @IsOptional()

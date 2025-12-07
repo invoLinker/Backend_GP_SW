@@ -35,9 +35,11 @@ export class Stock extends Model<Stock> {
   @Column(DataType.STRING)
   unit: string; 
 
-  @AllowNull(true)
-  @Column(DataType.DATE)
-  expiration_date: Date;
+  @Column({
+  type: DataType.DATE,
+  allowNull: true,  
+  })
+  expiration_date: Date | null;
 
   @AllowNull(false)
   @Default('Available')

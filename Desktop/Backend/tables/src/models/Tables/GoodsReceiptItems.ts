@@ -30,8 +30,9 @@ GoodsReceiptItem.init(
       allowNull: false,
     },
     quantity: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DOUBLE,
       allowNull: false,
+      defaultValue: 0,
     },
     unit: {
       type: DataTypes.STRING,

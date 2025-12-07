@@ -11,6 +11,8 @@ import { NotificationService } from 'src/Notification/notification.service';
 import { NotificationChannel } from 'src/Notification/create-notification.dto';
 import { Role } from 'src/roles/roles.model';
 import {NotificationCategory} from '../Notification/create-notification.dto'
+import path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class DeliveryNoteService {
@@ -234,7 +236,7 @@ async saveInvoiceImage( filePath: string, dn_number: string,){
     return results;
   }
 
-async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
+async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number, file?: Express.Multer.File) {
   const transaction = await this.deliveryNoteModel.sequelize!.transaction();
   const errors: string[] = [];
 
@@ -301,6 +303,31 @@ async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
       notes: errors.length > 0 ? errors.join('; ') : null,
     });
 
+    if (file) {
+    
+        this.deleteIfExists(deliveryNote.pdfUrl);
+        this.deleteIfExists(deliveryNote.imgUrl);
+        this.deleteIfExists(deliveryNote.excelUrl);
+    
+        const ext = file.originalname.split(".").pop()?.toLowerCase();
+        const filePath = `/uploads/DN/${file.filename}`;
+    
+        if (!ext) {
+          throw new BadRequestException("Cannot detect file type");
+        }
+    
+        if (ext === "pdf") {
+          deliveryNote.pdfUrl = filePath;
+        } else if (["jpg", "jpeg", "png"].includes(ext)) {
+          deliveryNote.imgUrl = filePath;
+        } else if (["xls", "xlsx"].includes(ext)) {
+          deliveryNote.excelUrl = filePath;
+        } else {
+          throw new BadRequestException(`Unsupported file type .${ext}`);
+        }
+      }
+    
+
     await deliveryNote.save({ transaction });
 
     for (const item of dto.items) {
@@ -334,6 +361,15 @@ async UpdateDN(id: number, dto: CreateDeliveryNoteDto, createdBy: number) {
   } catch (err) {
     await transaction.rollback();
     throw new InternalServerErrorException(err.message);
+  }
+}
+
+deleteIfExists(filePath: string | null) {
+  if (filePath) {
+    const fullPath = path.join(__dirname, `../../..${filePath}`);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
   }
 }
 
@@ -374,6 +410,38 @@ private async notifyUsers(roles: string[], title: string, message: string) {
 }
 
 
+async getFile(dn_number: string, type: 'pdf' | 'excel' | 'img') {
+  const dn = await this.deliveryNoteModel.findOne({
+    where: { dn_number: dn_number },
+  });
+
+  if (!dn) {
+    throw new NotFoundException(`Supplier invoice with number ${dn_number} not found`);
+  }
+
+  if (type === 'pdf') {
+    if (!dn.pdfUrl) {
+      throw new NotFoundException(`PDF file not found for Supplier invoice ${dn_number}`);
+    }
+    return { pathPdf: dn.pdfUrl };
+  }
+
+  if (type === 'excel') {
+    if (!dn.excelUrl) {
+      throw new NotFoundException(`Excel file not found for Supplier invoice ${dn_number}`);
+    }
+    return { pathExcel: dn.excelUrl };
+  }
+
+  if (type === 'img') {
+    if (!dn.imgUrl) {
+      throw new NotFoundException(`Image not found for Supplier invoice ${dn_number}`);
+    }
+    return { pathImg: dn.imgUrl };
+  }
+
+  throw new BadRequestException('Invalid type. Must be "pdf" or "excel".');
+}
 
 
 }

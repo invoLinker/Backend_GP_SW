@@ -52,11 +52,19 @@ import { HistoryLog } from './History/history-log.model';
 import { NotificationModule } from './Notification/notification.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { APP_GUARD } from '@nestjs/core';
-import { ChatbotModule } from './rag/chat.module';
+import { ChatbotModule } from './ChatBot/chat.module';
+import { ReportsModule } from './Reports/reports.module';
+import { verificationExceptionsModule } from './verification_exceptions/verification_exceptions.module';
+import { ScheduleModule } from '@nestjs/schedule';
+
 
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true
+    }),
+    ScheduleModule.forRoot(),    
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
@@ -99,7 +107,9 @@ import { ChatbotModule } from './rag/chat.module';
     TaskModule,
     HistoryLogModule,
     NotificationModule,
-    ChatbotModule
+    ChatbotModule,
+    ReportsModule,
+    verificationExceptionsModule
   ],
   providers: [ JwtStrategy,
     {

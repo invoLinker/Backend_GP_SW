@@ -17,7 +17,8 @@ export class DeliveryNoteItem extends Model<DeliveryNoteItem> {
   @Column({ type: DataType.STRING, allowNull: false })
   item_name: string;
 
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: false })
+  @Column({ type: DataType.DOUBLE,
+    defaultValue: 0, })
   quantity: number;
 
   @Column({ type: DataType.STRING, allowNull: true })

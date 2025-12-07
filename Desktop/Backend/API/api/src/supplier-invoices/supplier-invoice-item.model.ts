@@ -28,10 +28,12 @@ export class SupplierInvoiceItem extends Model<SupplierInvoiceItem> {
   @Column(DataType.STRING)
   barcode: string;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+    defaultValue: 0, })
   quantity: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), defaultValue: 0 })
+  @Column({ type: DataType.DOUBLE,
+    defaultValue: 0,})
   unit_price: number;
 
   @Column(DataType.STRING)

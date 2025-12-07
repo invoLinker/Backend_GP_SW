@@ -112,16 +112,29 @@ export class SupplierInvoiceController {
   }
 
 
-  @Put(':id')
+  @Patch(':id')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+      FileInterceptor('file', {
+        storage: diskStorage({
+          destination: './uploads/supplier-invoices',
+          filename: (req, file, cb) => {
+          const ext = extname(file.originalname);
+          const finalName = `${req.body.invoice_number}${ext}`;
+          cb(null, finalName);
+        }
+        }),
+      })
+    )
   async updateInvoice(
     @Param('id') id: number,
     @Body() data: CreateSupplierInvoiceDto,
+    @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
     try {
       const userId = req.user.userId;
-      const result = await this.supplierInvoiceService.updateInvoice(id, data, userId);
+      const result = await this.supplierInvoiceService.updateInvoice(id, data, userId, file);
 
       await this.historyLogService.createLog({
         action: 'Supplier Invoice Updated',
@@ -234,5 +247,15 @@ export class SupplierInvoiceController {
       });
       throw error;
     }
+  }
+
+  @Get(':invoice_number/file')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_supplier_invoice_file')
+  async getPurchaseOrderFile(
+    @Param('invoice_number') invoice_number: string,
+    @Query('type') type: 'pdf' | 'excel' | 'img'
+  ) {
+    return this.supplierInvoiceService.getFile(invoice_number, type);
   }
 }
