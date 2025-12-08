@@ -1,4 +1,3 @@
-// src/controllers/goods-receipt.controller.ts
 import { Body, Controller, Post, UseGuards, Request, Get, Query, Param, Delete, Patch } from '@nestjs/common';
 import { GoodsReceiptService } from './GoodsReceipt.service';
 import { CreateGoodsReceiptDto } from './GoodsReceiptDto';
@@ -21,7 +20,7 @@ export class GoodsReceiptController {
 
       await this.historyLogService.createLog({
         action: 'Goods Receipt Created',
-        description: `Goods Receipt with id=${gr!.id} created`,
+        description: `Goods Receipt with #${gr!.gr_number} created`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -79,7 +78,7 @@ export class GoodsReceiptController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: updated,
+        details: updated.message,
       });
 
       return updated;
@@ -111,7 +110,7 @@ export class GoodsReceiptController {
         userRole: req.user.role,
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details:  result,
+        details:  result.message,
       });
 
       return result;

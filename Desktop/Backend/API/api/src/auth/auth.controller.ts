@@ -33,7 +33,7 @@ export class AuthController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.AUTH,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -62,65 +62,16 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   async forgotPassword(@Body('email') email: string) {
-    try {
       if (!email) throw new BadRequestException('Email is required');
-      const result = await this.authService.sendResetCode(email);
-
-      await this.historyLogService.createLog({
-        action: 'Forgot password',
-        description: `Reset code sent to email=${email}`,
-        user: email,
-        userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
-
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'Forgot password',
-        description: error.message,
-        user: email,
-        userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
+      return this.authService.sendResetCode(email);
   }
 
   @Public()
   @Post('verify-code')
   async verifyCode(@Body() body: { email: string; code: string }) {
-    try {
       if (!body.email || !body.code) throw new BadRequestException('Email and code are required');
-      const result = await this.authService.verifyResetCode(body.email, body.code);
+      return this.authService.verifyResetCode(body.email, body.code);
 
-      await this.historyLogService.createLog({
-        action: 'Verify code',
-        description: `Code verified for email=${body.email}`,
-        user: body.email,
-        userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
-
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'Verify code',
-        description: error.message,
-        user: body.email,
-        userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
   }
 
   @Public()
@@ -135,9 +86,9 @@ export class AuthController {
         description: `Password reset for email=${body.email}`,
         user: body.email,
         userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
+        category: HistoryCategory.SECURITY,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -147,7 +98,7 @@ export class AuthController {
         description: error.message,
         user: body.email,
         userRole: 'Unknown',
-        category: HistoryCategory.AUTH,
+        category: HistoryCategory.SECURITY,
         severity: HistorySeverity.ERROR,
         details: error,
       });

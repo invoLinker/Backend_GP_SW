@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch, ParseIntPipe, Request } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateStockDto } from './CreateStockDto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -30,7 +30,7 @@ export class StockController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -84,7 +84,8 @@ export class StockController {
   @UseGuards(JwtAuthGuard)
   async returnStock(
     @Body('item_name') item_name: string,
-    @Body('quantity') quantity: number
+    @Body('quantity') quantity: number,
+    @Request() req
   ) {
     if (!item_name || item_name.trim() === '') {
       return {
@@ -97,9 +98,33 @@ export class StockController {
         message: 'Returned quantity must be greater than 0',
       };
     }
+try {
+      const result = await this.stockService.returnToStockByName(item_name, quantity);
 
-    return await this.stockService.returnToStockByName(item_name, quantity);
+      await this.historyLogService.createLog({
+        action: 'Return Items To Stock',
+        description: `Item with name ${item_name} return to stock with quantity ${quantity}`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.SUCCESS,
+        details: result.message,
+      });
 
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'Return Items To Stock Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.DATA,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+
+      throw error;
+    }
 
   }
 
@@ -120,7 +145,7 @@ export class StockController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -139,19 +164,19 @@ export class StockController {
   }
 
 
- @Patch(':id')
-async updateStock(
-  @Param('id', ParseIntPipe) stockId: number,
-  @Body() body: { status?: string; expiration_date?: string }
-) {
-  const exp = body.expiration_date ? new Date(body.expiration_date) : undefined;
+  @Patch(':id')
+  async updateStock(
+    @Param('id', ParseIntPipe) stockId: number,
+    @Body() body: { status?: string; expiration_date?: string }
+  ) {
+    const exp = body.expiration_date ? new Date(body.expiration_date) : undefined;
 
-  return this.stockService.updateStockRecord(
-    stockId,
-    body.status as any,
-    exp
-  );
-}
+    return this.stockService.updateStockRecord(
+      stockId,
+      body.status as any,
+      exp
+    );
+  }
 
 
  

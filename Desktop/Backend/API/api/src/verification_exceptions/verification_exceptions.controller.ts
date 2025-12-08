@@ -20,23 +20,13 @@ export class AuditExceptionController {
 
   ) {}
 
-//   @Post()
-//   @UseGuards(JwtAuthGuard)
-//   async create(@Body() body: any, @Request() req) {
-//     const { po_number, description } = body;
-
-//     return await this.service.create(po_number, description, req.user.userId);
-//   }
-
-@Post()
-@UseGuards(JwtAuthGuard)
-async create(@Body() body: any, @Request() req) {
-  const { po_number, description, stage } = body;
-
-  // أولاً أنشئ الرسالة
-  const exception = await this.service.create(
-    po_number,
-    description,
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  async create(@Body() body: any, @Request() req) {
+    const { po_number, description, stage } = body;
+    const exception = await this.service.create(
+      po_number,
+      description,
     req.user.userId
   );
 
@@ -46,6 +36,7 @@ async create(@Body() body: any, @Request() req) {
     message: 'Message created and workflow halted',
     exception,
   };
+
 }
 
 

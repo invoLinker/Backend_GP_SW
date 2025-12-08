@@ -39,12 +39,12 @@ export class SupplierInvoiceController {
 
       await this.historyLogService.createLog({
         action: 'Supplier Invoice Created',
-        description: `Invoice number=${body.invoice_number} created`,
+        description: `Supplier Invoice with #${body.invoice_number} created`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -143,7 +143,7 @@ export class SupplierInvoiceController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;

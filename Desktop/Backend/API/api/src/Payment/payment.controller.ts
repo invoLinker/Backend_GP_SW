@@ -25,7 +25,7 @@ export class PaymentsController {
 
       await this.historyLogService.createLog({
         action: 'Payment Created',
-        description: `Payment created for PO #${PO_id}`,
+        description: `Payment created for PO id=${PO_id}`,
         user: req?.user?.email ?? 'Unknown',
         userRole: req?.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -61,7 +61,7 @@ export class PaymentsController {
 
       await this.historyLogService.createLog({
         action: 'Payment Status Updated',
-        description: `Payment #${payment_id} marked as ${status}`,
+        description: `Payment with id=${payment_id} marked as ${status}`,
         user: req?.user?.email ?? 'Unknown',
         userRole: req?.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -69,7 +69,7 @@ export class PaymentsController {
           status === 'Completed'
             ? HistorySeverity.SUCCESS
             : HistorySeverity.WARNING,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -122,7 +122,7 @@ export class PaymentsController {
         userRole: req?.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -154,7 +154,7 @@ export class PaymentsController {
         userRole: req?.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;

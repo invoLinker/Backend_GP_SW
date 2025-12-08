@@ -18,42 +18,6 @@ export class DeliveryNoteController {
               private readonly historyLogService: HistoryLogService
   ) {}
 
-  // @Post()
-  // @UseGuards(JwtAuthGuard)
-  // @PermissionName('create_supplier-invoices')
-  // async create(@Body() body: CreateDeliveryNoteDto, @Request() req) {
-  //   const userId = req.user.userId;
-
-  //   try {
-  //     const note = await this.service.createDeliveryNote(body, userId);
-  //     await this.historyLogService.createLog({
-  //       action: 'Delivery Note Created',
-  //       description: `DN with #${body.dn_number} created`,
-  //       user: req.user?.email ?? 'Unknown',
-  //       userRole: req.user?.role ?? 'Unknown',
-  //       category: HistoryCategory.DATA,
-  //       severity: HistorySeverity.SUCCESS,
-  //       details: note,
-  //     });
-
-  //     return note;
-
-  //   } catch (error) {
-  //     await this.historyLogService.createLog({
-  //       action: 'Delivery Note Creation Failed',
-  //       description: error.message,
-  //       user: req.user?.email ?? 'Unknown',
-  //       userRole: req.user?.role ?? 'Unknown',
-  //       category: HistoryCategory.DATA,
-  //       severity: HistorySeverity.ERROR,
-  //       details: error,
-  //     });
-
-  //     throw error;
-  //   }
-  // }
-
-
   @Post()
   @UseGuards(JwtAuthGuard)
   @PermissionName('create_supplier-invoices')
@@ -107,8 +71,6 @@ export class DeliveryNoteController {
   }
 
 
-
-     
   @Post('upload-file/:dn_number')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
@@ -203,7 +165,7 @@ export class DeliveryNoteController {
 
       await this.historyLogService.createLog({
         action: 'Update Delivery Note',
-        description: `DN with id=${id} updated`,
+        description: `DN with #${note?.dn_number} updated`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -220,7 +182,7 @@ export class DeliveryNoteController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.ERROR,
-        details: { id, body },
+        details: error,
       });
       throw error;
     }
@@ -239,7 +201,7 @@ export class DeliveryNoteController {
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details:  result ,
+        details:  result.message ,
       });
 
       return result;

@@ -64,6 +64,8 @@ import { SupplierInvoice } from 'src/supplier-invoices/supplier-invoice.model';
 import { SupplierInvoiceItem } from 'src/supplier-invoices/supplier-invoice-item.model';
 import { PurchaseOrder } from 'src/PO/po.model';
 import { PurchaseOrderItem } from 'src/PO/PoItem.model';
+import { HistoryLogService } from 'src/History/history-log.service';
+import { HistoryLog } from 'src/History/history-log.model';
 
 @Module({
     imports: [
@@ -75,11 +77,13 @@ import { PurchaseOrderItem } from 'src/PO/PoItem.model';
       SupplierInvoice,
       SupplierInvoiceItem,
       PurchaseOrder,
-      PurchaseOrderItem
+      PurchaseOrderItem,
+      HistoryLog
     ]),
+    
   ],
   controllers: [InvoiceController],
-  providers: [InvoiceService,],
+  providers: [InvoiceService,HistoryLogService],
   exports: [InvoiceService],
 })
 export class VerificationModule {}

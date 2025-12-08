@@ -29,7 +29,7 @@ export class PurchaseOrderController {
 
       await this.historyLogService.createLog({
         action: 'Purchase Order Created',
-        description: `PO #${po.po_number} created successfully`,
+        description: `PO with #${po.po_number} created successfully`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
@@ -52,19 +52,19 @@ export class PurchaseOrderController {
     }
   }
 
-   @Get('pending-approvals')
+  @Get('pending-approvals')
   @UseGuards(JwtAuthGuard)
   async getPendingApprovals() {
     return this.poService.getPendingApprovals();
   }
 
-   @Patch('approval')
-@UseGuards(JwtAuthGuard)
-async approveOrReject(
-  @Body() body: { type: 'Order' | 'Edit Request', id: number, status: 'Approved' | 'Rejected' }
-) {
-  return this.poService.approveOrReject(body);
-}
+  @Patch('approval')
+  @UseGuards(JwtAuthGuard)
+  async approveOrReject(
+    @Body() body: { type: 'Order' | 'Edit Request', id: number, status: 'Approved' | 'Rejected' }
+  ) {
+    return this.poService.approveOrReject(body);
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -171,7 +171,7 @@ async approveOrReject(
         userRole: req.user.role,
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -203,7 +203,7 @@ async approveOrReject(
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.DATA,
         severity: HistorySeverity.SUCCESS,
-        details: result,
+        details: result.message,
       });
 
       return result;
@@ -221,7 +221,6 @@ async approveOrReject(
     }
   }
 
-  // 🔴 حذف حسب المورد
   @Delete('supplier/:supplierId')
   @UseGuards(JwtAuthGuard)
   @PermissionName('delete_purchase_order')

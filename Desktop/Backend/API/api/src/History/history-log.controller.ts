@@ -1,5 +1,4 @@
-// src/history-log/history-log.controller.ts
-import { Controller, Get, Query, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body, Delete, Param } from '@nestjs/common';
 import { HistoryLogService } from './history-log.service';
 import { CreateHistoryLogDto } from './create-history-log.dto';
 
@@ -13,21 +12,17 @@ export class HistoryLogController {
   }
 
   @Get()
-  async getAllLogs(
-    @Query('category') category?: string,
-    @Query('severity') severity?: string,
-    @Query('search') search?: string
-  ) {
-    if (search) {
-      return this.historyLogService.searchLogs(search);
-    } else if (category && severity) {
-      return this.historyLogService.findByCategoryAndSeverity(category, severity);
-    } else if (category) {
-      return this.historyLogService.findByCategory(category);
-    } else if (severity) {
-      return this.historyLogService.findBySeverity(severity);
-    } else {
+  async getAllLogs() {
       return this.historyLogService.findAll();
-    }
+  }
+
+  @Delete(':id')
+  async DeleteLogs(@Param('id') id: number) {
+      return this.historyLogService.DeleteLog(id);
+  }
+  
+  @Delete()
+  async deleteAllLogs() {
+      return this.historyLogService.DeleteAllLog();
   }
 }

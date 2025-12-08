@@ -56,7 +56,10 @@ export class ChatController {
       };
     }
 
-    // معالجة السؤال مع الـ role للتحقق من permissions
-    return await this.chatService.ask(question.trim(), userRole);
+    // معالجة السؤال مع الـ role والـ userId للتحقق من permissions
+    const userId = req.user?.userId || req.user?.sub; // User ID from JWT token
+    console.log('Chat request - UserId:', userId);
+    console.log('Chat request - Full user object:', JSON.stringify(req.user, null, 2));
+    return await this.chatService.ask(question.trim(), userRole, userId);
   }
 }

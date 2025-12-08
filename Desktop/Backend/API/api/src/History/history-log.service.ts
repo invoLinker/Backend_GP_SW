@@ -1,9 +1,9 @@
-// src/history-log/history-log.service.ts
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { HistoryLog } from './history-log.model';
 import { CreateHistoryLogDto, HistoryCategory, HistorySeverity } from './create-history-log.dto';
 import { Op } from 'sequelize';
+import { messaging } from 'firebase-admin';
 
 @Injectable()
 export class HistoryLogService {
@@ -40,30 +40,23 @@ export class HistoryLogService {
     return this.historyLogModel.findAll({ order: [['createdAt', 'DESC']] });
   }
 
-  async findByCategory(category: string) {
-    return this.historyLogModel.findAll({ where: { category }, order: [['createdAt', 'DESC']] });
+  async DeleteLog(id:number) {
+    const log = await this.historyLogModel.findByPk(id);
+    if(!log){
+      throw new NotFoundException('Log History Not Found')
+    }
+    await log.destroy();
+    return {message:"Log History Deleted Successfully"}
+
   }
 
-  async findBySeverity(severity: string) {
-    return this.historyLogModel.findAll({ where: { severity }, order: [['createdAt', 'DESC']] });
-  }
+  async DeleteAllLog() {
+  await this.historyLogModel.destroy({
+    where: {},  
+    truncate: true 
+  });
 
-  async findByCategoryAndSeverity(category: string, severity: string) {
-    return this.historyLogModel.findAll({ where: { category, severity }, order: [['createdAt', 'DESC']] });
+   return {message:"All Log History Deleted Successfully"}
   }
-
-  async searchLogs(keyword: string) {
-    return this.historyLogModel.findAll({
-      where: {
-        [Op.or]: [
-          { action: { [Op.like]: `%${keyword}%` } },
-          { description: { [Op.like]: `%${keyword}%` } },
-          { user: { [Op.like]: `%${keyword}%` } },
-          { userRole: { [Op.like]: `%${keyword}%` } },
-          { category: { [Op.like]: `%${keyword}%` } }
-        ]
-      },
-      order: [['createdAt', 'DESC']]
-    });
-  }
+  
 }

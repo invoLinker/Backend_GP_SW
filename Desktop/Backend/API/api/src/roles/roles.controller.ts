@@ -17,32 +17,7 @@ export class RolesController {
   @UseGuards(JwtAuthGuard)
   @Get()
   async findAll(@Req() req: any) {
-    try {
       const result = await this.rolesService.findAll();
-
-      await this.historyLogService.createLog({
-        action: 'View Roles',
-        description: `User viewed all roles`,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.SYSTEM,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
-
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'View Roles Failed',
-        description: error.message,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.SYSTEM,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
   }
 
   @UseGuards(JwtAuthGuard)

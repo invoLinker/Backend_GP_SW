@@ -13,7 +13,7 @@ export class ChatService {
     private readonly permissionService: ChatPermissionService
   ) {}
 
-  async ask(question: string, userRole?: string) {
+  async ask(question: string, userRole?: string, userId?: number) {
     const startTime = Date.now();
     
     try {
@@ -47,8 +47,70 @@ export class ChatService {
       }
 
       this.logger.log('Generating SQL from question...');
-      const sql = await this.llm.generateSQL(question);
-      this.logger.log(`Generated SQL: ${sql}`);
+      this.logger.log(`Question: ${question}`);
+      this.logger.log(`User role: ${userRole}, UserId: ${userId}`);
+      let sql = await this.llm.generateSQL(question);
+      this.logger.log(`Generated SQL (before filter): ${sql}`);
+      
+      // If user is Supplier, filter suppliers by user_id
+      if (userRole === 'Supplier' && userId) {
+        const sqlLower = sql.toLowerCase();
+        // Check if query involves suppliers table - more comprehensive check
+        const hasSuppliersTable = sqlLower.includes('from suppliers') || 
+                                   sqlLower.includes('join suppliers') || 
+                                   sqlLower.includes(' suppliers ') || 
+                                   sqlLower.includes('`suppliers`') ||
+                                   sqlLower.includes('from `suppliers`') || 
+                                   sqlLower.includes('join `suppliers`') ||
+                                   sqlLower.includes('suppliers.supplier_id') ||
+                                   sqlLower.includes('suppliers.supplier_name') ||
+                                   sqlLower.includes('suppliers.user_id');
+        
+        if (hasSuppliersTable) {
+          // Check if already filtered by user_id
+          const alreadyFiltered = sqlLower.includes(`suppliers.user_id = ${userId}`) || 
+                                  sqlLower.includes(`user_id = ${userId}`) ||
+                                  sqlLower.includes(`s.user_id = ${userId}`);
+          
+          if (!alreadyFiltered) {
+            // Determine the alias used for suppliers table
+            let supplierAlias = 'suppliers';
+            const aliasMatch = sql.match(/from\s+suppliers\s+(\w+)/i) || sql.match(/join\s+suppliers\s+(\w+)/i);
+            if (aliasMatch && aliasMatch[1]) {
+              supplierAlias = aliasMatch[1];
+            }
+            
+            // Add WHERE clause to filter by user_id
+            // Handle different SQL patterns
+            if (sqlLower.includes(' where ')) {
+              // Add AND condition
+              sql = sql.replace(/ where /gi, ` WHERE ${supplierAlias}.user_id = ${userId} AND `);
+            } else {
+              // No WHERE clause - add one before GROUP BY, ORDER BY, or LIMIT
+              const groupByIndex = sqlLower.indexOf(' group by');
+              const orderByIndex = sqlLower.indexOf(' order by');
+              const limitIndex = sqlLower.indexOf(' limit');
+              
+              let insertIndex = sql.length;
+              if (groupByIndex !== -1) insertIndex = Math.min(insertIndex, groupByIndex);
+              if (orderByIndex !== -1) insertIndex = Math.min(insertIndex, orderByIndex);
+              if (limitIndex !== -1) insertIndex = Math.min(insertIndex, limitIndex);
+              
+              // Insert WHERE clause
+              const beforeWhere = sql.substring(0, insertIndex).trim();
+              const afterWhere = sql.substring(insertIndex).trim();
+              sql = `${beforeWhere} WHERE ${supplierAlias}.user_id = ${userId} ${afterWhere}`;
+            }
+            this.logger.log(`[Supplier Filter] Filtered SQL for Supplier user (${userId}): ${sql}`);
+          } else {
+            this.logger.log(`[Supplier Filter] SQL already contains user_id filter for user ${userId}`);
+          }
+        } else {
+          this.logger.log(`[Supplier Filter] Query does not involve suppliers table, skipping filter`);
+        }
+      } else {
+        this.logger.log(`[Supplier Filter] User role is not Supplier or userId is missing. Role: ${userRole}, UserId: ${userId}`);
+      }
 
       if (!sql.toLowerCase().trim().startsWith('select')) {
         throw new BadRequestException(
@@ -74,9 +136,29 @@ export class ChatService {
       }
 
       this.logger.log('Executing SQL query...');
-      const [rows] = await this.sequelize.query(sql);
+      this.logger.log(`Final SQL: ${sql}`);
+      
+      let rows: any[];
+      try {
+        [rows] = await this.sequelize.query(sql);
+      } catch (error: any) {
+        this.logger.error(`SQL execution error: ${error.message}`);
+        this.logger.error(`Failed SQL: ${sql}`);
+        throw new BadRequestException(
+          isArabic
+            ? `خطأ في تنفيذ الاستعلام: ${error.message}`
+            : `SQL execution error: ${error.message}`
+        );
+      }
+      
       const rowCount = Array.isArray(rows) ? rows.length : 0;
       this.logger.log(`Query returned ${rowCount} rows`);
+      if (rowCount === 0) {
+        this.logger.warn(`Query returned 0 rows. SQL: ${sql}`);
+        this.logger.warn(`User role: ${userRole}, UserId: ${userId}`);
+      } else {
+        this.logger.log(`First row sample: ${JSON.stringify(rows[0])}`);
+      }
 
       this.logger.log('Formatting answer...');
       const answer = await this.llm.formatAnswer(question, rows);

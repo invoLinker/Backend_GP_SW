@@ -74,18 +74,6 @@ export class AuthService {
     };
   }
 
-  // async refreshToken(token: string) {
-  //   try {
-  //     const payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET || 'secretKey' });
-  //     const newAccessToken = this.jwtService.sign(
-  //       { sub: payload.sub, email: payload.email, role: payload.role_name },
-  //       { expiresIn: '15m' }
-  //     );
-  //     return { access_token: newAccessToken };
-  //   } catch (e) {
-  //     throw new UnauthorizedException('Invalid refresh token');
-  //   }
-  // }
 
   async refreshToken(token: string) {
   try {

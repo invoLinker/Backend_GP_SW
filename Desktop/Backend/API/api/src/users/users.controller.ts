@@ -68,8 +68,33 @@ export class UsersController {
 
   @Public()
   @Get('reset-password')
-  async resetPasswordViaLink(@Query('token') token: string) {
-    return this.usersService.resetPassword(token);
+  async resetPasswordViaLink(@Query('token') token: string, @Request() req) {
+    try {
+      const result = await this.usersService.resetPassword(token);
+
+      await this.historyLogService.createLog({
+        action: 'User Reset Password',
+        description: `User with email=${req.user.email} reset password`,
+        user: req.user.email ?? 'Unknown',
+        userRole: req.user.role ?? 'Unknown',
+        category: HistoryCategory.SECURITY,
+        severity: HistorySeverity.SUCCESS,
+        details: result.message,
+      });
+
+      return result;
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'User Creation Failed',
+        description: error.message,
+        user: req.user.email ?? 'Unknown',
+        userRole: req.user.role ?? 'Unknown',
+        category: HistoryCategory.SECURITY,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+      throw error;
+    }
   }
 
   @UseGuards(JwtAuthGuard)
@@ -143,7 +168,7 @@ export class UsersController {
 
       await this.historyLogService.createLog({
         action: 'User Status Updated',
-        description: `User id=${id} status updated`,
+        description: `User with email ${req.user.email} status updated`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.USER,
@@ -178,7 +203,7 @@ export class UsersController {
 
       await this.historyLogService.createLog({
         action: 'User Password Updated',
-        description: `User id=${id} password changed`,
+        description: `User with email=${req.user.email} password changed`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.SECURITY,
@@ -340,62 +365,12 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @Req() req
   ) {
-    try {
-      const result = await this.usersService.updateUser(id, updateUserDto, profile_imageFile);
-
-      await this.historyLogService.createLog({
-        action: 'User Updated',
-        description: `User id=${id} updated`,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.USER,
-        severity: HistorySeverity.SUCCESS,
-        details: result,
-      });
-
-      return result;
-    } catch (error) {
-      await this.historyLogService.createLog({
-        action: 'User Update Failed',
-        description: error.message,
-        user: req.user?.email ?? 'Unknown',
-        userRole: req.user?.role ?? 'Unknown',
-        category: HistoryCategory.DATA,
-        severity: HistorySeverity.ERROR,
-        details: error,
-      });
-      throw error;
-    }
+      return this.usersService.updateUser(id, updateUserDto, profile_imageFile);
   }
 
   @Delete(':id/profile-image')
   async deleteProfileImage(@Param('id') id: number, @Req() req) {
-  try {
-        const result = await this.usersService.deleteProfileImage(id);
-
-        await this.historyLogService.createLog({
-          action: 'User Updated her image profile',
-          description: `User id=${id} updated`,
-          user: req.user?.email ?? 'Unknown',
-          userRole: req.user?.role ?? 'Unknown',
-          category: HistoryCategory.USER,
-          severity: HistorySeverity.SUCCESS,
-          details: result,
-        });
-
-        return result;
-      } catch (error) {
-        await this.historyLogService.createLog({
-          action: 'User image profile Update Failed',
-          description: error.message,
-          user: req.user?.email ?? 'Unknown',
-          userRole: req.user?.role ?? 'Unknown',
-          category: HistoryCategory.DATA,
-          severity: HistorySeverity.ERROR,
-          details: error,
-        });
-        throw error;
-      }
+        return this.usersService.deleteProfileImage(id);
     }
 
 

@@ -54,16 +54,23 @@ Relations:
 TABLE: suppliers
 ------------------------------
 supplier_id (INT, PK, auto_increment)
+user_id (INT, FK -> user.user_id)
 supplier_name (VARCHAR)
 email (VARCHAR)
 phone (VARCHAR)
 address (VARCHAR)
+account_holder (VARCHAR, nullable)
+account_number (VARCHAR, nullable)
+iban (VARCHAR, nullable)
+swift (VARCHAR, nullable)
+bank_name (VARCHAR, nullable)
 createdAt (DATETIME)
 updatedAt (DATETIME)
 
 Relations:
 - HasMany purchaseorders (supplier_id)
 - HasMany supplier_invoices (supplier_id)
+- BelongsTo user (user_id)
 
 ==============================
 TABLE: supplier_invoices
