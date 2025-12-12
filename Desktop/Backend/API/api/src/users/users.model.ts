@@ -31,9 +31,9 @@ export class User extends Model<User> {
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
+    allowNull: true,
   })
-  password_hash: string;
+  password_hash: string | null;
 
   @Column({
     type: DataType.STRING,
@@ -90,6 +90,20 @@ export class User extends Model<User> {
     allowNull: true,
   })
   deletedAt: Date | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    unique: true,  
+  })
+  google_id: string | null;
+
+  @Column({
+    type: DataType.ENUM('local', 'google'),
+    defaultValue: 'local',
+  })
+  provider: 'local' | 'google';
+
 
   @BelongsTo(() => Role)
   role: Role;

@@ -8,9 +8,11 @@ import { GoodsReceipts } from 'src/GoodsReceipt/GoodsReceipt.model';
 import { SupplierInvoice } from 'src/supplier-invoices/supplier-invoice.model';
 import { HistoryLog } from 'src/History/history-log.model';
 import { HistoryLogService } from 'src/History/history-log.service';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Stock, DeliveryNote,GoodsReceipts, SupplierInvoice, HistoryLog])],
+  imports: [SequelizeModule.forFeature([Stock, DeliveryNote,GoodsReceipts, SupplierInvoice, HistoryLog]),
+  NotificationModule],
   providers: [StockService, HistoryLogService],
   controllers: [StockController]
 })

@@ -81,7 +81,7 @@ async getAllTasks() {
 
     await this.notificationService.sendNotification({
     title: 'Task Status Updated',
-    message: `You updated the status of task "${task.title}" to "${task.status}".`,
+    message: `Updated the status of task "${task.title}" to "${task.status}".`,
     userId: task.created_by.toString(),
     channel: NotificationChannel.IN_APP,
     category: NotificationCategory.TASK,

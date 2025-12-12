@@ -572,5 +572,81 @@ Provide a comprehensive analysis based on this data.
 
     return res.choices[0].message?.content?.trim() ?? "Analysis unavailable.";
   }
+
+  /**
+   * Generate AI Insights as JSON array
+   */
+  async generateAIInsights(data: any): Promise<any[]> {
+    const prompt = `You are a professional data analyst for a procurement and invoice management system. Analyze the following data and create intelligent insights and actionable recommendations.
+
+Statistical Data:
+${JSON.stringify(data, null, 2)}
+
+Required: Create a list of 4-8 insights in English. Each insight must contain:
+- type: Must be one of: 'prediction', 'recommendation', 'pattern', 'risk'
+- title: Clear title in English (short and useful)
+- description: Detailed description in English (2-3 sentences)
+- impact: 'high', 'medium', or 'low'
+- confidence: Number between 70 and 95 (confidence level in the insight)
+- action: Suggested action in English (optional, but preferred)
+
+Rules:
+1. Look for patterns in the data (e.g., seasonal price fluctuations, payment method preferences)
+2. Provide predictions based on trends (e.g., expected revenue growth)
+3. Identify potential risks (e.g., suppliers with payment delays)
+4. Suggest practical, actionable recommendations
+5. Be accurate and based on actual data
+6. Use clear English terminology
+
+Return the result in JSON array format only, without any additional text or markdown:
+
+[
+  {
+    "type": "prediction",
+    "title": "...",
+    "description": "...",
+    "impact": "high",
+    "confidence": 85,
+    "action": "..."
+  },
+  ...
+]`;
+
+    const res = await this.client.chat.completions.create({
+      model: this.answerModel,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a professional data analyst. Analyze the data and return results in JSON array format only, without any additional text or markdown. Ensure the output is valid JSON. All content must be in English.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+    });
+
+    let insightsText = res.choices[0].message?.content?.trim() || '[]';
+    
+    // تنظيف الرد من markdown إذا كان موجوداً
+    insightsText = insightsText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    try {
+      const insights = JSON.parse(insightsText);
+      return Array.isArray(insights) ? insights : [];
+    } catch (e) {
+      // إذا فشل parsing، حاول استخراج JSON من النص
+      const jsonMatch = insightsText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (e2) {
+          return [];
+        }
+      }
+      return [];
+    }
+  }
 }
 

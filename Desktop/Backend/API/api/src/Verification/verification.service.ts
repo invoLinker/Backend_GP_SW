@@ -8,6 +8,10 @@ import { GoodsReceiptItem } from '../GoodsReceipt/GoodsReceiptItem.model';
 import { PurchaseOrder } from 'src/PO/po.model';
 import { SupplierInvoiceItem } from 'src/supplier-invoices/supplier-invoice-item.model';
 import { SupplierInvoice } from 'src/supplier-invoices/supplier-invoice.model';
+import { NotificationService } from "src/Notification/notification.service";
+import { NotificationCategory, NotificationChannel } from "src/Notification/create-notification.dto";
+import { User } from "src/users/users.model";
+import { Role } from "src/roles/roles.model";
 
 @Injectable()
 export class InvoiceService {
@@ -21,6 +25,8 @@ export class InvoiceService {
     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
     @InjectModel(SupplierInvoice) private invoiceModel: typeof SupplierInvoice,
     @InjectModel(SupplierInvoiceItem) private invoiceItemModel: typeof SupplierInvoiceItem,
+    private readonly notificationService: NotificationService
+
   ) {
     this.groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
@@ -1104,6 +1110,29 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
         !result.stage1?.pass ? "Failed at stage 1" :
         "Failed at stage 2";
 
+        if (result.overall === "Passed") {
+  try {
+    const paymentRole = await Role.findOne({ where: { role_name: 'PaymentOfficer' } });
+
+    if (paymentRole) {
+      const paymentUsers = await User.findAll({ where: { role_id: paymentRole.role_id } });
+
+      for (const user of paymentUsers) {
+        await this.notificationService.sendNotification({
+          title: "Purchase Order Ready for Payment 💰",
+          message: `PO ${po_number} verification is completed and ready for payment.`,
+          userId: user.user_id.toString(),
+          channel: NotificationChannel.IN_APP,
+          category: NotificationCategory.SYSTEM,
+          payload: { poNumber: po_number }
+        });
+      }
+          }
+        } catch (err) {
+          console.error("⚠️ Failed to send Payment Officer notification:", err);
+        }
+      }
+
       return JSON.stringify(result);
 
 
@@ -1160,10 +1189,31 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
     await purchaseOrder.update({ status: 'ReadyForPaid' });
     for (const dn of deliveryNotes) await dn.update({ status: 'Verified' });
     for (const gr of goodsReceipts) await gr.update({ status: 'Verified' });
-  }
+   try {
+        const paymentRole = await Role.findOne({ where: { role_name: 'PaymentOfficer' } });
+
+        if (paymentRole) {
+          const paymentUsers = await User.findAll({ where: { role_id: paymentRole.role_id } });
+
+          for (const user of paymentUsers) {
+            await this.notificationService.sendNotification({
+              title: 'Purchase Order Ready for Payment 💰',
+              message: `PO with #${po_number} is fully verified and ready for payment.`,
+              userId: user.user_id.toString(),
+              channel: NotificationChannel.IN_APP,
+              category: NotificationCategory.SYSTEM,
+              payload: {
+                poNumber: po_number
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("❌ Failed to send payment notification", err);
+      }
+    }
   }
 }
-
 }
 
 

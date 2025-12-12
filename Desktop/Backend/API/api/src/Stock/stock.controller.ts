@@ -212,6 +212,11 @@ try {
     }
   }
 
+  @Get('items')
+  async getUniqueItems() {
+    return await this.stockService.getUniqueStockItems();
+  }
+
 
   
 }

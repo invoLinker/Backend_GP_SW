@@ -93,7 +93,13 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File) {
     throw new ConflictException('This email is already taken');
   }
 
-  const hashedPassword = await bcrypt.hash(password_hash, 10);
+  // const hashedPassword = await bcrypt.hash(password_hash!, 10);
+  let hashedPassword :string| null= null;
+
+    if (password_hash) {
+      hashedPassword = await bcrypt.hash(password_hash, 10);
+    }
+
 
   const user = new User();
   user.first_name = first_name;
@@ -102,6 +108,11 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File) {
   user.password_hash = hashedPassword;
   user.role_id = role.role_id;
   user.status = 'Active';
+
+/////////////
+user.google_id = (createUserDto.google_id ?? null) as string | null;
+user.provider = createUserDto.provider ?? 'local';
+///////////////////
 
   if (ID_imageFile) {
     user.ID_image = `/uploads/${ID_imageFile.filename}`;
@@ -323,7 +334,7 @@ async updatePassword(id: number, updateDto: UpdateUserDto) {
       throw new BadRequestException('Old password and new password are required');
     }
 
-    const isMatch = await bcrypt.compare(updateDto.old_password, user.password_hash);
+    const isMatch = await bcrypt.compare(updateDto.old_password, user.password_hash!);
     if (!isMatch) throw new BadRequestException('Old password is incorrect');
 
     const token = uuidv4();

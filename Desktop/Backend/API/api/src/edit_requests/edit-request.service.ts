@@ -111,6 +111,22 @@ async update(id: number, data: UpdateEditRequestDto) {
   if (data.status === 'Rejected') {
     request.status = 'Rejected';
     await request.save();
+
+    if (request.user_id) {
+      await this.notificationService.sendNotification({
+        title: `Edit Request Rejected`,
+        message: `Your edit request for purchase order #${po.po_number} has been Rejected.`,
+        userId: request.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {
+          editRequestId: request.id?.toString() ?? id.toString(),
+          poNumber: po.po_number,
+          status: 'Rejected',
+        },
+      });
+    }
+    
     return request;
   }
 
@@ -133,6 +149,21 @@ async update(id: number, data: UpdateEditRequestDto) {
     request.status = 'Approved';
     request.is_edit = true;
     await request.save();
+
+    if (request.user_id) {
+      await this.notificationService.sendNotification({
+        title: `Edit Request Approved`,
+        message: `Your edit request for purchase order #${po.po_number} has been Approved and applied successfully.`,
+        userId: request.user_id.toString(),
+        channel: NotificationChannel.IN_APP,
+        category: NotificationCategory.SYSTEM,
+        payload: {
+          editRequestId: request.id?.toString() ?? id.toString(),
+          poNumber: po.po_number,
+          status: 'Approved',
+        },
+      });
+    }
 
     return request;
   }

@@ -16,7 +16,13 @@ import { User } from 'src/users/users.model'
 import { Role } from 'src/roles/roles.model';
 import { text } from 'stream/consumers';
 import { EditRequestService } from 'src/edit_requests/edit-request.service';
-import { threadId } from 'worker_threads';
+import * as nodemailer from 'nodemailer';
+import { SupplierInvoice } from 'src/supplier-invoices/supplier-invoice.model';
+import { DeliveryNote } from 'src/DeliveryNote/delivery-note.model';
+import { GoodsReceipts } from 'src/GoodsReceipt/GoodsReceipt.model';
+import { SupplierInvoiceItem } from 'src/supplier-invoices/supplier-invoice-item.model';
+import { GoodsReceiptItem } from 'src/GoodsReceipt/GoodsReceiptItem.model';
+import { DeliveryNoteItem } from 'src/DeliveryNote/delivery-note-item.model';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -41,169 +47,10 @@ export class PurchaseOrderService {
     private readonly notificationService: NotificationService
   ) {}
 
-// async create(createPoDto: CreatePurchaseOrderDto, createdBy: number): Promise<PurchaseOrder> {
-//   const transaction = await this.poModel.sequelize!.transaction();
-
-//   let po: PurchaseOrder;
-
-//   try {
-//     const supplierUser = await this.userModel.findOne({
-//       where: { email: createPoDto.supplier_email },
-//       transaction,
-//     });
-
-//     if (!supplierUser) {
-//       throw new BadRequestException(`Supplier with email "${createPoDto.supplier_email}" does not exist.`);
-//     }
-
-//     const supplier = await this.supplierModel.findOne({
-//       where: { user_id: supplierUser.user_id },
-//       transaction,
-//     });
-
-//     if (!supplier) {
-//       throw new BadRequestException(`No supplier record linked to user "${createPoDto.supplier_email}"`);
-//     }
-
-//     let subtotal = 0;
-//     for (const item of createPoDto.items || []) {
-//       subtotal += item.quantity * item.unit_price;
-//     }
-
-//     const vat = subtotal * 0.16;
-//     const total_amount = subtotal + vat;
-
-//     const lastPo = await this.poModel.findOne({
-//       order: [['po_id', 'DESC']],
-//       transaction,
-//     });
-
-//     const lastNumber = lastPo ? parseInt(lastPo.po_number.split('-')[1]) : 0;
-//     const po_number = `PO-${lastNumber + 1}`;
-
-//     po = await this.poModel.create(
-//       {
-//         supplier_id: supplier.supplier_id,
-//         order_date: createPoDto.order_date ? new Date(createPoDto.order_date) : new Date(),
-//         subtotal,
-//         vat,
-//         note: createPoDto.note,
-//         total_amount,
-//         expected_delivery: createPoDto.expected_delivery ? new Date(createPoDto.expected_delivery) : null,
-//         status: createPoDto.status || 'Open',
-//         currency: createPoDto.currency,
-//         payment_method: createPoDto.payment_method,
-//         po_number,
-//         company_name: createPoDto.company_name,
-//         company_email: createPoDto.company_email,
-//         company_phone: createPoDto.company_phone,
-//         company_address: createPoDto.company_address,
-//         supplier_email: createPoDto.supplier_email,
-//         supplier_phone: createPoDto.supplier_phone,
-//         supplier_address: createPoDto.supplier_address,
-//         created_by: createdBy
-//       } as any,
-//       { transaction },
-//     );
-
-//     for (const itemDto of createPoDto.items || []) {
-//       const existingItem = await Item.findOne({
-//         where: {
-//           item_code: itemDto.barcode,
-//           item_name: itemDto.item_name,
-//           status: 'active',
-//         },
-//         transaction,
-//       });
-
-//       if (!existingItem) {
-//         throw new BadRequestException(`Item with name "${itemDto.item_name}" does not exist in the system.`);
-//       }
-
-//       await this.itemModel.create(
-//         {
-//           po_id: po.po_id,
-//           item_name: existingItem.item_name,
-//           barcode: existingItem.item_code,
-//           quantity: itemDto.quantity,
-//           unit: itemDto.unit,
-//           unit_price: itemDto.unit_price,
-//         } as any,
-//         { transaction },
-//       );
-//     }
-
-//     await transaction.commit(); 
-
-//   } catch (error) {
-//     await transaction.rollback();
-
-//     if (error.name === 'SequelizeValidationError') {
-//       throw new BadRequestException(error.message);
-//     }
-
-//     console.error('Error creating Purchase Order:', error);
-//     throw new InternalServerErrorException('Failed to create Purchase Order');
-//   }
-
-//     try {   
-//     // const roles = await Role.findAll({ where: { role_name: 'Admin' } });
-//     // const roleIds = roles.map(r => r.role_id); 
-//     // const admins = await this.userModel.findAll({ 
-//     //   where: { role_id: roleIds } 
-//     // });
-    
-//     // console.log("Admins:", admins);
-
-//     const creator = await this.userModel.findByPk(createdBy, { include: [Role] });
-//     let recipients: User[] = [];
-
-//     if (creator && creator.role.role_name === 'Admin') {
-//       const accountantRole = await Role.findOne({ where: { role_name: 'Accountant' } });
-//       recipients = await this.userModel.findAll({ where: { role_id: accountantRole!.id } });
-//     } else {
-//       const roles = await Role.findAll({ where: { role_name: 'Admin' } });
-//       const roleIds = roles.map(r => r.role_id); 
-//       recipients = await this.userModel.findAll({ where: { role_id: roleIds } });
-//     }
-
-//     for (const admin of recipients) {
-//       await this.notificationService.sendNotification({
-//         title: 'New Purchase Order Created',
-//         message: `PO ${po.po_number} has been created by ${po.company_name}.`,
-//         userId: admin.user_id.toString(),
-//         channel: NotificationChannel.IN_APP,
-//         category: NotificationCategory.SYSTEM,
-//         payload: {},
-//       });
-
-//       // await this.notificationService.sendNotification({
-//       //   title: 'New Purchase Order Created',
-//       //   message: `PO ${po.po_number} has been created by ${po.company_name}.`,
-//       //   userId: admin.user_id.toString(),
-//       //   channel: NotificationChannel.PUSH,
-//       //   category: NotificationCategory.SYSTEM,
-//       //   payload: {},
-//       // });
-//     }
-
-//   } catch (notifErr) {
-//     console.error("Notification error:", notifErr);
-//   }
-
-//   const savedPo = await this.poModel.findByPk(po.po_id, {
-//     include: [{ model: PurchaseOrderItem, as: 'items' }],
-//   });
-
-//   return savedPo!;
-// }
-
 async create(createPoDto: CreatePurchaseOrderDto, createdBy: number): Promise<PurchaseOrder> {
   const transaction = await this.poModel.sequelize!.transaction();
 
   let po: PurchaseOrder;
-
-  // try {
 
     if (!createPoDto.supplier_email) {
     throw new BadRequestException('Supplier email is required');
@@ -215,15 +62,14 @@ async create(createPoDto: CreatePurchaseOrderDto, createdBy: number): Promise<Pu
     where: { email: createPoDto.supplier_email },
   });
 
-console.log('Found supplier user:', supplierUser);
+  console.log('Found supplier user:', supplierUser);
 
-if (!supplierUser) {
-  throw new BadRequestException(`Supplier with email "${createPoDto.supplier_email}" does not exist.`);
-}
+  if (!supplierUser) {
+    throw new BadRequestException(`Supplier with email "${createPoDto.supplier_email}" does not exist.`);
+  }
 
     const supplier = await this.supplierModel.findOne({
       where: { user_id: supplierUser.user_id },
-      // transaction,
     });
 
     if (!supplier) {
@@ -269,19 +115,7 @@ if (!supplierUser) {
     );
 
     for (const itemDto of createPoDto.items || []) {
-      // const existingItem = await Item.findOne({
-      //   where: {
-      //     item_code: itemDto.barcode,
-      //     item_name: itemDto.item_name,
-      //     status: 'active',
-      //   },
-      //   transaction,
-      // });
-
-      // if (!existingItem) {
-      //   throw new BadRequestException(`Item with name "${itemDto.item_name}" does not exist in the system.`);
-      // }
-
+    
       await this.itemModel.create(
         {
           po_id: po.po_id,
@@ -297,42 +131,25 @@ if (!supplierUser) {
 
     await transaction.commit(); 
 
-  // } catch (error) {
-  //   await transaction.rollback();
-
-  //   if (error.name === 'SequelizeValidationError') {
-  //     throw new BadRequestException(error.message);
-  //   }
-
-  //   console.error('Error creating Purchase Order:', error);
-  //   throw new InternalServerErrorException('Failed to create Purchase Order');
-  // }
-
     try {   
-    // const roles = await Role.findAll({ where: { role_name: 'Admin' } });
-    // const roleIds = roles.map(r => r.role_id); 
-    // const admins = await this.userModel.findAll({ 
-    //   where: { role_id: roleIds } 
-    // });
-    
-    // console.log("Admins:", admins);
 
     const creator = await this.userModel.findByPk(createdBy, { include: [Role] });
     let recipients: User[] = [];
 
     if (creator && creator.role.role_name === 'Admin') {
       const accountantRole = await Role.findOne({ where: { role_name: 'Accountant' } });
-      recipients = await this.userModel.findAll({ where: { role_id: accountantRole!.id } });
+      recipients = await this.userModel.findAll({ where: { role_id: accountantRole!.role_id } });
     } else {
       const roles = await Role.findAll({ where: { role_name: 'Admin' } });
       const roleIds = roles.map(r => r.role_id); 
       recipients = await this.userModel.findAll({ where: { role_id: roleIds } });
     }
 
+    const x= await this.userModel.findByPk(createdBy);
     for (const admin of recipients) {
       await this.notificationService.sendNotification({
         title: 'New Purchase Order Created',
-        message: `PO ${po.po_number} has been created by ${po.company_name}.`,
+        message: `PO with #${po.po_number} has been created by ${x?.first_name} ${x?.last_name}.`,
         userId: admin.user_id.toString(),
         channel: NotificationChannel.IN_APP,
         category: NotificationCategory.SYSTEM,
@@ -384,8 +201,13 @@ async findAll(): Promise<PurchaseOrder[]> {
 
   async findByPONumber(id: string): Promise<PurchaseOrder> {
     const po = await this.poModel.findOne({
-    where: {po_number: id,
-    },
+    where: { po_number: id },
+    include: [
+      {
+        model: PurchaseOrderItem,
+        as: "items",
+      },
+    ],
   });
 
     if (!po) {
@@ -735,6 +557,55 @@ async saveFilePath(po_number: string, filePath: string) {
 
   await po.save();
 
+   try {
+    const supplierEmail = po.supplier_email;
+
+    if (supplierEmail) {
+        // 🔹 شيّك إذا عندك ملف PDF أو Excel للـ PO
+        const filePath = po.pdfUrl || po.excelUrl || null;
+
+        // 🔹 جهزي transporter مثل الموجود عندك
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+
+        // 🔹 صياغة الرسالة
+        const message = `
+Hello,
+
+A new Purchase Order *${po.po_number}* has been issued to you.
+
+Please review the order details attached with this email.
+
+Thank you,
+InvoLinker Team
+                  `;
+
+        // 🔥 إرسال الإيميل مع attachment إذا موجود
+        await transporter.sendMail({
+            from: `"🖇 InvoLinker" <${process.env.EMAIL_USER}>`,
+            to: supplierEmail,
+            subject: `New Purchase Order Assigned - ${po.po_number} 📦`,
+            text: message,
+            attachments: filePath
+                ? [
+                      {
+                        filename: filePath.split('/').pop(),
+                        path: filePath,
+                      },
+                  ]
+                : [],
+        });
+    }
+
+    } catch (err) {
+        console.error("❌ Failed to send supplier email:", err);
+    }
+
   return response;
 }
 
@@ -766,65 +637,6 @@ async getFile(po_number: string, type: 'pdf' | 'excel') {
   throw new BadRequestException('Invalid type. Must be "pdf" or "excel".');
 }
 
-
-// async getPendingApprovals() {
-//   const accountantRole = await Role.findOne({
-//     where: { role_name: 'Accountant' }
-//   });
-
-//   if (!accountantRole) {
-//     throw new Error('Accountant role not found');
-//   }
-
-//   const accountants = await this.userModel.findAll({
-//     where: { role_id: accountantRole.role_id }
-//   });
-
-//   const accountantIds = accountants.map(acc => acc.user_id);
-
-//   const accountantPOs = await this.poModel.findAll({
-//     where: {
-//       created_by: accountantIds,
-//       status: 'Pending'
-//     },
-//     include: [{ model: PurchaseOrderItem, as: 'items' }]
-//   });
-
-//   const mappedPOs = accountantPOs.map(po => ({
-//     id: po.po_id,
-//     orderNo: po.po_number,
-//     date: po.order_date,
-//     status: po.status,
-//     type: 'Order',
-//     created_by: po.created_by
-//   }));
-
-//   const editRequests = await this.editRequestModel.findAll({
-//     where: {
-//       status: 'pending',
-//       is_edit: false 
-//     },
-//     include: [
-//       {
-//         model: this.poModel,
-//         as: 'invoice', 
-//         attributes: ['po_number', 'order_date', 'status', 'po_id']
-//       }
-//     ]
-//   });
-
-//   const mappedEdits = editRequests.map(req => ({
-//     id: req.id,
-//     orderNo: req.invoice?.po_number ?? 'Unknown',
-//     date: req.invoice?.order_date ?? req.createdAt,
-//     status: req.status,
-//     type: 'Edit Request',
-//     created_by: req.user_id,
-//     message: req.message
-//   }));
-
-//   return [...mappedPOs, ...mappedEdits];
-// }
 
 
 async getPendingApprovals() {
@@ -1021,6 +833,65 @@ async getItemBarName(id: string) {
   return enriched;
 }
 
+
+async getPurchaseOrderInv(po_number: string) {
+  const po = await this.poModel.findOne({ where: { po_number } });
+
+  if (!po) {
+    throw new NotFoundException("PO Not Found");
+  }
+
+  // -------------------- Supplier Invoice + Items --------------------
+  const si = await SupplierInvoice.findAll({
+    where: { po_number },
+    include: [
+      {
+        model: SupplierInvoiceItem,
+        as: "items",
+      },
+    ],
+  });
+
+  // if (!si || si.length === 0) {
+  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Supplier Invoice`);
+  // }
+
+  // -------------------- Delivery Note + Items --------------------
+  const dn = await DeliveryNote.findAll({
+    where: { po_number },
+    include: [
+      {
+        model: DeliveryNoteItem,
+        as: "items",
+      },
+    ],
+  });
+
+  // if (!dn || dn.length === 0) {
+  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Delivery Note`);
+  // }
+
+  // -------------------- Goods Receipt + Items --------------------
+  const gr = await GoodsReceipts.findAll({
+    where: { po_number },
+    include: [
+      {
+        model: GoodsReceiptItem,
+        as: "items",
+      },
+    ],
+  });
+
+  // if (!gr || gr.length === 0) {
+  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Goods Receipt`);
+  // }
+
+  return {
+    supplier_invoices: si,
+    delivery_notes: dn,
+    good_receipts: gr,
+  };
+}
 
 
 }

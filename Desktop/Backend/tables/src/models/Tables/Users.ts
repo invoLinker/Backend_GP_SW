@@ -17,9 +17,11 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare role_id: number;
   declare status: 'Active' | 'Inactive';
   declare deletedAt: Date;
+  declare google_id: string;
+  declare provider: 'local' | 'google';
 }
 
-
+ 
 User.init(
   {
     user_id: {
@@ -42,7 +44,7 @@ User.init(
     },
     password_hash: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     phone_number: {
       type: DataTypes.STRING,
@@ -80,6 +82,8 @@ User.init(
       type: DataTypes.STRING,
       allowNull: true, 
     },
+    google_id:{type: DataTypes.STRING, allowNull: true, unique: true,},
+    provider:{type: DataTypes.ENUM('local', 'google'), defaultValue: 'local',}
     
   },
   {

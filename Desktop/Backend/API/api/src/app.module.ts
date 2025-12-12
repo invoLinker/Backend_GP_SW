@@ -56,6 +56,7 @@ import { ChatbotModule } from './ChatBot/chat.module';
 import { ReportsModule } from './Reports/reports.module';
 import { verificationExceptionsModule } from './verification_exceptions/verification_exceptions.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { TrOcrModule } from './OCR/trocr.module';
 
 
 
@@ -109,7 +110,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     NotificationModule,
     ChatbotModule,
     ReportsModule,
-    verificationExceptionsModule
+    verificationExceptionsModule,
+    TrOcrModule
   ],
   providers: [ JwtStrategy,
     {

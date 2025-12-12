@@ -28,7 +28,7 @@ export class AuthController {
       const result = await this.authService.login(body.email, body.password);
       await this.historyLogService.createLog({
         action: 'User logged in',
-        description: `User with id=${result.user.id} looged in successfully`,
+        description: `User with id=${result.user.id} logged in successfully`,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
         category: HistoryCategory.AUTH,
@@ -40,7 +40,7 @@ export class AuthController {
 
     } catch (error) {
       await this.historyLogService.createLog({
-        action: 'User logged in',
+        action: 'User logged Failed',
         description: error.message,
         user: req.user?.email ?? 'Unknown',
         userRole: req.user?.role ?? 'Unknown',
@@ -108,29 +108,49 @@ export class AuthController {
   
 ///////////////////////////////////////////////////
 
+  @Public()
   @Post('google')
   @UseInterceptors(FileInterceptor('ID_image'))
   async googleCreateOrLogin(
+    @Request() req,
     @Body('id_token') id_token: string,
-    @UploadedFile() ID_image: Express.Multer.File,
+    @UploadedFile() ID_image?: Express.Multer.File,
+    
   ) {
-    return this.authService.loginOrCreateWithGoogle(id_token, ID_image);
+    if (!id_token) {
+      throw new BadRequestException('id_token is required');
+    }
+
+    try {
+      const result = await this.authService.loginOrCreateWithGoogle(id_token, ID_image);
+
+      await this.historyLogService.createLog({
+        action: 'User Sign-in/up',
+        description: `User with email${result.user.email} logged successfully`,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.AUTH,
+        severity: HistorySeverity.SUCCESS,
+        details: result.message,
+      })
+
+      return result;
+
+    } catch (error) {
+      await this.historyLogService.createLog({
+        action: 'User logged Failed',
+        description: error.message,
+        user: req.user?.email ?? 'Unknown',
+        userRole: req.user?.role ?? 'Unknown',
+        category: HistoryCategory.AUTH,
+        severity: HistorySeverity.ERROR,
+        details: error,
+      });
+
+      throw error;
+    }
   }
 
-  // @Post('github/callback')
-  // @UseInterceptors(FileInterceptor('ID_image'))
-  // async githubCreateOrLogin(
-  //   @Body('code') code: string,
-  //   @UploadedFile() ID_image: Express.Multer.File,
-  // ) {
-  //   return this.authService.loginOrCreateWithGithub(code, ID_image);
-  // }
-
-  @Post('github/callback')
-  async githubCallback(@Body('code') code: string) {
-    return this.authService.loginOrCreateWithGitHub(code);
-  }
-  
 
   
   @Post('upload-id')

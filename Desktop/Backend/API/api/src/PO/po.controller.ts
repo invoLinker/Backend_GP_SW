@@ -345,6 +345,14 @@ async uploadFile(
   }
 
 
+   @Get('allInvoices/:po_number')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_purchase_order_and_her_invoice')
+  async getPurchaseOrderInv(
+    @Param('po_number') po_number: string,
+  ) {
+    return this.poService.getPurchaseOrderInv(po_number);
+  }
 
 
 

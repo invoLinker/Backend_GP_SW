@@ -37,7 +37,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user) return null;
 
-    const isMatch = await bcrypt.compare(password, user['password_hash']);
+    const isMatch = await bcrypt.compare(password, user['password_hash']!);
     if (isMatch) {
       const { password_hash, ...result } = user['dataValues'] || user;
       return result;
@@ -53,7 +53,7 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid email or password');
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash!);
     if (!isMatch) throw new UnauthorizedException('Invalid email or password');
 
     const payload = { 
@@ -81,18 +81,17 @@ export class AuthService {
       secret: process.env.JWT_SECRET || 'secretKey' 
     });
 
-    // Generate NEW **Access Token**, short-lived
     const newAccessToken = this.jwtService.sign(
       {
         sub: payload.sub,
         email: payload.email,
         role_name: payload.role_name,
       },
-      { expiresIn: '1h' }   // Same as login (or more, your choice)
+      { expiresIn: '1h' }   
     );
 
     return {
-      access_token: newAccessToken      // ✔ Correct field
+      access_token: newAccessToken     
     };
 
   } catch (e) {
@@ -104,7 +103,7 @@ export class AuthService {
 
 //////////////////////////////////////////////////// continue with google
 
-async loginOrCreateWithGoogle(idToken: string, ID_image: Express.Multer.File) {
+async loginOrCreateWithGoogle(idToken: string, ID_image?: Express.Multer.File) {
   const ticket = await this.googleClient.verifyIdToken({
     idToken,
     audience: this.config.get<string>('GOOGLE_CLIENT_ID'),
@@ -117,97 +116,42 @@ async loginOrCreateWithGoogle(idToken: string, ID_image: Express.Multer.File) {
   const first_name = payload.given_name || '';
   const last_name = payload.family_name || '';
 
-  // 2️⃣ دور على المستخدم
-  let user = await this.usersService.findByEmail(email);
+  let user = await User.findOne({ 
+    where: { email },
+    include: [Role],
+  });
 
-  // 3️⃣ إذا غير موجود، create مع الصورة مباشرة
   if (!user) {
     const userDto: CreateUserDto = {
       first_name,
       last_name,
       email,
-      password_hash: Math.random().toString(36).slice(-8), // كلمة مرور عشوائية
+      password_hash: Math.random().toString(36).slice(-8),
+      google_id: payload.sub,
+      provider: 'google',
     };
 
     return this.usersService.create(userDto, ID_image);
   }
 
-  // 4️⃣ اصنع JWT
-  const jwt = this.jwtService.sign({ sub: user.user_id, email: user.email });
+  const jwtPayload = { 
+    sub: user.user_id, 
+    email: user.email,
+    role_name: user.role?.role_name 
+  };
+  
+  const access_token = this.jwtService.sign(jwtPayload, { expiresIn: '1h' });
+  const refresh_token = this.jwtService.sign(jwtPayload, { expiresIn: '7d' });
 
   return {
     message: 'Login or account created successfully',
-    access_token: jwt,
-    user_id: user.user_id,
-    isIDUploaded: !!user.ID_image,
-  };
-}
-
-//////////////////////////////////////////////////// GitHub
-
-async loginOrCreateWithGitHub(code: string) {
-  if (!code) throw new BadRequestException('GitHub code not provided');
-
-  const tokenResponse = await axios.post(
-    'https://github.com/login/oauth/access_token',
-    {
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
+    access_token,
+    refresh_token,
+    user: {
+      id: user.user_id,
+      email: user.email,
+      role_name: user.role?.role_name,
     },
-    { headers: { Accept: 'application/json' } },
-  );
-
-  const access_token = tokenResponse.data.access_token;
-  if (!access_token) throw new UnauthorizedException('Invalid GitHub code');
-
-  const userResponse = await axios.get('https://api.github.com/user', {
-    headers: { Authorization: `Bearer ${access_token}` },
-  });
-
-  const emailResponse = await axios.get('https://api.github.com/user/emails', {
-    headers: { Authorization: `Bearer ${access_token}` },
-  });
-
-  const emailObj = emailResponse.data.find((e: any) => e.primary) || emailResponse.data[0];
-  if (!emailObj || !emailObj.email) {
-    throw new BadRequestException('GitHub account has no public email');
-  }
-
-  const email = emailObj.email;
-  console.log('📧 GitHub Email:', email);
-
-  let user = await this.usersService.findByEmail1(email);
-  console.log('🔍 Found user in DB:', user ? '✅ Yes' : '❌ No');
-
- if (!user) {
-  const fullName = userResponse.data.name || 'GitHub User';
-  const nameParts = fullName.split(' ');
-  const first_name = nameParts[0]; 
-  const last_name = nameParts.slice(1).join(' '); 
-
-  const userDto: CreateUserDto = {
-    first_name,
-    last_name,
-    email,
-    password_hash: Math.random().toString(36).slice(-8), 
-  };
-
-  return await this.usersService.create(userDto);
-}
-
-
-  const payload = { sub: user.user_id, email: user.email, role: user.role_id };
-  const accessToken = this.jwtService.sign(payload, { expiresIn: '12h' });
-  const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-  console.log('✅ GitHub Login Done for:', user.email);
-
-  return {
-    message: 'Login or account created successfully',
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    user_id: user.user_id,
     isIDUploaded: !!user.ID_image,
   };
 }

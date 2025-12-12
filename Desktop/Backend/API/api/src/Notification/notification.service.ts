@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { db } from '../Firebase/firebase.config';
 import { CreateNotificationDto, NotificationChannel, AttachmentDto } from './create-notification.dto';
 import * as nodemailer from 'nodemailer';
 import * as admin from 'firebase-admin';
+import { NotificationGateway } from './notification.gateway';
 
 @Injectable()
 export class NotificationService {
@@ -15,6 +16,10 @@ export class NotificationService {
       pass: process.env.EMAIL_PASS,
     },
   });
+
+  constructor(
+    private readonly notificationGateway: NotificationGateway
+  ) {}
 
   async sendNotification(dto: CreateNotificationDto, file?: Express.Multer.File) {
     try {
@@ -55,7 +60,7 @@ export class NotificationService {
           break;
 
         case NotificationChannel.IN_APP:
-          // In-App بدون FCM token
+          // In-App notification (سيتم إرساله عبر WebSocket في النهاية)
           this.logger.log(`In-App notification ready for user: ${dto.userId}`);
           break;
 
@@ -76,6 +81,20 @@ export class NotificationService {
         default:
           throw new Error('Invalid channel');
       }
+
+      // إرسال الاشعار عبر WebSocket لجميع القنوات (لإظهاره في In-App)
+      const notificationData = {
+        id: notificationRef.id,
+        title: dto.title,
+        message: dto.message,
+        userId: dto.userId,
+        category: dto.category || 'general',
+        payload: { ...dto.payload, attachment: attachmentInfo },
+        read: false,
+        sender: dto.userEmail || 'System',
+        timestamp: new Date().toISOString(),
+      };
+      this.notificationGateway.sendToUser(dto.userId, notificationData);
 
       return { success: true, message: 'Notification processed', id: notificationRef.id };
     } catch (error) {

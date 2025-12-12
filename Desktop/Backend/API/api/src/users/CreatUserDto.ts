@@ -35,8 +35,8 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
-  @IsNotEmpty()
-  password_hash: string;
+  @IsOptional()
+  password_hash?: string | null;
 
   @IsString()
   @IsOptional()
@@ -80,4 +80,12 @@ export class CreateUserDto {
   @IsEnum(UserStatus, { message: 'status must be either Active or Inactive' })
   @IsOptional()
   status?: UserStatus;
+
+  @IsOptional()
+  @IsString()
+  google_id?: string;
+
+  @IsOptional()
+  @IsEnum(['local', 'google'])
+  provider?: 'local' | 'google';
 }

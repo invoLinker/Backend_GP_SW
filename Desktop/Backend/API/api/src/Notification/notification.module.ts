@@ -4,6 +4,7 @@ import { NotificationController } from './notification.controller';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { NotificationGateway } from './notification.gateway';
 
 @Module({
   imports:[MulterModule.register({
@@ -15,7 +16,7 @@ import { extname } from 'path';
                 },
               }),
             })],
-  providers: [NotificationService],
+  providers: [NotificationService, NotificationGateway],
   exports: [NotificationService],
   controllers: [NotificationController],
 })

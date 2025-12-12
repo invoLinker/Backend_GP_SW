@@ -66,6 +66,7 @@ import { PurchaseOrder } from 'src/PO/po.model';
 import { PurchaseOrderItem } from 'src/PO/PoItem.model';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { HistoryLog } from 'src/History/history-log.model';
+import { NotificationModule } from 'src/Notification/notification.module';
 
 @Module({
     imports: [
@@ -80,7 +81,7 @@ import { HistoryLog } from 'src/History/history-log.model';
       PurchaseOrderItem,
       HistoryLog
     ]),
-    
+    NotificationModule
   ],
   controllers: [InvoiceController],
   providers: [InvoiceService,HistoryLogService],

@@ -9,6 +9,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Op } from 'sequelize';
 import { FilterStockDto } from './FilterStockDto';
 import { PurchaseOrder } from 'src/PO/po.model';
+import { NotificationService } from 'src/Notification/notification.service';
+import { User } from 'src/users/users.model';
+import { Role } from 'src/roles/roles.model';
+import { NotificationChannel, NotificationCategory } from 'src/Notification/create-notification.dto';
 
 
 @Injectable()
@@ -17,6 +21,7 @@ export class StockService {
     @InjectModel(Stock) private stockModel: typeof Stock,
     @InjectModel(SupplierInvoice) private invoiceModel: typeof SupplierInvoice,
     @InjectModel(GoodsReceipts) private goodModel: typeof GoodsReceipts,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(po_number: string){
@@ -70,6 +75,11 @@ export class StockService {
       }
     }
   }
+
+  await this.notifyWarehouse(
+  'Stock Updated',
+  `New stock items have been added from PO ${po_number}.`
+  );
 
   return {message: "Add Items To Stock Successfully"};
 }
@@ -377,6 +387,46 @@ return {
 
   await stock.save();
   return {message: "Stock updated successfully"};
+}
+
+private async notifyWarehouse(title: string, message: string) {
+  const users = await User.findAll({
+    include: [{ model: Role, where: { role_name: 'Warehouse' } }],
+  });
+
+  for (const user of users) {
+    await this.notificationService.sendNotification({
+      title,
+      message,
+      userId: user.user_id.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: {},
+    });
+  }
+}
+
+
+async getUniqueStockItems() {
+  const stocks = await this.stockModel.findAll({
+    attributes: ["item_name"],
+    raw: true,
+  });
+
+  if (!stocks.length) {
+    throw new NotFoundException("No stock found");
+  }
+
+  // استخدام Set لتجنب التكرار
+  const uniqueNames = new Set<string>();
+
+  for (const s of stocks) {
+    if (s.item_name) {
+      uniqueNames.add(s.item_name.trim().toLowerCase());
+    }
+  }
+
+  return Array.from(uniqueNames);
 }
 
 

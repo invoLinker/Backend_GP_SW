@@ -34,7 +34,7 @@ import { NotificationModule } from 'src/Notification/notification.module';
         }),
   ],
   controllers: [UsersController],
-  providers: [UsersService, HistoryLogService, NotificationService],
+  providers: [UsersService, HistoryLogService, ],
   exports: [UsersService],
 })
 export class UsersModule {}

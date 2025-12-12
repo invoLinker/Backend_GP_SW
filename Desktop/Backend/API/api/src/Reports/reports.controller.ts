@@ -1,122 +1,92 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ReportsService } from './reports.service';
-import * as reportTypes from './report-types';
+import { Body, Controller, Get, Param, Query } from '@nestjs/common';
+import { ReportsService, AIInsight } from './Admin/reports.service';
+import { AccountingReportsService } from './Accountant/reports-accounting.service';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
-
-  /**
-   * الحصول على جميع التقارير المتاحة
-   * GET /reports
-   */
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async getAllReports(@Request() req: any): Promise<{
-    success: boolean;
-    reports: reportTypes.ReportDefinition[];
-  }> {
-    const userRole = req.user?.role;
-    const reports = await this.reportsService.getAllReports(userRole);
-    
-    return {
-      success: true,
-      reports,
-    };
+  constructor(private readonly reportsService: ReportsService,
+              private reports: AccountingReportsService
+  ) {}
+ 
+  ////////////////////////////////////////////////////////Admin
+  @Get('summary')
+  async getSummary() {
+    return this.reportsService.getSummary();
   }
 
-  /**
-   * الحصول على تقرير محدد
-   * GET /reports/:reportId
-   */
-  @Get(':reportId')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async getReport(@Param('reportId') reportId: string): Promise<{
-    success: boolean;
-    report: reportTypes.ReportDefinition | null;
-  }> {
-    const report = await this.reportsService.getReport(reportId);
-    
-    return {
-      success: true,
-      report,
-    };
+  @Get('payment-summary')
+  async getPaymentSummary(@Query('year') year: number) {
+    return this.reportsService.getPaymentSummary(year);
   }
 
-  /**
-   * تنفيذ تقرير
-   * POST /reports/execute
-   * 
-   * Body example:
-   * {
-   *   "reportId": "purchase_orders_summary",
-   *   "parameters": {
-   *     "startDate": "2024-01-01",
-   *     "endDate": "2024-12-31",
-   *     "status": "approved"
-   *   },
-   *   "outputType": "both",
-   *   "language": "ar"
-   * }
-   */
-  @Post('execute')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async executeReport(
-    @Body() body: reportTypes.ReportRequest,
-    @Request() req: any,
-  ): Promise<reportTypes.ReportResponse> {
-    const userRole = req.user?.role;
-    
-    // التحقق من وجود reportId
-    if (!body.reportId) {
-      return {
-        success: false,
-        reportId: '',
-        reportName: '',
-        type: 'pre_built' as any,
-        error: 'معرف التقرير مطلوب',
-      };
-    }
-
-    return await this.reportsService.executeReport(body, userRole);
+  @Get('monthly')
+  async getInvoicesPerMonth( @Query('year') year: number) {
+    return this.reportsService.getInvoicesPerMonth(year);
   }
 
-  /**
-   * تنفيذ تقرير سريع (بدون معاملات)
-   * POST /reports/:reportId/execute
-   */
-  @Post(':reportId/execute')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  async executeReportQuick(
-    @Param('reportId') reportId: string,
-    @Body() body: Partial<reportTypes.ReportRequest> = {},
-    @Request() req: any,
-  ): Promise<reportTypes.ReportResponse> {
-    const userRole = req.user?.role;
-    
-    const request: reportTypes.ReportRequest = {
-      reportId,
-      parameters: body.parameters,
-      outputType: body.outputType,
-      language: body.language,
-    };
+  @Get('payment-methods')
+  async getPaymentMethods(@Query('year') year: number) {
+    return this.reportsService.getPaymentMethods(year);
+  }
 
-    return await this.reportsService.executeReport(request, userRole);
+  @Get('aging')
+  async getAgingBuckets() {
+    return this.reportsService.getAgingBuckets();
+  }
+
+  @Get('payment-delay')
+  async getPaymentDelay(@Query('year') year: number) {
+    return this.reportsService.getPaymentDelay(year);
+  }
+
+  @Get('po-growth')
+  getPurchaseOrderGrowth(@Query('year') year: number) {
+    return this.reportsService.getMonthlyPayments(year);
+  }
+
+  @Get('/supplier-price-analysis')
+  async supplierPriceAnalysis(@Query('year') year: number) {
+  return this.reportsService.getSupplierPriceAnalysis(year);
+  }
+
+  @Get('product-history/:product')
+  async getProductHistory(@Param('product') product: string) {
+    return await this.reportsService.getProductPriceHistory(product);
+  }
+
+   @Get("payment-method-stats")
+  async getPaymentMethodStats(@Query('year') year: number) {
+    return await this.reportsService.getPaymentMethodStats(year);
+  }
+
+  @Get('ai-insights')
+  async getAIInsights(): Promise<AIInsight[]> {
+    return await this.reportsService.getAIInsights();
+  }
+   ////////////////////////////////////////////////////////Accountant
+
+  @Get('get-audit-stats')
+  async getDashboard(@Query('year') year: number) {
+    return await this.reports.getAuditStats(year);
+  }
+
+  @Get('verification-by-type')
+  async getVerificationByType(@Query('year') year: number) {
+    return await this.reports.getVerificationByType(year);
+  }
+
+  @Get('monthly-trend')
+  async getMonthlyTrend(@Query('year') year: number) {
+    return await this.reports.getMonthlyTrend(year);
+  }
+
+  @Get('task-performance')
+  async getTaskPerformance(@Query('full_name') full_name: string) {
+    return await this.reports.getTaskPerformance(full_name);
+  }
+
+  @Get('average-processing-time')
+  async getAverageProcessingTime(@Query('full_name') full_name: string) {
+    return await this.reports.getVerificationAndTaskAveragesForUser(full_name);
   }
 }
-

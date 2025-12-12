@@ -85,6 +85,23 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
   const transaction = await this.supplierInvoiceModel.sequelize!.transaction();
   const errors: string[] = [];
 
+  const createdByUser = await this.userModel.findByPk(createdBy, {
+  include: [{ model: Role }],
+  });
+  const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
+  const accountantRole = await Role.findOne({ where: { role_name: 'Accountant' } });
+
+  // get admins
+  const admins = await this.userModel.findAll({
+    where: { role_id: adminRole!.role_id },
+  });
+
+  // get accountants
+  const accountants = await this.userModel.findAll({
+    where: { role_id: accountantRole!.role_id },
+  });
+
+
   // ===============================
   // 1) supplier & PO validation
   // ===============================
@@ -235,6 +252,32 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
 
   await transaction.commit();
 
+  let notifyTargets: User[] = [];
+
+  // اذا اللي رفع سبلاير → notify admin + accountant
+  if (createdByUser?.role?.role_name === 'Supplier') {
+    notifyTargets = [...admins, ...accountants];
+  }
+  // اذا اللي رفع محاسب → notify admin بس
+  else if (createdByUser?.role?.role_name === 'Accountant') {
+    notifyTargets = admins;
+  }
+
+  for (const user of notifyTargets) {
+  await this.notificationService.sendNotification({
+    title: 'New Supplier Invoice Created',
+    message: `Invoice with # ${invoice.invoice_number} has been submitted by ${createdByUser!.first_name} ${createdByUser!.last_name}`,
+    userId: user.user_id.toString(),
+    channel: NotificationChannel.IN_APP,
+    category: NotificationCategory.SYSTEM,
+    payload: {
+      invoiceId: invoice.invoice_id,
+      createdBy: createdByUser!.user_id,
+    },
+  });
+  }
+
+
   return {
     invoice,
     path: pdfUrl || invoice_image || excelUrl || null
@@ -328,7 +371,7 @@ async updateInvoice(
   for (const user of recipients) {
     await this.notificationService.sendNotification({
       title: 'Supplier Invoice Updated',
-      message: `Invoice ${invoice.invoice_number} has been updated.`,
+      message: `Invoice with #${invoice.invoice_number} has been updated.`,
       userId: user.user_id.toString(),
       channel: NotificationChannel.IN_APP,
       category: NotificationCategory.SYSTEM,
