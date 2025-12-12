@@ -48,6 +48,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      // enableImplicitConversion: true, // Enable automatic type conversion for query parameters
     })
   );
 

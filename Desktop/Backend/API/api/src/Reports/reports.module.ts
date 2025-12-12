@@ -12,13 +12,19 @@ import { GoodsReceipts } from 'src/GoodsReceipt/GoodsReceipt.model';
 import { AccountingReportsService } from './Accountant/reports-accounting.service';
 import { verification_exceptions } from 'src/verification_exceptions/verification_exceptions.model';
 import { Task } from 'src/Task/task.model';
+import { ReportsPaymentService } from './Payment_Officer/repoet.payment';
+import { warehouseReportService } from './Warehouse/report.warehouse';
+import { Stock } from 'src/Stock/stock.model';
+import { PurchaseOrderItem } from 'src/PO/PoItem.model';
+import { GoodsReceiptItem } from 'src/GoodsReceipt/GoodsReceiptItem.model';
+import { HistoryLog } from 'src/History/history-log.model';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Payment, PurchaseOrder, DeliveryNote,
-         GoodsReceipts, PurchaseOrder, verification_exceptions, Task])
+    SequelizeModule.forFeature([SupplierInvoice, SupplierInvoiceItem, Payment, PurchaseOrder, DeliveryNote,PurchaseOrderItem,GoodsReceiptItem,
+        HistoryLog, GoodsReceipts, PurchaseOrder, verification_exceptions, Task, Stock])
   ],
   controllers: [ReportsController],
-  providers: [ReportsService, LlmService, AccountingReportsService],
+  providers: [ReportsService, LlmService, AccountingReportsService, ReportsPaymentService, warehouseReportService],
 })
 export class ReportsModule {}
