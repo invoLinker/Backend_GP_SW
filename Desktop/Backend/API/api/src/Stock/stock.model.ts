@@ -32,8 +32,16 @@ export class Stock extends Model<Stock> {
   quantity: number;
 
   @AllowNull(true)
+  @Column(DataType.TEXT)
+  QR: string | null;
+
+  @AllowNull(true)
   @Column(DataType.STRING)
   unit: string; 
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  Itemlocation: string;
 
   @Column({
   type: DataType.DATE,

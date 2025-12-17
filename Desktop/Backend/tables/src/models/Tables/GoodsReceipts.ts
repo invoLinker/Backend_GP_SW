@@ -11,7 +11,7 @@ export class GoodsReceipts extends Model<InferAttributes<GoodsReceipts>, InferCr
   declare dn_id: number | null; 
   declare received_by: number | null; 
   declare notes: string | null;
-  declare status: 'Pending' | 'Received' | 'Verified' | 'Incident';
+  declare status: 'Pending' | 'Verified' | 'Incident';
   declare po_number: string | null;
   declare is_verified: boolean;
 }
@@ -45,7 +45,7 @@ GoodsReceipts.init(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('Pending', 'Received', 'Verified', 'Incident'),
+      type: DataTypes.ENUM('Pending' , 'Verified', 'Incident'),
       allowNull: false,
       defaultValue: 'Pending',
     },

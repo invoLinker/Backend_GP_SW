@@ -97,7 +97,7 @@ export class GoodsReceiptService {
 
 
 async getByStatus(status: string) {
-    const validStatuses = ['Pending', 'Received', 'Verified', 'Incident'];
+    const validStatuses = ['Pending', 'Verified', 'Incident'];
 
     if (!validStatuses.includes(status)) {
       throw new NotFoundException(`Invalid status: ${status}`);

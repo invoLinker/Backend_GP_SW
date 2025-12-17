@@ -1,4 +1,4 @@
-import { Controller, Patch, Param, Body, UseGuards, Get } from '@nestjs/common';
+import { Controller, Patch, Param, Body, UseGuards, Get, Query } from '@nestjs/common';
 import { SupplierService } from './supplier.service';
 import { CreatSupplierDTO } from './CreatSupplierDTO';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -22,5 +22,13 @@ export class SupplierController {
     @Param('supplier_id') supplier_id: number,
   ) {
     return this.supplierService.getBankInfo(supplier_id);
+  }
+
+  @Get('summary')
+  @UseGuards(JwtAuthGuard)
+  async supplierPaymentSummary(
+    @Query('id') id: number,
+  ) {
+    return this.supplierService.supplierPaymentSummary(id);
   }
 }

@@ -11,7 +11,7 @@ export class DeliveryNotes extends Model<InferAttributes<DeliveryNotes>, InferCr
   declare po_number: string | null; 
   declare dn_number: string;
   declare dn_date: Date;
-  declare status: 'Pending' | 'Verified' | 'Approved' | 'Rejected' | 'Received' | 'Incident';
+  declare status: 'Pending' | 'Verified' | 'Incident';
   declare notes: string;
 
   declare supplier_name: string;
@@ -41,7 +41,7 @@ DeliveryNotes.init(
     po_number: { type: DataTypes.STRING, allowNull: true },
     dn_number: { type: DataTypes.STRING, allowNull: false, unique:true },
     dn_date: { type: DataTypes.DATEONLY, allowNull: false },
-    status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Received', 'Incident'), defaultValue: 'Pending' },
+    status: { type: DataTypes.ENUM('Pending' , 'Verified' , 'Incident'), defaultValue: 'Pending' },
     notes: { type: DataTypes.TEXT, allowNull: true },
 
     supplier_name: { type: DataTypes.STRING, allowNull: false },

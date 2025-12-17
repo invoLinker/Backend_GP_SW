@@ -77,16 +77,15 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   currency:string;
 
   @Column({
-    type: DataType.ENUM('Pending', 'Closed','Rejected','Draft', 'Approved','Sent', 'Incident','ReadyForPaid'),
+    type: DataType.ENUM('Pending', 'Closed','Rejected', 'Approved','Sent', 'Incident','ReadyForPaid'),
     allowNull: false,
     defaultValue: 'Pending',
   })
-  status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
+  status: 'Pending'| 'Closed'| 'Rejected'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
   // @Column({
   //   type: DataType.ENUM('Pending', 
   //     'Closed',// لما تخلص دفعها
   //      'Rejected',// لما يرفضها الادمن 
-  //       'Draft', 
   //       'Approved',//  لما يقبلها الادمن
   //        'Sent',// لما ابعتها للمورد
   //        'Incident',// لما يكون صار في غلط اثناء الفيريفيكيشن
@@ -94,7 +93,7 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   //   allowNull: false,
   //   defaultValue: 'Pending',
   // })
-  // status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
+  // status: 'Pending'| 'Closed'| 'Rejected'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
 
    @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),
@@ -173,4 +172,16 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
     total_installments: number;
     installments: { amount: number; due_date: string }[];
   } | null;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+  })
+  ready_for_paid_notified_at: Date | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  installment_alert_key: string | null;
 }

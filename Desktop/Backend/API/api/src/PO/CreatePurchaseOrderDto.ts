@@ -78,8 +78,8 @@ export class CreatePurchaseOrderDto {
   supplier_address: string;
 
   @IsOptional()
-  @IsEnum(['Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent','Incident','ReadyForPaid'])
-  status?: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' | 'Incident'|'ReadyForPaid';
+  @IsEnum(['Pending', 'Closed', 'Rejected', 'Approved', 'Sent','Incident','ReadyForPaid'])
+  status?: 'Pending'| 'Closed'| 'Rejected'| 'Approved'| 'Sent' | 'Incident'|'ReadyForPaid';
 
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseOrderItemDto)

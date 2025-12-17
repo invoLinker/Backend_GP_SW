@@ -27,11 +27,10 @@ export class GoodsReceipts extends Model<GoodsReceipts> {
   notes!: string | null;
 
   @Column({ type: DataType.ENUM('Pending', // اول ما ارفعها
-     'Received',
       'Verified', // كلو تمام من الفيريفيكيشن
       'Incident'), // في غلط بالفيريفيكيشن
       defaultValue: 'Pending' })
-  status!: 'Pending' | 'Received' | 'Verified' | 'Incident';
+  status!: 'Pending' | 'Verified' | 'Incident';
 
   @Column({ type: DataType.STRING, allowNull: true })
   po_number!: string | null;

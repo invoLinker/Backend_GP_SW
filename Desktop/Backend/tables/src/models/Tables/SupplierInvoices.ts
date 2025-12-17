@@ -16,7 +16,7 @@ export class SupplierInvoices extends Model<InferAttributes<SupplierInvoices>, I
   declare vat: number;
   declare discount: number;
   declare total_amount: number;
-  declare status: 'Pending' | 'Verified' | 'Approved' | 'Rejected' | 'Paid' | 'Cancelled' | 'Pending Verification' | 'On Hold' | 'Received' | 'Incident'| 'Partial_paid'|'ReadyForPaid';
+  declare status: 'Pending'|'Paid'|'Cancelled'|'Incident'|'Partial_paid'|'ReadyForPaid' ;
   declare payment_method: 'Cash' | 'Bank Transfer' | 'Stripe' | 'Credit';
   declare notes: string;
   declare supplier_name: string;
@@ -60,7 +60,7 @@ SupplierInvoices.init(
     total_amount: { type: DataTypes.DOUBLE,
       allowNull: false,
       defaultValue: 0,},
-    status: { type: DataTypes.ENUM('Pending','Verified','Approved','Rejected','Paid','Cancelled','Pending Verification','On Hold','Received','Incident', 'Partial_paid','ReadyForPaid'), defaultValue: 'Pending' },
+    status: { type: DataTypes.ENUM('Pending', 'Paid','Cancelled','Incident','Partial_paid','ReadyForPaid' ), defaultValue: 'Pending' },
     payment_method: { type: DataTypes.ENUM('Cash','Bank Transfer','Stripe','Credit'), allowNull: true , defaultValue:'Cash'},
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},
     notes: { type: DataTypes.TEXT, allowNull: true },

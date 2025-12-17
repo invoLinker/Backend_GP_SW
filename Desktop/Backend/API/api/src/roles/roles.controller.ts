@@ -17,7 +17,7 @@ export class RolesController {
   @UseGuards(JwtAuthGuard)
   @Get()
   async findAll(@Req() req: any) {
-      const result = await this.rolesService.findAll();
+      return  await this.rolesService.findAll();
   }
 
   @UseGuards(JwtAuthGuard)

@@ -168,14 +168,7 @@ export class SupplierInvoiceController {
     return this.supplierInvoiceService.getAllInvoices(search);
   }
 
-  // @Get('si-numberItem/:si_number')
-  // @UseGuards(JwtAuthGuard)
-  // @PermissionName('get_supplier_invoice_item')
-  // getItemBarName(@Param('si_number') si_number: string){
-  //   return this.supplierInvoiceService.getItemBarName(si_number);
-  // }
   
-
   @Get('all')
   @UseGuards(JwtAuthGuard)
   async getAllInvoicesOrderedByDate() {

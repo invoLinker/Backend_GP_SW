@@ -19,10 +19,16 @@ export class CreateStockDto {
   @IsOptional()
   unit?: string;
 
+  @IsString()
+  @IsOptional()
+  Itemlocation?:string;
+
   @IsDate()
   @Type(() => Date)
   @IsOptional()
   expiration_date?: Date | null;
+
+  QR?: Express.Multer.File; 
 
   @IsEnum(['Available', 'Expired', 'Reserved','OutOfStock'])
   @IsOptional()

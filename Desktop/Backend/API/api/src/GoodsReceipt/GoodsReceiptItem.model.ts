@@ -1,4 +1,3 @@
-// src/tables/GoodsReceiptItem.ts
 import { Column, Model, Table, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { GoodsReceipts } from './GoodsReceipt.model';
 

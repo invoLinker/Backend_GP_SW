@@ -97,9 +97,16 @@ export class PaymentsController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_all_payment')
-  async getAllPayment() {
-    return this.paymentsService.getAllPayment();
+  async getAllPaymentBySupplier(@Query('id') id:number) {
+    return this.paymentsService.getAllPaymentBySupplier(id);
   }
+
+  @Get('paymentOfficier')
+  @UseGuards(JwtAuthGuard)
+  async paymentOfficier() {
+    return this.paymentsService.paymentOfficier();
+  }
+
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)

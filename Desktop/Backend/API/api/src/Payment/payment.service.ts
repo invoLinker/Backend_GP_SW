@@ -12,6 +12,7 @@ import { User } from 'src/users/users.model';
 import { NotificationService } from 'src/Notification/notification.service';
 import { Role } from 'src/roles/roles.model';
 import { NotificationCategory, NotificationChannel } from 'src/Notification/create-notification.dto';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 
 @Injectable()
@@ -354,7 +355,7 @@ async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
 
       // 🔔 Notify Payment Officer
   await this.notifyRole(
-    'Payment Officer',
+    'PaymentOfficer',
     `Payment Status Updated`,
     `Payment #${payment_id} status is now "${status}".`
   );
@@ -502,30 +503,42 @@ async getPaymentsByStatus(status: 'Pending' | 'Completed' | 'Failed') {
 }
 
 
-// async getAllPayment() {
-//     const payment = await Payment.findAll();
-//     if (!payment) throw new NotFoundException('There Is No Payment');
+async getAllPaymentBySupplier(supplierId: number) {
+  const user = await User.findByPk(supplierId);
+  if(!user){ throw new NotFoundException('Supplier not found')};
+    
+  const supplier = await Supplier.findOne({where:{user_id: user.user_id}});
 
-//     return {
-//       payment
-//     };
-//   }
+  if(!supplier){ throw new NotFoundException('Supplier not found')};
 
 
-async getAllPayment() {
-  const payments = await Payment.findAll();
+  const invoices = await SupplierInvoice.findAll({
+    where: { supplier_id: supplier.supplier_id },
+    attributes: ['invoice_id'],
+  });
 
-  if (!payments.length) throw new NotFoundException('There is no Payment');
+  if (!invoices.length) {
+    throw new NotFoundException('This supplier has no invoices');
+  }
+
+  const invoiceIds = invoices.map(inv => inv.invoice_id);
+
+  const payments = await Payment.findAll({
+    where: {
+      invoice_id: invoiceIds,
+    },
+  });
+
+  if (!payments.length) {
+    throw new NotFoundException('There is no Payment for this supplier');
+  }
 
   const enriched: any[] = [];
 
   for (const pay of payments) {
-
     const invoice = await SupplierInvoice.findByPk(pay.invoice_id);
 
-    let supplierFullName : string | null = null;
-    let ToName : string | null = null;
-    let InvoNumber : string | null = null;
+    let supplierFullName: string | null = null;
 
     if (invoice?.supplier_email) {
       const user = await User.findOne({
@@ -533,23 +546,21 @@ async getAllPayment() {
       });
 
       if (user) {
-        supplierFullName = `${user.first_name!} ${user.last_name}`;
+        supplierFullName = `${user.first_name} ${user.last_name}`;
       }
     }
-    ToName= invoice?.to_name ?? null;
-    InvoNumber= invoice?.invoice_number ?? null;
-    
 
     enriched.push({
       ...pay.toJSON(),
       supplier_full_name: supplierFullName,
-      to_name: ToName,
-      invoice_number:InvoNumber
+      to_name: invoice?.to_name ?? null,
+      invoice_number: invoice?.invoice_number ?? null,
     });
   }
 
   return enriched;
 }
+
 
 private async notifyRole(roleName: string, title: string, message: string) {
   const users = await User.findAll({
@@ -566,6 +577,152 @@ private async notifyRole(roleName: string, title: string, message: string) {
       payload: {},
     });
   }
+}
+
+@Cron(CronExpression.EVERY_DAY_AT_NOON)
+// @Cron('*/5 * * * * *')
+async notifyPaymentOfficerForReadyAndInstallments() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // =========================
+  // 1️⃣ ReadyForPaid POs
+  // =========================
+  // const readyPOs = await PurchaseOrder.findAll({
+  //   where: {
+  //     status: 'ReadyForPaid',
+  //     ready_for_paid_notified_at: { [Op.is]: null },
+  //   },
+  // });
+
+  // for (const po of readyPOs) {
+  //   await this.notifyRole(
+  //     'PaymentOfficer',
+  //     '✅ PO Ready For Payment',
+  //     `PO "${po.po_number}" is ready for payment.`
+  //   );
+
+  //   po.ready_for_paid_notified_at = new Date();
+  //   await po.save();
+  // }
+
+  // =========================
+  // 2️⃣ Installments check
+  // =========================
+  const partialInvoices = await SupplierInvoice.findAll({
+    where: { status: 'Partial_paid' },
+  });
+
+  const UPCOMING_DAYS = 3;
+
+  for (const invoice of partialInvoices) {
+
+    // 2.1 جيبي الـ PO
+    const po = await PurchaseOrder.findOne({
+      where: { po_number: invoice.po_number! },
+    });
+
+    if (!po || !po.installmentsData) continue;
+
+    // 2.2 installmentsData parsing
+    let installmentsData: any = po.installmentsData;
+    if (typeof installmentsData === 'string') {
+      try {
+        installmentsData = JSON.parse(installmentsData);
+      } catch {
+        continue;
+      }
+    }
+
+    const installments = installmentsData.installments;
+    if (!Array.isArray(installments)) continue;
+
+    // 2.3 جيبي كل الفواتير لنفس PO
+    const invoices = await SupplierInvoice.findAll({
+      where: { po_number: po.po_number },
+    });
+
+    const payments = await Payment.findAll({
+      where: {
+        invoice_id: invoices.map(i => i.invoice_id),
+        status: 'Completed',
+      },
+      attributes: ['payment_date'],
+      raw: true,
+    });
+
+    // عدد الأقساط المدفوعة
+    const paidInstallmentsCount = new Set(
+      payments
+        .filter(p => p.payment_date)
+        .map(p => new Date(p.payment_date).toISOString().split('T')[0])
+    ).size;
+
+    // القسط القادم
+    const nextInstallment = installments[paidInstallmentsCount];
+    if (!nextInstallment?.due_date) continue;
+
+    const dueDate = new Date(nextInstallment.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.ceil(
+      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    const dueKey = dueDate.toISOString().split('T')[0];
+
+    // =========================
+    // ⏰ OVERDUE
+    // =========================
+    if (diffDays < 0) {
+      const alertKey = `OVERDUE:${dueKey}`;
+
+      if (po.installment_alert_key !== alertKey) {
+        await this.notifyRole(
+          'PaymentOfficer',
+          '⏰ Installment Overdue',
+          `PO "${po.po_number}" installment overdue since ${dueKey}.`
+        );
+
+        po.installment_alert_key = alertKey;
+        await po.save();
+      }
+      continue;
+    }
+
+    // =========================
+    // 📌 UPCOMING
+    // =========================
+    if (diffDays <= UPCOMING_DAYS) {
+      const alertKey = `UPCOMING:${dueKey}`;
+
+      if (po.installment_alert_key !== alertKey) {
+        await this.notifyRole(
+          'PaymentOfficer',
+          '📌 Upcoming Installment',
+          `PO "${po.po_number}" installment due on ${dueKey} (in ${diffDays} day(s)).`
+        );
+
+        po.installment_alert_key = alertKey;
+        await po.save();
+      }
+    }
+  }
+}
+
+async paymentOfficier(){
+  const payPending= await Payment.findAll({where:{status:'Pending'}});
+  const payComp= await Payment.findAll({where:{status:'Completed'}});
+  const totalPaid = await Payment.sum('amount_paid', {where: {status: 'Completed'} });
+
+  return{
+    payPending:payPending.length,
+    payCompleted:payComp.length,
+    totalPaid:totalPaid,
+    PaymentMethod:4
+  }
+
+
 }
 
 

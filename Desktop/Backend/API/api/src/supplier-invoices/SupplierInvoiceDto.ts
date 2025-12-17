@@ -12,14 +12,8 @@ export enum PaymentMethod {
 
 export enum InvoiceStatus {
   PENDING = 'Pending',
-  VERIFIED = 'Verified',
-  APPROVED = 'Approved',
-  REJECTED = 'Rejected',
   PAID = 'Paid',
   CANCELLED = 'Cancelled',
-  PENDING_VERIFICATION = 'Pending Verification',
-  ON_HOLD = 'On Hold',
-  RECEIVED = 'Received',
   INCIDENT = 'Incident',
   PARTIAL_PAID='Partial_paid',
   READYFORPAID= 'ReadyForPaid'

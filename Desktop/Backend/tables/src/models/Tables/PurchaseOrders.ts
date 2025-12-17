@@ -16,7 +16,7 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare subtotal: number;
   declare vat: number;
   declare total_amount: number;
-  declare status: 'Pending'| 'Closed' | 'Rejected' | 'Draft' |'Approved'| 'Sent' |'Incident'| 'ReadyForPaid';
+  declare status: 'Pending'| 'Closed' | 'Rejected'  |'Approved'| 'Sent' |'Incident'| 'ReadyForPaid';
   declare pdfUrl: string | null;
   declare excelUrl: string | null;
   declare note: Text | null;
@@ -33,6 +33,8 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare installmentsData: JSON | null;
   declare created_by: number | null;
   declare text: string ;
+  declare ready_for_paid_notified_at:  Date | null;
+  declare installment_alert_key: string | null;
 
 }
 
@@ -73,7 +75,7 @@ PurchaseOrder.init(
       defaultValue: 0,
     },
     status: {
-      type: DataTypes.ENUM('Pending', 'Closed', 'Rejected', 'Draft', 'Approved', 'Sent', 'Incident', 'ReadyForPaid'),
+      type: DataTypes.ENUM('Pending', 'Closed','Rejected', 'Approved','Sent', 'Incident','ReadyForPaid'),
       allowNull: false,
       defaultValue: 'Pending',
     },
@@ -92,7 +94,9 @@ PurchaseOrder.init(
     supplier_address:{type: DataTypes.STRING, allowNull: false},
     installmentsData:{type: DataTypes.JSON, allowNull: true },
     created_by: { type: DataTypes.INTEGER, allowNull: true },
-    text:{type: DataTypes.STRING, allowNull:false}
+    text:{type: DataTypes.STRING, allowNull:false},
+    ready_for_paid_notified_at:{type: DataTypes.DATE, allowNull: true,},
+    installment_alert_key:{ type: DataTypes.STRING,allowNull: true,}
   },
   {
     sequelize,

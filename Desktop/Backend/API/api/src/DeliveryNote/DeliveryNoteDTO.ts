@@ -5,9 +5,6 @@ import { DeliveryNoteItemDto } from './DeliveryNoteItemDto';
 export enum DeliveryNoteStatus {
   PENDING = 'Pending',
   VERIFIED = 'Verified',
-  APPROVED = 'Approved',
-  REJECTED = 'Rejected',
-  RECEIVED = 'Received',
   INCIDENT = 'Incident',
 }
 

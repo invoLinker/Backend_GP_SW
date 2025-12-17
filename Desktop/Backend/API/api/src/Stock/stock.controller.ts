@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch, ParseIntPipe, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Delete, UseGuards,Req, Patch, ParseIntPipe, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateStockDto } from './CreateStockDto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -8,6 +8,10 @@ import { FilterStockDto } from './FilterStockDto';
 import { HistoryLogService } from '../History/history-log.service';
 import { HistoryCategory, HistorySeverity } from '../History/create-history-log.dto';
 import { database } from 'firebase-admin';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { FileInterceptor } from '@nestjs/platform-express';
+
 
 @Controller('stock')
 export class StockController {
@@ -15,6 +19,26 @@ export class StockController {
               private readonly historyLogService: HistoryLogService
 
   ) {}
+
+  @Post('generate-qr')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/QR',
+        filename: (req, file, cb) => {
+          const uniqueName =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, uniqueName + extname(file.originalname));
+        },
+      }),
+    }),
+  )
+  async generateQr(
+    @Body('barcode') barcode: string,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    return this.stockService.generateQrForStock(barcode, image);
+  }
 
   @Post(':po_number')
   @UseGuards(JwtAuthGuard)
@@ -78,6 +102,11 @@ export class StockController {
   @PermissionName('get_stock')
   async search(@Query('q') q: string) {
     return this.stockService.searchStocks(q);
+  }
+
+  @Get('InfoItem')
+  async InfoItem(@Query('barcode') barcode: string) {
+    return this.stockService.InfoItem(barcode);
   }
 
   @Patch('return')
@@ -167,14 +196,15 @@ try {
   @Patch(':id')
   async updateStock(
     @Param('id', ParseIntPipe) stockId: number,
-    @Body() body: { status?: string; expiration_date?: string }
+    @Body() body: { status?: string; expiration_date?: string; Itemlocation?: string }
   ) {
     const exp = body.expiration_date ? new Date(body.expiration_date) : undefined;
 
     return this.stockService.updateStockRecord(
       stockId,
       body.status as any,
-      exp
+      exp,
+      body.Itemlocation
     );
   }
 
@@ -216,6 +246,13 @@ try {
   async getUniqueItems() {
     return await this.stockService.getUniqueStockItems();
   }
+
+   @Get('summary')
+  async summary() {
+    return await this.stockService.summary();
+  }
+
+  
 
 
   

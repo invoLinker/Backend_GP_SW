@@ -34,9 +34,6 @@ export class DeliveryNote extends Model<DeliveryNote> {
     type: DataType.ENUM(
       'Pending', // اول ما ارفعها
       'Verified',// جاهزة من الفيريفيكيشن وكلو تمام
-      'Approved',
-      'Rejected',
-      'Received',
       'Incident'), // في خلل بالفيريفيكيشن
     defaultValue: 'Pending' 
   })

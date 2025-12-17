@@ -73,6 +73,12 @@ export class PurchaseOrderController {
     return this.poService.findAll();
   }
 
+  @Get('Po_Task')
+  async getStatusPo(@Query ('full_name')full_name: string) {
+    return this.poService.getStatusPo(full_name);
+  }
+  
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')
@@ -112,7 +118,7 @@ export class PurchaseOrderController {
   @Get('status/:status')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')
-  getByStatus(@Param('status') status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' |'Incident'|'ReadyForPaid') {
+  getByStatus(@Param('status') status: 'Pending'| 'Closed'| 'Rejected' | 'Approved'| 'Sent' |'Incident'|'ReadyForPaid') {
     return this.poService.findByStatus(status);
   }
 

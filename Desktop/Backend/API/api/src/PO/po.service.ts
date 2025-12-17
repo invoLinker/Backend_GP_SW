@@ -23,6 +23,7 @@ import { GoodsReceipts } from 'src/GoodsReceipt/GoodsReceipt.model';
 import { SupplierInvoiceItem } from 'src/supplier-invoices/supplier-invoice-item.model';
 import { GoodsReceiptItem } from 'src/GoodsReceipt/GoodsReceiptItem.model';
 import { DeliveryNoteItem } from 'src/DeliveryNote/delivery-note-item.model';
+import { Task } from 'src/Task/task.model';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -231,7 +232,7 @@ async findAll(): Promise<PurchaseOrder[]> {
     return pos;
   }
 
-  async findByStatus(status: 'Pending'| 'Closed'| 'Rejected'| 'Draft'| 'Approved'| 'Sent' |'Incident'|'ReadyForPaid'): Promise<PurchaseOrder[]> {
+  async findByStatus(status: 'Pending'| 'Closed'| 'Rejected' | 'Approved'| 'Sent' |'Incident'|'ReadyForPaid'): Promise<PurchaseOrder[]> {
     const pos = await this.poModel.findAll({
       where: { status },
       include: [{ model: PurchaseOrderItem, as: 'items' }],
@@ -261,7 +262,7 @@ async findAll(): Promise<PurchaseOrder[]> {
 
     if (!po) throw new NotFoundException(`Purchase Order with #${po_number} not found`);
 
-    const blockedStatuses = ['Sent', 'Closed', 'Rejected', 'Draft', 'Incident', 'ReadyForPaid'];
+    const blockedStatuses = ['Sent', 'Closed', 'Rejected' , 'Incident', 'ReadyForPaid'];
     if (blockedStatuses.includes(po.status)) {
       throw new BadRequestException(`Cannot modify Purchase Order in status "${po.status}".`);
     }
@@ -555,56 +556,29 @@ async saveFilePath(po_number: string, filePath: string) {
     );
   }
 
+
   await po.save();
 
-   try {
-    const supplierEmail = po.supplier_email;
+  const creator = await this.userModel.findByPk(po.created_by, {
+    include: [Role],
+  });
 
-    if (supplierEmail) {
-        // 🔹 شيّك إذا عندك ملف PDF أو Excel للـ PO
-        const filePath = po.pdfUrl || po.excelUrl || null;
+  if (creator?.role?.role_name === 'Admin') {
 
-        // 🔹 جهزي transporter مثل الموجود عندك
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
+    await this.sendPoEmailToSupplier(po);
 
-        // 🔹 صياغة الرسالة
-        const message = `
-Hello,
+    po.status = 'Sent';
+    await po.save();
 
-A new Purchase Order *${po.po_number}* has been issued to you.
-
-Please review the order details attached with this email.
-
-Thank you,
-InvoLinker Team
-                  `;
-
-        // 🔥 إرسال الإيميل مع attachment إذا موجود
-        await transporter.sendMail({
-            from: `"🖇 InvoLinker" <${process.env.EMAIL_USER}>`,
-            to: supplierEmail,
-            subject: `New Purchase Order Assigned - ${po.po_number} 📦`,
-            text: message,
-            attachments: filePath
-                ? [
-                      {
-                        filename: filePath.split('/').pop(),
-                        path: filePath,
-                      },
-                  ]
-                : [],
-        });
-    }
-
-    } catch (err) {
-        console.error("❌ Failed to send supplier email:", err);
-    }
+    await this.notificationService.sendNotification({
+      title: '📤 PO Sent',
+      message: `Purchase Order ${po.po_number} has been sent to the supplier.`,
+      userId: po.created_by.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: { po_number: po.po_number },
+    });
+  }
 
   return response;
 }
@@ -667,13 +641,11 @@ async getPendingApprovals() {
     let pdfPath: string | null = null;
     let excelPath: string | null = null;
 
-    // جبنا PDF إذا موجود
     try {
       const pdf = await this.getFile(po.po_number, 'pdf');
       pdfPath = pdf.pathPdf || null;
     } catch {}
 
-    // جبنا Excel إذا موجود
     try {
       const excel = await this.getFile(po.po_number, 'excel');
       excelPath = excel.pathExcel || null;
@@ -715,7 +687,6 @@ async getPendingApprovals() {
     let parsedMessage: any = {};
 
     try {
-      // استخرج JSON فقط
       const start = req.message.indexOf('{');
       if (start !== -1) {
         const jsonPart = req.message.slice(start);
@@ -748,17 +719,43 @@ async approveOrReject(body: { type: 'Order' | 'Edit Request', id: number, status
   const { type, id, status } = body;
 
   if (type === 'Order') {
-    const po = await this.poModel.findByPk(id);
-    if (!po) throw new NotFoundException(`PO with id ${id} not found`);
+  const po = await this.poModel.findByPk(id);
+  if (!po) throw new NotFoundException(`PO with id ${id} not found`);
 
-    po.status = status === 'Approved' ? 'Approved' : 'Rejected';
+  if (status === 'Approved') {
+    po.status = 'Approved';
     await po.save();
 
-    return { 
-           message: `Purchase Order ${status}`,
-           status: po.status
-        };
+    // 📧 إرسال الإيميل فورًا
+    await this.sendPoEmailToSupplier(po);
+
+    // ⏱ بعد 5 دقائق: حوّلي الحالة + نوتيفيكيشن
+    setTimeout(async () => {
+      po.status = 'Sent';
+      await po.save();
+
+      const roles = ['Admin', 'Accountant'];
+      for (const role of roles) {
+        await this.notifyRole(
+          role,
+          '📤 PO Sent',
+          `PO ${po.po_number} has been sent to the supplier.`
+        );
+      }
+    }); 
   }
+
+  if (status === 'Rejected') {
+    po.status = 'Rejected';
+    await po.save();
+  }
+
+  return {
+    message: `Purchase Order ${status}`,
+    status: po.status,
+  };
+}
+
 
   if (type === 'Edit Request') {
   const req = await this.editRequestModel.findByPk(id);
@@ -891,6 +888,84 @@ async getPurchaseOrderInv(po_number: string) {
     delivery_notes: dn,
     good_receipts: gr,
   };
+}
+
+
+private async sendPoEmailToSupplier(po: PurchaseOrder) {
+  if (!po.supplier_email) return;
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const filePath = po.pdfUrl || po.excelUrl;
+  if (!filePath) return;
+
+  const message = `
+Hello,
+
+A Purchase Order (${po.po_number}) has been approved and sent to you.
+
+Please find the attached document.
+
+Regards,
+InvoLinker Team
+`;
+
+  await transporter.sendMail({
+    from: `"InvoLinker" <${process.env.EMAIL_USER}>`,
+    to: po.supplier_email,
+    subject: `Purchase Order ${po.po_number}`,
+    text: message,
+    attachments: [
+      {
+        filename: filePath.split('/').pop(),
+        path: filePath,
+      },
+    ],
+  });
+}
+
+private async notifyRole(roleName: string, title: string, message: string) {
+  const users = await this.userModel.findAll({
+    include: [{ model: Role, where: { role_name: roleName } }],
+  });
+
+  for (const user of users) {
+    await this.notificationService.sendNotification({
+      title,
+      message,
+      userId: user.user_id.toString(),
+      channel: NotificationChannel.IN_APP,
+      category: NotificationCategory.SYSTEM,
+      payload: {},
+    });
+  }
+}
+
+async getStatusPo(full_name: string){
+  const cleanName = full_name.trim();
+
+  const poPend = await this.poModel.findAll({where: {status: 'Pending'}});
+  
+  const poVer = await this.poModel.findAll({where: {status: 'ReadyForPaid'}});
+
+  const poInc = await this.poModel.findAll({where: {status: 'Incident'}});
+
+  const task = await Task.findAll({where: {status: 'Completed',assignedTo: cleanName}});
+
+  return{
+    poPending:poPend.length,
+    poVerified:poVer.length,
+    poIncident:poInc.length,
+    taskCompleted:task.length
+  }
+
+  
 }
 
 

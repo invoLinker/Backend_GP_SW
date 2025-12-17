@@ -164,6 +164,13 @@ async saveInvoiceImage( filePath: string, dn_number: string,){
       pathPdf: filePath,
     };
   }
+  else if (extension === 'jpg' || extension === 'jpeg' || extension === 'png') {
+    si.imgUrl = filePath;
+    response = {
+      message: 'Img uploaded successfully',
+      pathImg: filePath,
+    };
+  }
 
   else if (extension === 'xlsx' || extension === 'xls') {
     si.excelUrl = filePath;
@@ -196,11 +203,8 @@ async saveInvoiceImage( filePath: string, dn_number: string,){
   async getByStatus(status: string) {
     const validStatuses = [
       'Pending',
-      'Received',
       'Incident',
       'Verified',
-      'Approved',
-      'Rejected',
     ];
 
     if (!validStatuses.includes(status)) {

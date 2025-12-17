@@ -428,8 +428,7 @@ async updateInvoice(
   }
 
   async updateStatus(id: number, status: string) {
-  const validStatuses = ['Pending','Verified','Approved','Rejected','Paid', 'Cancelled',
-         'Pending Verification','On Hold','Received','Incident', 'Partial_paid','ReadyForPaid'];
+  const validStatuses = ['Pending','Paid', 'Cancelled','Incident', 'Partial_paid','ReadyForPaid'];
 
   if (!validStatuses.includes(status)) {
     throw new BadRequestException(

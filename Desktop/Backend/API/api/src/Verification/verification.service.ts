@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import axios from "axios";
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { DeliveryNote } from '../DeliveryNote/delivery-note.model';
 import { DeliveryNoteItem } from '../DeliveryNote/delivery-note-item.model';
@@ -12,10 +13,14 @@ import { NotificationService } from "src/Notification/notification.service";
 import { NotificationCategory, NotificationChannel } from "src/Notification/create-notification.dto";
 import { User } from "src/users/users.model";
 import { Role } from "src/roles/roles.model";
+import OpenAI, { BadRequestError } from "openai";
 
 @Injectable()
 export class InvoiceService {
   private groq: Groq;
+  private HF_API_TOKEN = process.env.HF_TOKEN2;
+  private HF_MINIMAX_MODEL = 'MiniMaxAI/MiniMax-M2:novita';
+  private client: OpenAI;
 
   constructor(
     @InjectModel(DeliveryNote) private dnModel: typeof DeliveryNote,
@@ -25,18 +30,146 @@ export class InvoiceService {
     @InjectModel(PurchaseOrder) private poModel: typeof PurchaseOrder,
     @InjectModel(SupplierInvoice) private invoiceModel: typeof SupplierInvoice,
     @InjectModel(SupplierInvoiceItem) private invoiceItemModel: typeof SupplierInvoiceItem,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
 
   ) {
+    this.client = new OpenAI({
+          baseURL: 'https://router.huggingface.co/v1',
+          apiKey: process.env.HF_TOKEN2,
+        });
     this.groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     });
+  }
+
+  // 🧠 Helper: use MiniMax model to decide if two items are the same product
+  private async areItemsMatchingWithMiniMax(
+    left: { name: string; barcode?: string | null },
+    right: { name: string; barcode?: string | null },
+  ): Promise<boolean> {
+    const norm = (s?: string | null) => (s || '').trim().toLowerCase();
+
+    const leftBarcode = norm(left.barcode || undefined);
+    const rightBarcode = norm(right.barcode || undefined);
+    const leftName = norm(left.name);
+    const rightName = norm(right.name);
+
+    // 🚨 HARD RULE: different barcodes → definitely not the same product
+    if (leftBarcode && rightBarcode && leftBarcode !== rightBarcode) {
+      return false;
+    }
+
+    // Quick local semantic/syntax check when barcodes match (or are empty)
+    const areNamesClearlySame = () => {
+      if (!leftName || !rightName) return false;
+      if (leftName === rightName) return true;
+
+      const synonymGroups: string[][] = [
+        ['milk', 'حليب'],
+        ['bread', 'خبز'],
+        ['cheese', 'جبن', 'جبنة'],
+        ['yogurt', 'لبن', 'زبادي', 'زبادى', 'laban'],
+        ['egg', 'بيض'],
+      ];
+
+      return synonymGroups.some(group =>
+        group.includes(leftName) && group.includes(rightName),
+      );
+    };
+
+    // Local fallback matcher (used if HF token missing or API fails)
+    const localFallback = () => {
+      // If barcodes are equal and names are clearly same/synonyms → same product
+      if (leftBarcode && rightBarcode && leftBarcode === rightBarcode) {
+        if (areNamesClearlySame()) return true;
+      }
+      // Otherwise fall back to simple exact-name + barcode equality
+      if (leftBarcode && rightBarcode && leftBarcode === rightBarcode) {
+        return leftName === rightName;
+      }
+      return leftName === rightName;
+    };
+
+    // If no HF token configured, or barcodes equal and names clearly match locally → skip AI
+    if (!this.HF_API_TOKEN) {
+      return localFallback();
+    }
+
+    // Use AI only when barcodes match but names are ambiguous
+    if (leftBarcode && rightBarcode && leftBarcode === rightBarcode && !areNamesClearlySame()) {
+      const prompt = `
+You are a product matching assistant.
+
+Decide if these TWO items are the SAME REAL-WORLD PRODUCT.
+
+RULES:
+- Barcode is the primary identifier.
+- Names may be Arabic or English.
+- Ignore case differences (milk == Milk == MILK).
+- Treat clear Arabic ↔ English translations as the SAME product, for example:
+  - "milk"   == "حليب"
+  - "bread"  == "خبز"
+  - "cheese" == "جبن" or "جبنة"
+  - "yogurt" == "لبن" or "زبادي"
+  - "laban"  == "لبن"
+
+- If BARCODE is the SAME AND names clearly refer to the SAME product (even with language/case differences) → SAME PRODUCT.
+- If BARCODE is the SAME BUT names clearly refer to DIFFERENT products (e.g. egg vs milk, حليب vs جبن) → DIFFERENT PRODUCT.
+
+Return ONLY one word: "true" if they are the SAME PRODUCT, or "false" if they are DIFFERENT PRODUCTS.
+
+Item A:
+- name: "${left.name}"
+- barcode: "${(left.barcode || '').trim()}"
+
+Item B:
+- name: "${right.name}"
+- barcode: "${(right.barcode || '').trim()}"
+`.trim();
+
+      try {
+        const completion = await this.client.chat.completions.create({
+          model: 'MiniMaxAI/MiniMax-M2:novita',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4,
+          temperature: 0,
+        });
+
+        const raw = completion.choices[0]?.message?.content ?? '';
+        const answer = raw.trim().toLowerCase();
+        if (answer.startsWith('true')) return true;
+        if (answer.startsWith('false')) return false;
+        // If AI response is unclear, fall back to local logic
+        return localFallback();
+      } catch (err) {
+        console.error('MiniMax matching failed, falling back to local logic:', err);
+        return localFallback();
+      }
+    }
+
+    // Default: rely on local logic
+    return localFallback();
   }
 
   async compareInvoices(po_number: string): Promise<string> {
 
     const po = await this.poModel.findOne({ where: { po_number }, include: ['items', 'supplier'] });
     if (!po) throw new NotFoundException('Purchase Order not found');
+
+    const blockedStatuses = [
+    'Approved',
+    'Pending',
+    'Closed',
+    'Rejected',
+    'ReadyForPaid',
+  ];
+
+  if (blockedStatuses.includes(po.status)) {
+    throw new BadRequestException(
+      `Can't verify Purchase Order with status "${po.status}"`
+    );
+  }
+
 
     const invoices = await this.invoiceModel.findAll({ where: { po_number }, include: ['items'] });
 
@@ -109,52 +242,113 @@ export class InvoiceService {
       }).map(item => normalizeNumericValues(item)) : []
     });
 
-    // Pre-validate items match: Check if all PO items exist in invoices with correct quantities (normalize to numbers)
-    // Use barcode as PRIMARY key since item_name might be in different languages (Arabic/English)
-    // If barcode matches, it's the SAME item regardless of item_name language
-    const poItemsMap = new Map<string, number>();
-    const poItemsByBarcode = new Map<string, any>(); // Store item details by barcode
-    
-    po.items?.forEach(item => {
-      const barcode = (item.barcode || '').trim();
-      // Use barcode as PRIMARY key - if barcode exists, use it; otherwise fallback to item_name
-      const key = barcode || `${(item.item_name || '').toLowerCase().trim()}`;
-      const currentQty = poItemsMap.get(key) || 0;
-      // Normalize: convert quantity to number (handles both string and number)
-      poItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
-      if (barcode) {
-        // Store item by barcode for later reference
-        if (!poItemsByBarcode.has(barcode)) {
-          poItemsByBarcode.set(barcode, item);
-        }
-      }
-    });
+    // 🔁 جهّز لستة من الأيتيمات من الـ PO والفواتير عشان نبعثها لموديل MiniMax
+    const poItems = (po.items || []).map((item: any) => ({
+      ref: item,
+      name: item.item_name || '',
+      barcode: (item.barcode || '').trim(),
+      quantity: Number(item.quantity) || 0,
+    }));
 
-    const invoiceItemsMap = new Map<string, number>();
-    const invoiceItemsByBarcode = new Map<string, any>(); // Store item details by barcode
-    
-    invoices.forEach(inv => {
-      inv.items?.forEach(item => {
-        const barcode = (item.barcode || '').trim();
-        // Use barcode as PRIMARY key - if barcode exists, use it; otherwise fallback to item_name
-        const key = barcode || `${(item.item_name || '').toLowerCase().trim()}`;
-        const currentQty = invoiceItemsMap.get(key) || 0;
-        // Normalize: convert quantity to number (handles both string and number)
-        invoiceItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
-        if (barcode) {
-          // Store item by barcode for later reference
-          if (!invoiceItemsByBarcode.has(barcode)) {
-            invoiceItemsByBarcode.set(barcode, item);
-          }
-        }
+    const invoiceItems: Array<{
+      ref: any;
+      name: string;
+      barcode: string;
+      quantity: number;
+    }> = [];
+
+    invoices.forEach((inv: any) => {
+      (inv.items || []).forEach((item: any) => {
+        invoiceItems.push({
+          ref: item,
+          name: item.item_name || '',
+          barcode: (item.barcode || '').trim(),
+          quantity: Number(item.quantity) || 0,
+        });
       });
     });
 
-    // Check for missing items or quantity mismatches
-    // Match items primarily by barcode (same barcode = same item, regardless of item_name language)
     const missingItems: string[] = [];
     const quantityMismatches: string[] = [];
-    
+    const extraItems: string[] = [];
+
+    // 🧠 استخدم MiniMax لمطابقة الأيتيمات (PO ↔ Invoices)
+    const invoiceItemsByBarcode = new Map<string, number[]>();
+
+    invoiceItems.forEach((item, idx) => {
+      if (!item.barcode) return;
+      const arr = invoiceItemsByBarcode.get(item.barcode) || [];
+      arr.push(idx);
+      invoiceItemsByBarcode.set(item.barcode, arr);
+    });
+
+const matchedInvoiceIndices = new Set<number>();
+
+    for (let i = 0; i < poItems.length; i++) {
+      const poItem = poItems[i];
+      let foundMatch = false;
+
+      const indices = invoiceItemsByBarcode.get(poItem.barcode) || [];
+
+      for (const j of indices) {
+        if (matchedInvoiceIndices.has(j)) continue;
+
+        const invItem = invoiceItems[j];
+
+        // (1) لو الباركود نفسه والاسم نفسه نصياً (بعد trim + lowercase) → PASS بدون AI
+        const poNameNorm = (poItem.name || '').trim().toLowerCase();
+        const invNameNorm = (invItem.name || '').trim().toLowerCase();
+        if (poItem.barcode && invItem.barcode &&
+            poItem.barcode === invItem.barcode &&
+            poNameNorm && invNameNorm && poNameNorm === invNameNorm) {
+          matchedInvoiceIndices.add(j);
+          foundMatch = true;
+
+          if (Math.abs(poItem.quantity - invItem.quantity) > 0.01) {
+            quantityMismatches.push(
+              `${poItem.name}: PO has ${poItem.quantity}, Invoice has ${invItem.quantity}`,
+            );
+          }
+          break;
+        }
+
+        // (2) غير ذلك، استخدم الـ AI (MiniMax) على الاسم + الباركود
+        const sameProduct = await this.areItemsMatchingWithMiniMax(
+          { name: poItem.name, barcode: poItem.barcode },
+          { name: invItem.name, barcode: invItem.barcode },
+        );
+
+        if (sameProduct) {
+          matchedInvoiceIndices.add(j);
+          foundMatch = true;
+
+          if (Math.abs(poItem.quantity - invItem.quantity) > 0.01) {
+            quantityMismatches.push(
+              `${poItem.name}: PO has ${poItem.quantity}, Invoice has ${invItem.quantity}`,
+            );
+          }
+
+          break;
+        }
+      }
+
+      if (!foundMatch) {
+        const label = poItem.name || poItem.barcode || `PO item #${i + 1}`;
+        missingItems.push(
+          `${label}${poItem.barcode ? ` (barcode: ${poItem.barcode})` : ''}`,
+        );
+      }
+    }
+
+    // ✅ أي أيتيم في الفواتير ما اتطابق مع أي أيتيم من الـ PO → Extra
+    for (const [barcode] of invoiceItemsByBarcode.entries()) {
+  const existsInPO = poItems.some(po => po.barcode === barcode);
+  if (!existsInPO) {
+    extraItems.push(`barcode: ${barcode}`);
+  }
+}
+
+
     // Create maps for unit prices to check price mismatches (normalize to numbers)
     // Use barcode as primary key
     const poPriceMap = new Map<string, number>();
@@ -219,63 +413,30 @@ export class InvoiceService {
     if (Math.abs(poVat - invoiceVat) > 0.01) {
       totalComparison.push(`VAT: PO=${poVat}, Invoice=${invoiceVat}`);
     }
-    if (Math.abs(poTotal - invoiceTotal) > 0.01) {
-      totalComparison.push(`Total: PO=${poTotal}, Invoice=${invoiceTotal}`);
-    }
+    // if (Math.abs(poTotal - invoiceTotal) > 0.01) {
+    //   totalComparison.push(`Total: PO=${poTotal}, Invoice=${invoiceTotal}`);
+    // }
+    let calculatedInvoiceTotal = invoiceSubtotal;
+
+  if (invoiceDiscount < 0 || invoiceDiscount > 100) {
+    totalComparison.push(`Invalid discount percentage: ${invoiceDiscount}%`);
+  } else if (invoiceDiscount > 0) {
+    const discountAmount = (invoiceSubtotal * invoiceDiscount) / 100;
+    calculatedInvoiceTotal = invoiceSubtotal - discountAmount;
+  }
+
+  // VAT after discount
+  calculatedInvoiceTotal += invoiceVat;
+
+  if (Math.abs(poTotal - calculatedInvoiceTotal) > 0.01) {
+    totalComparison.push(
+      `Total mismatch after discount: PO=${poTotal}, Invoice=${calculatedInvoiceTotal} (Discount ${invoiceDiscount}%)`
+    );
+  }
     if (invoiceDiscount > 0) {
       totalComparison.push(`Discount applied: ${invoiceDiscount}`);
     }
     
-    // Match items by barcode first (barcode is the primary identifier)
-    // If barcode matches, item_name can be different (Arabic/English) - they're the same item
-    for (const [key, poQty] of poItemsMap.entries()) {
-      const invoiceQty = invoiceItemsMap.get(key) || 0;
-      
-      if (!invoiceItemsMap.has(key)) {
-        // Item not found by barcode/key - check if it's missing
-        // If key is a barcode, check if it exists in invoice by barcode
-        const poItem = poItemsByBarcode.get(key);
-        const itemName = poItem?.item_name || key;
-        const barcode = key;
-        missingItems.push(`${itemName} (barcode: ${barcode})`);
-      } else {
-        // Normalize: convert both to numbers and compare
-        const poQtyNum = Number(poQty) || 0;
-        const invoiceQtyNum = Number(invoiceQty) || 0;
-        if (Math.abs(poQtyNum - invoiceQtyNum) > 0.01) { // Allow small floating point differences
-          const poItem = poItemsByBarcode.get(key);
-          const itemName = poItem?.item_name || key;
-          quantityMismatches.push(`${itemName}: PO has ${poQtyNum}, Invoice has ${invoiceQtyNum}`);
-        }
-      }
-    }
-
-    // Check for extra items in invoice that don't exist in PO
-    // Only report if barcode doesn't match any PO item
-    // IMPORTANT: If barcode matches but item_name is different (Arabic/English), they're the SAME item - don't report as extra
-    const extraItems: string[] = [];
-    for (const [key] of invoiceItemsMap.entries()) {
-      if (!poItemsMap.has(key)) {
-        // Check if this barcode exists in PO (even if item_name is different)
-        const invoiceItem = invoiceItemsByBarcode.get(key);
-        if (invoiceItem && invoiceItem.barcode) {
-          // If barcode exists in PO, it's not an extra item (just different item_name language)
-          const poItemWithSameBarcode = poItemsByBarcode.get(invoiceItem.barcode);
-          if (!poItemWithSameBarcode) {
-            // Barcode doesn't exist in PO - it's truly an extra item
-            const itemName = invoiceItem.item_name || key;
-            const barcode = invoiceItem.barcode || key;
-            extraItems.push(`${itemName} (barcode: ${barcode})`);
-          }
-          // If barcode exists in PO, skip - it's the same item with different name language
-        } else {
-          // No barcode, use item_name comparison
-          const itemName = invoiceItem?.item_name || key;
-          extraItems.push(`${itemName} (barcode: ${key})`);
-        }
-      }
-    }
-
       const prompt = `
     // You're a smart invoice audit assistant.
 
@@ -317,6 +478,38 @@ Before comparing ANY values, always normalize them as follows:
    Example:
    - "حليب" (Arabic) with barcode "حل-6964" == "milk" (English) with barcode "حل-6964" → SAME ITEM
    - If barcode is the same, item_name language difference is just a translation - do NOT report as mismatch
+
+   🔴 ITEM NAME SEMANTIC MATCHING (CRITICAL – FINAL RULE):
+
+When comparing items in Stage 2, item_name comparison MUST be semantic, not literal.
+
+✔ Treat item names as THE SAME ITEM if:
+- They differ only by capitalization:
+  - "Milk" == "milk" == "MILK"
+
+✔ They have the SAME MEANING across languages (Arabic / English):
+  - "milk" == "حليب"
+  - "bread" == "خبز"
+  - "egg" == "بيض"
+
+✔ If barcode matches EXACTLY, item_name MAY differ in:
+- Language (Arabic / English)
+- Capitalization (upper / lower case)
+
+❌ DO NOT fail Stage 2 because of:
+- Capital vs small letters
+- Arabic vs English naming
+- Translation differences with the same meaning
+
+❌ DO NOT require exact string match for item_name
+
+🚨 ONLY consider items DIFFERENT if:
+- barcode is different
+AND
+- item_name meaning is different
+
+Use your semantic understanding to determine whether two item names refer to the SAME real-world product.
+
 
 🔹 MONEY & TOTALS  
 ✔ Convert values before adding  
@@ -521,6 +714,15 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         return notes.filter(note => {
           if (!note || typeof note !== 'string') return true;
           
+          // Special case: "number 10 vs string '10'" style messages where numeric values are equal
+          // e.g. "Quantity mismatch: PO shows number 10, invoice shows string '10'"
+          const numStrEqual = note.match(
+            /number\s+(\d+(?:\.\d+)?)\b[^;]*string\s*'?\1'?/i,
+          );
+          if (numStrEqual) {
+            return false;
+          }
+
           // Remove notes about items with conflicting barcodes (same barcode in missing and extra)
           if (conflictingBarcodes.size > 0) {
             const barcodeMatch = note.match(/barcode:\s*([^\s\)]+)/i);
@@ -662,46 +864,128 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         }) : []
       };
 
-      // Pre-validate items match: Check if all PO items exist in delivery notes with correct quantities
-      const poItemsMap = new Map<string, number>();
-      po.items?.forEach(item => {
-        const key = `${(item.item_name || '').toLowerCase().trim()}_${(item.barcode || '').trim()}`;
-        const currentQty = poItemsMap.get(key) || 0;
-        poItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
-      });
+      // 🔁 جهّز لستة من الأيتيمات من الـ PO و Delivery Notes
+      const poItems = (po.items || []).map((item: any) => ({
+        ref: item,
+        name: item.item_name || '',
+        barcode: (item.barcode || '').trim(),
+        quantity: Number(item.quantity) || 0,
+      }));
 
-      const dnItemsMap = new Map<string, number>();
-      deliveryNotes.forEach(dn => {
-        dn.items?.forEach(item => {
-          const key = `${(item.item_name || '').toLowerCase().trim()}_${(item.barcode || '').trim()}`;
-          const currentQty = dnItemsMap.get(key) || 0;
-          dnItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
+      const dnItems: Array<{
+        ref: any;
+        name: string;
+        barcode: string;
+        quantity: number;
+      }> = [];
+
+      deliveryNotes.forEach((dn: any) => {
+        (dn.items || []).forEach((item: any) => {
+          dnItems.push({
+            ref: item,
+            name: item.item_name || '',
+            barcode: (item.barcode || '').trim(),
+            quantity: Number(item.quantity) || 0,
+          });
         });
       });
 
-      // Check for missing items or quantity mismatches
       const missingItems: string[] = [];
       const quantityMismatches: string[] = [];
-      
-      for (const [key, poQty] of poItemsMap.entries()) {
-        const [itemName, barcode] = key.split('_');
-        const dnQty = dnItemsMap.get(key) || 0;
-        
-        if (!dnItemsMap.has(key)) {
-          missingItems.push(`${itemName} (barcode: ${barcode})`);
-        } else if (Math.abs(poQty - dnQty) > 0.01) {
-          quantityMismatches.push(`${itemName}: PO has ${poQty}, Delivery Notes have ${dnQty}`);
+      const extraItems: string[] = [];
+
+      // 1) مطابقة معتمدة على الباركود أولاً (تجميع كميات لكل باركود)
+      const poByBarcode = new Map<
+        string,
+        { name: string; totalQty: number }
+      >();
+      const dnByBarcode = new Map<
+        string,
+        { name: string; totalQty: number }
+      >();
+
+      poItems.forEach((it) => {
+        if (!it.barcode) return;
+        const entry = poByBarcode.get(it.barcode) || {
+          name: it.name,
+          totalQty: 0,
+        };
+        entry.totalQty += it.quantity;
+        poByBarcode.set(it.barcode, entry);
+      });
+
+      dnItems.forEach((it) => {
+        if (!it.barcode) return;
+        const entry = dnByBarcode.get(it.barcode) || {
+          name: it.name,
+          totalQty: 0,
+        };
+        entry.totalQty += it.quantity;
+        dnByBarcode.set(it.barcode, entry);
+      });
+
+      // تحقق من المفقود والكمية حسب الباركود
+      for (const [barcode, poInfo] of poByBarcode.entries()) {
+        const dnInfo = dnByBarcode.get(barcode);
+        if (!dnInfo) {
+          missingItems.push(`${poInfo.name} (barcode: ${barcode})`);
+        } else if (Math.abs(poInfo.totalQty - dnInfo.totalQty) > 0.01) {
+          quantityMismatches.push(
+            `${poInfo.name}: PO has ${poInfo.totalQty}, Delivery Notes have ${dnInfo.totalQty}`,
+          );
         }
       }
 
-      // Check for extra items in delivery notes that don't exist in PO
-      const extraItems: string[] = [];
-      for (const [key] of dnItemsMap.entries()) {
-        if (!poItemsMap.has(key)) {
-          const [itemName, barcode] = key.split('_');
-          extraItems.push(`${itemName} (barcode: ${barcode})`);
+      // عناصر زيادة في الـ DN حسب الباركود
+      for (const [barcode, dnInfo] of dnByBarcode.entries()) {
+        if (!poByBarcode.has(barcode)) {
+          extraItems.push(`${dnInfo.name} (barcode: ${barcode})`);
         }
       }
+
+      // 2) للأصناف بدون باركود، استخدم MiniMax كمطابقة احتياطية (اختياري)
+      const poNoBarcode = poItems.filter((it) => !it.barcode);
+      const dnNoBarcode = dnItems.filter((it) => !it.barcode);
+      const matchedDnNoBarcode = new Set<number>();
+
+      for (let i = 0; i < poNoBarcode.length; i++) {
+        const poItem = poNoBarcode[i];
+        let foundMatch = false;
+
+        for (let j = 0; j < dnNoBarcode.length; j++) {
+          if (matchedDnNoBarcode.has(j)) continue;
+          const dnItem = dnNoBarcode[j];
+
+          const sameProduct = await this.areItemsMatchingWithMiniMax(
+            { name: poItem.name, barcode: poItem.barcode },
+            { name: dnItem.name, barcode: dnItem.barcode },
+          );
+
+          if (sameProduct) {
+            matchedDnNoBarcode.add(j);
+            foundMatch = true;
+
+            if (Math.abs(poItem.quantity - dnItem.quantity) > 0.01) {
+              quantityMismatches.push(
+                `${poItem.name}: PO has ${poItem.quantity}, Delivery Notes have ${dnItem.quantity}`,
+              );
+            }
+            break;
+          }
+        }
+
+        if (!foundMatch) {
+          const label = poItem.name || `PO item (no barcode) #${i + 1}`;
+          missingItems.push(label);
+        }
+      }
+
+      dnNoBarcode.forEach((dnItem, idx) => {
+        if (!matchedDnNoBarcode.has(idx)) {
+          const label = dnItem.name || `DN item (no barcode) #${idx + 1}`;
+          extraItems.push(label);
+        }
+      });
 
         const prompt = `
     // You're a smart delivery audit assistant.
@@ -720,6 +1004,41 @@ Stage 2: Verify that the total for all items across all delivery notes exactly m
 - The TOTAL quantity for each item (by item_name + barcode) across all delivery notes MUST exactly match the quantity in the Purchase Order
 - If ANY item is missing or quantities don't match, Stage 2 MUST FAIL
 - Do NOT pass Stage 2 if items are missing, even if totals seem close
+- Do NOT treat "Bread" and "خبز" as different items
+
+🚨🚨🚨 ABSOLUTELY FORBIDDEN - DO NOT REPORT THESE 🚨🚨🚨
+- "Item 'Bread' in PO has quantity 50, but in DN has quantity 50" → FORBIDDEN! 50 = 50, they MATCH
+- "Item 'egg' in PO has quantity 10, but in DN has quantity 10" → FORBIDDEN! 10 = 10, they MATCH
+- "Item 'X' in PO has quantity Y, but in DN has quantity Y" → FORBIDDEN! Y = Y, they MATCH
+- ANY note that says "has quantity X, but in DN has quantity X" → FORBIDDEN! X = X, they MATCH
+- If the quantity is the SAME (50 = 50, 10 = 10), they MATCH → do NOT report mismatch
+- DO NOT write "has quantity X, but in DN has quantity X" → if both are X, they MATCH
+- Example WRONG: "Item 'Bread' in PO has quantity 50, but in DN has quantity 50" → WRONG! 50 = 50, they MATCH
+- Example CORRECT: "Item 'Bread' in PO has quantity 50, but in DN has quantity 30" → CORRECT! 50 ≠ 30, they differ
+
+📌 TEXT NORMALIZATION RULES (CRITICAL - READ CAREFULLY):
+🔹 ITEM NAME MATCHING:
+- Compare case-insensitively: "Egg" == "egg" == "EGG" → ALL ARE THE SAME ITEM
+- Compare language-insensitively: "egg" == "بيض" → THEY ARE THE SAME ITEM
+- "Egg" (PO) == "egg" (DN) → THEY ARE THE SAME ITEM (case-insensitive)
+- "egg" (PO) == "بيض" (DN) → THEY ARE THE SAME ITEM (language-insensitive)
+- "Egg" (PO) == "بيض" (DN) → THEY ARE THE SAME ITEM (case-insensitive + language-insensitive)
+- "Bread" (PO) == "bread" (DN) → THEY ARE THE SAME ITEM (case-insensitive)
+- "Bread" (PO) == "خبز" (DN) → THEY ARE THE SAME ITEM (language-insensitive)
+- "bread" (PO) == "خبز" (DN) → THEY ARE THE SAME ITEM (language-insensitive)
+- "milk" (PO) == "حليب" (DN) → THEY ARE THE SAME ITEM (language-insensitive)
+- DO NOT report mismatch if item name differs only by:
+  - Case (capital/small letters): "Egg" vs "egg" → SAME ITEM
+  - Language (Arabic/English): "بيض" vs "egg" → SAME ITEM
+  - Both case and language: "بيض" vs "Egg" → SAME ITEM
+- Examples of MATCHING items (do NOT report as mismatch):
+  - PO has "Egg" and DN has "egg" → THEY MATCH (same item, different case)
+  - PO has "egg" and DN has "بيض" → THEY MATCH (same item, different language)
+  - PO has "Egg" and DN has "بيض" → THEY MATCH (same item, different case + language)
+  - PO has "Bread" and DN has "خبز" → THEY MATCH (same item, different language)
+  - PO has "bread" and DN has "خبز" → THEY MATCH (same item, different language)
+  - PO has "milk" and DN has "حليب" → THEY MATCH (same item, different language)
+
 
 Report any missing items or discrepancies.
 
@@ -753,13 +1072,50 @@ If the unit is different it's doesn't matter
 Examples:
 - 4 vs "4" → must be treated as equal → do NOT fail stage
 - 10 vs "10" → equal → do NOT fail stage
+- "Item 'Bread' in PO has quantity 50, but in DN has quantity 50" → FORBIDDEN! 50 = 50, they MATCH → do NOT fail stage
+- "Item 'egg' in PO has quantity 10, but in DN has quantity 10" → FORBIDDEN! 10 = 10, they MATCH → do NOT fail stage
+- "Item 'X' in PO has quantity Y, but in DN has quantity Y" → FORBIDDEN! Y = Y, they MATCH → do NOT fail stage
 - missing unit label (e.g., "box" vs null) → treat null as equivalent data → do NOT fail stage
 
 You must change stage decisions accordingly:
 ❗ If normalization resolves mismatches → override pass=true for that stage.
 ❗ You MUST NOT mark a stage failed if all mismatches resolve after normalization.
+❗ If you see "has quantity X, but in DN has quantity X" → X = X, they MATCH → set stage.pass=true
+❗ If you see "Item 'X' in PO has quantity Y, but in DN has quantity Y" → Y = Y, they MATCH → set stage.pass=true
 If you output "normalized values" inside notes,
 you are REQUIRED to set stage.pass=true for that stage.
+If you write "has quantity X, but in DN has quantity X" in notes, you MUST set stage.pass=true (X = X, they MATCH).
+
+🔴 ITEM NAME SEMANTIC MATCHING (CRITICAL – FINAL RULE):
+
+When comparing items in Stage 2, item_name comparison MUST be semantic, not literal.
+
+✔ Treat item names as THE SAME ITEM if:
+- They differ only by capitalization:
+  - "Milk" == "milk" == "MILK"
+
+✔ They have the SAME MEANING across languages (Arabic / English):
+  - "milk" == "حليب"
+  - "bread" == "خبز"
+  - "egg" == "بيض"
+
+✔ If barcode matches EXACTLY, item_name MAY differ in:
+- Language (Arabic / English)
+- Capitalization (upper / lower case)
+
+❌ DO NOT fail Stage 2 because of:
+- Capital vs small letters
+- Arabic vs English naming
+- Translation differences with the same meaning
+
+❌ DO NOT require exact string match for item_name
+
+🚨 ONLY consider items DIFFERENT if:
+- barcode is different
+AND
+- item_name meaning is different
+
+Use your semantic understanding to determine whether two item names refer to the SAME real-world product.
 
 
 
@@ -836,6 +1192,14 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
           if (note.match(/unit.*"box".*null|unit.*null.*"box"|unit.*box.*null|unit.*null.*box/i)) {
             return false; // box and null are equivalent
           }
+          // Remove quantity mismatch when expected == found
+          if (
+            note.match(/quantity mismatch/i) &&
+            note.match(/expected\s+(\d+).*found\s+\1/i)
+          ) {
+            return false;
+          }
+
           
           return true;
         });
@@ -873,6 +1237,7 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
     }
   }
 
+
   async compareGR(po_number: string): Promise<string> {
 
     const po = await this.poModel.findOne({ where: { po_number }, include: ['items', 'supplier'] });
@@ -906,46 +1271,128 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       }) : []
     };
 
-    // Pre-validate items match: Check if all PO items exist in goods receipts with correct quantities
-    const poItemsMap = new Map<string, number>();
-    po.items?.forEach(item => {
-      const key = `${(item.item_name || '').toLowerCase().trim()}_${(item.barcode || '').trim()}`;
-      const currentQty = poItemsMap.get(key) || 0;
-      poItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
-    });
+    // 🔁 جهّز لستة من الأيتيمات من الـ PO و Goods Receipts
+    const poItems = (po.items || []).map((item: any) => ({
+      ref: item,
+      name: item.item_name || '',
+      barcode: (item.barcode || '').trim(),
+      quantity: Number(item.quantity) || 0,
+    }));
 
-    const grItemsMap = new Map<string, number>();
-    goodsReceipts.forEach(gr => {
-      gr.items?.forEach(item => {
-        const key = `${(item.item_name || '').toLowerCase().trim()}_${(item.barcode || '').trim()}`;
-        const currentQty = grItemsMap.get(key) || 0;
-        grItemsMap.set(key, currentQty + (Number(item.quantity) || 0));
+    const grItems: Array<{
+      ref: any;
+      name: string;
+      barcode: string;
+      quantity: number;
+    }> = [];
+
+    goodsReceipts.forEach((gr: any) => {
+      (gr.items || []).forEach((item: any) => {
+        grItems.push({
+          ref: item,
+          name: item.item_name || '',
+          barcode: (item.barcode || '').trim(),
+          quantity: Number(item.quantity) || 0,
+        });
       });
     });
 
-    // Check for missing items or quantity mismatches
     const missingItems: string[] = [];
     const quantityMismatches: string[] = [];
+    const extraItems: string[] = [];
     
-    for (const [key, poQty] of poItemsMap.entries()) {
-      const [itemName, barcode] = key.split('_');
-      const grQty = grItemsMap.get(key) || 0;
-      
-      if (!grItemsMap.has(key)) {
-        missingItems.push(`${itemName} (barcode: ${barcode})`);
-      } else if (Math.abs(poQty - grQty) > 0.01) {
-        quantityMismatches.push(`${itemName}: PO has ${poQty}, Goods Receipts have ${grQty}`);
+    // 1) مطابقة معتمدة على الباركود أولاً (تجميع كميات لكل باركود)
+    const poByBarcode = new Map<
+      string,
+      { name: string; totalQty: number }
+    >();
+    const grByBarcode = new Map<
+      string,
+      { name: string; totalQty: number }
+    >();
+
+    poItems.forEach((it) => {
+      if (!it.barcode) return;
+      const entry = poByBarcode.get(it.barcode) || {
+        name: it.name,
+        totalQty: 0,
+      };
+      entry.totalQty += it.quantity;
+      poByBarcode.set(it.barcode, entry);
+    });
+
+    grItems.forEach((it) => {
+      if (!it.barcode) return;
+      const entry = grByBarcode.get(it.barcode) || {
+        name: it.name,
+        totalQty: 0,
+      };
+      entry.totalQty += it.quantity;
+      grByBarcode.set(it.barcode, entry);
+    });
+
+    // تحقق من المفقود والكمية حسب الباركود
+    for (const [barcode, poInfo] of poByBarcode.entries()) {
+      const grInfo = grByBarcode.get(barcode);
+      if (!grInfo) {
+        missingItems.push(`${poInfo.name} (barcode: ${barcode})`);
+      } else if (Math.abs(poInfo.totalQty - grInfo.totalQty) > 0.01) {
+        quantityMismatches.push(
+          `${poInfo.name}: PO has ${poInfo.totalQty}, Goods Receipts have ${grInfo.totalQty}`,
+        );
       }
     }
 
-    // Check for extra items in goods receipts that don't exist in PO
-    const extraItems: string[] = [];
-    for (const [key] of grItemsMap.entries()) {
-      if (!poItemsMap.has(key)) {
-        const [itemName, barcode] = key.split('_');
-        extraItems.push(`${itemName} (barcode: ${barcode})`);
+    // عناصر زيادة في الـ GR حسب الباركود
+    for (const [barcode, grInfo] of grByBarcode.entries()) {
+      if (!poByBarcode.has(barcode)) {
+        extraItems.push(`${grInfo.name} (barcode: ${barcode})`);
       }
     }
+
+    // 2) للأصناف بدون باركود، استخدم MiniMax كمطابقة احتياطية (اختياري)
+    const poNoBarcode = poItems.filter((it) => !it.barcode);
+    const grNoBarcode = grItems.filter((it) => !it.barcode);
+    const matchedGrNoBarcode = new Set<number>();
+
+    for (let i = 0; i < poNoBarcode.length; i++) {
+      const poItem = poNoBarcode[i];
+      let foundMatch = false;
+
+      for (let j = 0; j < grNoBarcode.length; j++) {
+        if (matchedGrNoBarcode.has(j)) continue;
+        const grItem = grNoBarcode[j];
+
+        const sameProduct = await this.areItemsMatchingWithMiniMax(
+          { name: poItem.name, barcode: poItem.barcode },
+          { name: grItem.name, barcode: grItem.barcode },
+        );
+
+        if (sameProduct) {
+          matchedGrNoBarcode.add(j);
+          foundMatch = true;
+
+          if (Math.abs(poItem.quantity - grItem.quantity) > 0.01) {
+            quantityMismatches.push(
+              `${poItem.name}: PO has ${poItem.quantity}, Goods Receipts have ${grItem.quantity}`,
+            );
+          }
+          break;
+        }
+      }
+
+      if (!foundMatch) {
+        const label = poItem.name || `PO item (no barcode) #${i + 1}`;
+        missingItems.push(label);
+      }
+    }
+
+    grNoBarcode.forEach((grItem, idx) => {
+      if (!matchedGrNoBarcode.has(idx)) {
+        const label = grItem.name || `GR item (no barcode) #${idx + 1}`;
+        extraItems.push(label);
+      }
+    });
 
    const prompt = `
     // You're a smart goods receipt audit assistant.
@@ -959,22 +1406,66 @@ Stage 1: Verify that all goods receipts have the same purchase order number as t
 Stage 2: Verify that the total for all items across all goods receipts exactly matches the items in the purchase order (same item  + same quantities).
 
 🚨 CRITICAL FOR STAGE 2:
-- EVERY item in the Purchase Order MUST exist in the goods receipts
-- EVERY item in the goods receipts MUST exist in the Purchase Order
-- The TOTAL quantity for each item (by item_name + barcode) across all goods receipts MUST exactly match the quantity in the Purchase Order
-- If ANY item is missing or quantities don't match, Stage 2 MUST FAIL
-- Do NOT pass Stage 2 if items are missing, even if totals seem close
-📌 UNIT NORMALIZATION RULE
-If units differ (e.g., "box", "carton", null, empty, or spelling variation),
-but:
-✔ barcode is the same
-✔ quantity matches after normalization
-✔ unit_price matches
-Then DO NOT report this as a mismatch.
-Unit notation differences are irrelevant for auditing — treat them as equivalent.
+* EVERY item in the Purchase Order MUST exist in the goods receipts
+* EVERY item in the goods receipts MUST exist in the Purchase Order
+* The TOTAL quantity for each item (by item_name + barcode) across all goods receipts MUST exactly match the quantity in the Purchase Order
+* If ANY item is missing or quantities don't match, Stage 2 MUST FAIL
+* Do NOT pass Stage 2 if items are missing, even if totals seem close
 
+🚨🚨🚨 ABSOLUTELY FORBIDDEN - DO NOT REPORT THESE 🚨🚨🚨
+* "Missing item: egg (PO) vs Egg (GR)" → FORBIDDEN! "egg" == "Egg", they MATCH (case-insensitive)
+* "Missing item: bread (PO) vs Bread (GR)" → FORBIDDEN! "bread" == "Bread", they MATCH (case-insensitive)
+* "quantities don't match: 10 (PO) vs 10 (GR)" → FORBIDDEN! 10 = 10, they MATCH
+* "quantities don't match: X (PO) vs X (GR)" → FORBIDDEN! X = X, they MATCH
+* ANY note that says "egg (PO) vs Egg (GR)" → FORBIDDEN! "egg" == "Egg", they MATCH
+* ANY note that says "quantities don't match: X (PO) vs X (GR)" → FORBIDDEN! X = X, they MATCH
+* If item name differs only by case ("egg" vs "Egg") → THEY MATCH → do NOT report as missing
+* If quantity is the SAME (10 = 10, 50 = 50) → THEY MATCH → do NOT report as mismatch
+* Example WRONG: "Missing item: egg (PO) vs Egg (GR), quantities don't match: 10 (PO) vs 10 (GR)" → WRONG! "egg" == "Egg" and 10 = 10, they MATCH
+* Example CORRECT: "Missing item: apple (PO) not found in GR" → CORRECT! apple is truly missing
+* Example CORRECT: "quantities don't match: 10 (PO) vs 5 (GR)" → CORRECT! 10 ≠ 5, they differ
 
-Verify that the items were received correctly (check total quantities, allow for minor name differences, e.g., "Bread" vs "bread").
+📌 TEXT NORMALIZATION RULES (CRITICAL - READ CAREFULLY):
+🔹 ITEM NAME MATCHING:
+* Compare case-insensitively: "Bread" == "bread" == "BREAD" → ALL ARE THE SAME ITEM
+* Compare language-insensitively: "bread" == "خبز" → THEY ARE THE SAME ITEM
+* "Bread" (PO) == "bread" (GR) → THEY ARE THE SAME ITEM (case-insensitive)
+* "bread" (PO) == "خبز" (GR) → THEY ARE THE SAME ITEM (language-insensitive)
+* "Bread" (PO) == "خبز" (GR) → THEY ARE THE SAME ITEM (case-insensitive + language-insensitive)
+* "Egg" (PO) == "egg" (GR) → THEY ARE THE SAME ITEM (case-insensitive)
+* "egg" (PO) == "بيض" (GR) → THEY ARE THE SAME ITEM (language-insensitive)
+* "milk" (PO) == "حليب" (GR) → THEY ARE THE SAME ITEM (language-insensitive)
+* DO NOT report mismatch if item name differs only by:
+  - Case (capital/small letters): "Bread" vs "bread" → SAME ITEM
+  - Language (Arabic/English): "خبز" vs "bread" → SAME ITEM
+  - Both case and language: "خبز" vs "Bread" → SAME ITEM
+* Examples of MATCHING items (do NOT report as mismatch):
+  - PO has "Bread" and GR has "bread" → THEY MATCH (same item, different case)
+  - PO has "bread" and GR has "خبز" → THEY MATCH (same item, different language)
+  - PO has "Bread" and GR has "خبز" → THEY MATCH (same item, different case + language)
+  - PO has "egg" and GR has "Egg" → THEY MATCH (same item, different case)
+  - PO has "Egg" and GR has "egg" → THEY MATCH (same item, different case)
+  - DO NOT write "Missing item: egg (PO) vs Egg (GR)" → "egg" == "Egg", they MATCH
+  - DO NOT write "egg (PO) vs Egg (GR)" → they are THE SAME ITEM (case-insensitive)
+
+📌 QUANTITY NORMALIZATION RULE (CRITICAL):
+* If quantity is the SAME (10 = 10, 50 = 50) → THEY MATCH → do NOT report mismatch
+* "quantities don't match: 10 (PO) vs 10 (GR)" → FORBIDDEN! 10 = 10, they MATCH
+* "quantities don't match: X (PO) vs X (GR)" → FORBIDDEN! X = X, they MATCH
+* DO NOT write "quantities don't match" if both quantities are the SAME
+* Example WRONG: "quantities don't match: 10 (PO) vs 10 (GR)" → WRONG! 10 = 10, they MATCH
+* Example CORRECT: "quantities don't match: 10 (PO) vs 5 (GR)" → CORRECT! 10 ≠ 5, they differ
+
+📌 UNIT NORMALIZATION RULE (CRITICAL - IGNORE UNIT):
+* Units are COMPLETELY IGNORED - do NOT check or compare units
+* If unit differs (e.g., "box", "carton", null, empty, or any variation) → IGNORE IT
+* Unit differences are IRRELEVANT - treat ALL units as equivalent
+* DO NOT report mismatch based on unit differences - units are NOT checked
+* Example: PO has "box" and GR has null → THEY MATCH (units are ignored)
+* Example: PO has "carton" and GR has "box" → THEY MATCH (units are ignored)
+* Only check: item_name, barcode, and quantity - IGNORE unit completely
+
+Verify that the items were received correctly (check total quantities, allow for minor name differences, e.g., "Bread" vs "bread", "bread" vs "خبز").
 
 Report any missing items or discrepancies.
 
@@ -996,6 +1487,37 @@ CRITICAL: Output ONLY the JSON above. No explanations, no reasoning, no addition
     🚨 2 and "2" MUST NEVER be treated as mismatches.
     **/
 
+    🔴 ITEM NAME SEMANTIC MATCHING (CRITICAL – FINAL RULE):
+
+When comparing items in Stage 2, item_name comparison MUST be semantic, not literal.
+
+✔ Treat item names as THE SAME ITEM if:
+- They differ only by capitalization:
+  - "Milk" == "milk" == "MILK"
+
+✔ They have the SAME MEANING across languages (Arabic / English):
+  - "milk" == "حليب"
+  - "bread" == "خبز"
+  - "egg" == "بيض"
+
+✔ If barcode matches EXACTLY, item_name MAY differ in:
+- Language (Arabic / English)
+- Capitalization (upper / lower case)
+
+❌ DO NOT fail Stage 2 because of:
+- Capital vs small letters
+- Arabic vs English naming
+- Translation differences with the same meaning
+
+❌ DO NOT require exact string match for item_name
+
+🚨 ONLY consider items DIFFERENT if:
+- barcode is different
+AND
+- item_name meaning is different
+
+Use your semantic understanding to determine whether two item names refer to the SAME real-world product.
+
 
    RULES:
 If you report mismatch because values look different but are numerically equal, you FAIL the task.
@@ -1005,15 +1527,22 @@ then that mismatch MUST NOT be reported
 and the related stage MUST be considered PASSED.
 
 Examples:
-- 4 vs "4" → must be treated as equal → do NOT fail stage
-- 10 vs "10" → equal → do NOT fail stage
-- missing unit label (e.g., "box" vs null) → treat null as equivalent data → do NOT fail stage
+* 4 vs "4" → must be treated as equal → do NOT fail stage
+* 10 vs "10" → equal → do NOT fail stage
+* "Missing item: egg (PO) vs Egg (GR)" → FORBIDDEN! "egg" == "Egg", they MATCH → do NOT fail stage
+* "quantities don't match: 10 (PO) vs 10 (GR)" → FORBIDDEN! 10 = 10, they MATCH → do NOT fail stage
+* "Missing item: egg (PO) vs Egg (GR), quantities don't match: 10 (PO) vs 10 (GR)" → FORBIDDEN! "egg" == "Egg" and 10 = 10, they MATCH → do NOT fail stage
+* missing unit label (e.g., "box" vs null) → treat null as equivalent data → do NOT fail stage
 
 You must change stage decisions accordingly:
 ❗ If normalization resolves mismatches → override pass=true for that stage.
 ❗ You MUST NOT mark a stage failed if all mismatches resolve after normalization.
+❗ If you see "egg (PO) vs Egg (GR)" → "egg" == "Egg", they MATCH → set stage.pass=true
+❗ If you see "quantities don't match: X (PO) vs X (GR)" → X = X, they MATCH → set stage.pass=true
+❗ If you see "Missing item: egg (PO) vs Egg (GR), quantities don't match: 10 (PO) vs 10 (GR)" → "egg" == "Egg" and 10 = 10, they MATCH → set stage.pass=true
 If you output "normalized values" inside notes,
 you are REQUIRED to set stage.pass=true for that stage.
+If you write "egg (PO) vs Egg (GR)" or "quantities don't match: X (PO) vs X (GR)" in notes, you MUST set stage.pass=true (they MATCH).
 
 
 Here is the data:
@@ -1120,7 +1649,7 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
       for (const user of paymentUsers) {
         await this.notificationService.sendNotification({
           title: "Purchase Order Ready for Payment 💰",
-          message: `PO ${po_number} verification is completed and ready for payment.`,
+          message: `PO with #${po_number} verification is completed and ready for payment.`,
           userId: user.user_id.toString(),
           channel: NotificationChannel.IN_APP,
           category: NotificationCategory.SYSTEM,
@@ -1141,7 +1670,6 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
       throw new InternalServerErrorException('Goods Receipts comparison failed');
     }
   }
-
 
   async updateWorkflowState(po_number: string, stage: 'SI' | 'DN' | 'GR', cont: boolean) {
 
@@ -1207,6 +1735,9 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
               }
             });
           }
+
+          purchaseOrder.ready_for_paid_notified_at = new Date();
+          await purchaseOrder.save();
         }
       } catch (err) {
         console.error("❌ Failed to send payment notification", err);
@@ -1215,7 +1746,3 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
   }
 }
 }
-
-
-
-

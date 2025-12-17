@@ -53,6 +53,8 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Invalid email or password');
 
+    if(user.status=== 'Inactive'){throw new UnauthorizedException('Invalid to login your account is inactive');}
+
     const isMatch = await bcrypt.compare(password, user.password_hash!);
     if (!isMatch) throw new UnauthorizedException('Invalid email or password');
 

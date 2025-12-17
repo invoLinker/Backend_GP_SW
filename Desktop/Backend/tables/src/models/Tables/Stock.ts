@@ -11,6 +11,8 @@ export class Stock extends Model<InferAttributes<Stock>, InferCreationAttributes
   declare unit: string | null;
   declare expiration_date: Date | null;
   declare status: 'Available' | 'Expired' | 'Reserved'|'OutOfStock';
+  declare QR: string | null;
+  declare Itemlocation: string | null;
 }
 
 Stock.init(
@@ -49,6 +51,9 @@ Stock.init(
       allowNull: false,
       defaultValue: 'Available',
     },
+    QR:{ type: DataTypes.TEXT ,allowNull: true,},
+    Itemlocation:{ type: DataTypes.STRING ,allowNull: true,}
+
   },
   {
     sequelize,
