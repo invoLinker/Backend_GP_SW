@@ -550,9 +550,17 @@ async saveFilePath(po_number: string, filePath: string) {
     };
   }
 
+  else if (extension === 'csv' ) {
+    po.csvUrl = filePath;
+    response = {
+      message: 'CSV uploaded successfully',
+      pathCsv: filePath,
+    };
+  }
+
   else {
     throw new BadRequestException(
-      `Unsupported file type ".${extension}". Only PDF or Excel are allowed.`
+      `Unsupported file type ".${extension}". Only PDF, Excel or CSV are allowed.`
     );
   }
 
@@ -585,7 +593,7 @@ async saveFilePath(po_number: string, filePath: string) {
 
 
 
-async getFile(po_number: string, type: 'pdf' | 'excel') {
+async getFile(po_number: string, type: 'pdf' | 'excel' | 'csv') {
   const po = await this.poModel.findOne({
     where: { po_number },
   });
@@ -601,6 +609,13 @@ async getFile(po_number: string, type: 'pdf' | 'excel') {
     return { pathPdf: po.pdfUrl };
   }
 
+  if (type === 'csv') {
+    if (!po.csvUrl) {
+      throw new NotFoundException(`CSV file not found for PO ${po_number}`);
+    }
+    return { pathCsv: po.csvUrl };
+  }
+
   if (type === 'excel') {
     if (!po.excelUrl) {
       throw new NotFoundException(`Excel file not found for PO ${po_number}`);
@@ -608,7 +623,7 @@ async getFile(po_number: string, type: 'pdf' | 'excel') {
     return { pathExcel: po.excelUrl };
   }
 
-  throw new BadRequestException('Invalid type. Must be "pdf" or "excel".');
+  throw new BadRequestException('Invalid type. Must be "pdf", "excel" or "csv" ');
 }
 
 
@@ -640,6 +655,7 @@ async getPendingApprovals() {
   accountantPOs.map(async (po) => {
     let pdfPath: string | null = null;
     let excelPath: string | null = null;
+    let csvPath: string | null = null;
 
     try {
       const pdf = await this.getFile(po.po_number, 'pdf');
@@ -649,6 +665,11 @@ async getPendingApprovals() {
     try {
       const excel = await this.getFile(po.po_number, 'excel');
       excelPath = excel.pathExcel || null;
+    } catch {}
+
+    try {
+      const csv = await this.getFile(po.po_number, 'csv');
+      csvPath = csv.pathCsv || null;
     } catch {}
 
     return {
@@ -661,7 +682,8 @@ async getPendingApprovals() {
       message: {
         file: {
           pathPdf: pdfPath,
-          pathExcel: excelPath
+          pathExcel: excelPath,
+          pathCsv: csvPath,
         }
       }
     };

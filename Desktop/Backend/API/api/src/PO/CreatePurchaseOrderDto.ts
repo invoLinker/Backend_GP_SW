@@ -60,6 +60,8 @@ export class CreatePurchaseOrderDto {
 
   excelUrl?: Express.Multer.File
 
+  csvUrl?: Express.Multer.File
+
 
   @IsString()
   @IsNotEmpty()

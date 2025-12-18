@@ -1,0 +1,28 @@
+Purchase Order
+
+PO Number,"PO-64"
+Order Date,"2025-12-18"
+Currency,"JOD"
+Payment Method,"Credit"
+
+Company Information
+Company Name,"Gfd"
+Company Email,"Gfd"
+Company Phone,"hgf"
+Company Address,"Horde"
+
+Supplier Information
+Supplier Email,"market@gmail.com"
+Supplier Phone,"yhgt"
+Supplier Address,"Huge"
+
+Items
+Item,Barcode,Quantity,Unit,Unit Price,Total
+"Yet","YE-4709","1","L","6.00","6.00"
+
+Subtotal,"6.00"
+VAT,"16.00"
+Total,"6.96"
+
+Notes
+""

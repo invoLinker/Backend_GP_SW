@@ -311,6 +311,10 @@ export class PurchaseOrderController {
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
         'application/vnd.ms-excel', // .xls
+
+        'text/csv',
+        'application/csv',
+        'text/plain',
       ];
 
       if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -345,7 +349,7 @@ async uploadFile(
   @PermissionName('get_purchase_order_file')
   async getPurchaseOrderFile(
     @Param('po_number') po_number: string,
-    @Query('type') type: 'pdf' | 'excel'
+    @Query('type') type: 'pdf' | 'excel' | 'csv'
   ) {
     return this.poService.getFile(po_number, type);
   }

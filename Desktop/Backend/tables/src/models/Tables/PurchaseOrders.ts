@@ -19,6 +19,7 @@ export class PurchaseOrder extends Model<InferAttributes<PurchaseOrder>, InferCr
   declare status: 'Pending'| 'Closed' | 'Rejected'  |'Approved'| 'Sent' |'Incident'| 'ReadyForPaid';
   declare pdfUrl: string | null;
   declare excelUrl: string | null;
+  declare csvUrl: string | null;
   declare note: Text | null;
   declare is_verified: boolean;
   declare currency: 'USD'|'ILS'|'JOD';
@@ -81,6 +82,7 @@ PurchaseOrder.init(
     },
     pdfUrl: { type: DataTypes.TEXT, allowNull: true },
     excelUrl:{ type: DataTypes.TEXT, allowNull: true },
+    csvUrl:{type: DataTypes.TEXT, allowNull: true },
     note:{type:DataTypes.TEXT, allowNull:true},
     is_verified:{ type: DataTypes.BOOLEAN, defaultValue: false },
     currency:{type:DataTypes.ENUM( 'USD','ILS','JOD'), defaultValue:'ILS', allowNull:false},

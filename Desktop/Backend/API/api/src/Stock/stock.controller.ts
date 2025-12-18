@@ -11,6 +11,7 @@ import { database } from 'firebase-admin';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { StockCheckItemDto } from './stock-check.dto';
 
 
 @Controller('stock')
@@ -38,6 +39,26 @@ export class StockController {
     @UploadedFile() image?: Express.Multer.File,
   ) {
     return this.stockService.generateQrForStock(barcode, image);
+  }
+
+  @Post('check')
+  async checkStock(
+    @Body() items: StockCheckItemDto[],
+  ) {
+    return this.stockService.check(items);
+  }
+
+  @Post('check/pdf')
+  async generateCheckReportPDF(
+    @Body() items: StockCheckItemDto[],
+  ) {
+    const pdfPath = await this.stockService.generateCheckReportPDF(items);
+    console.log('test');
+    return {
+      message: 'Report Created Successfully',
+      pdfPath: pdfPath,
+      downloadUrl: `/${pdfPath}`,
+    };
   }
 
   @Post(':po_number')

@@ -1,44 +1,3 @@
-// import { Controller, Post, UseInterceptors, UploadedFile } from '@nestjs/common';
-// import { FileInterceptor } from '@nestjs/platform-express';
-// import { OcrService } from './ocr.service';
-// import type { Express } from 'express';
-// import { memoryStorage } from 'multer';
-
-// @Controller('ocr')
-// export class OcrController {
-//   constructor(private readonly ocrService: OcrService) {}
-
-//   @Post('extract')
-//   @UseInterceptors(FileInterceptor('file'))
-//   async extractInvoice(@UploadedFile() file: Express.Multer.File) {
-//     if (!file) {
-//       return { error: 'No file uploaded' };
-//     }
-//     console.log("BACKEND RECEIVED SIZE:", file.buffer.length);
-// console.log("FRONTEND FILE SIZE:", file.size);
-
-//     try {
-//       // ocr
-//       const text = await this.ocrService.extractText(file);
-
-//       // this for ai to extract info from the text
-//       const invoiceData = await this.ocrService.extractDataByType(text);
-
-//       return {
-//         // extractedText: text,
-//         invoiceData: invoiceData,
-//         file: `/uploads/OCR/${file.filename}`,
-//       };
-//     } catch (err) {
-//       return { error: err.message };
-//     }
-//   }
-
-
-// }
-
-
-
 import { Controller, Post, UseInterceptors, UploadedFile, Body, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
@@ -81,7 +40,14 @@ export class OcrController {
 
 
   @Post('extract')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+  FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB upload limit
+    },
+  }),
+)
+
   async extractUnified(@UploadedFile() file: Express.Multer.File){
     if (!file) {
       throw new BadRequestException('No file uploaded');

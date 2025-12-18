@@ -235,9 +235,9 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     status: "Pending",
     is_verified: false,
 
-    pdfUrl,
-    invoice_image,
-    excelUrl,
+    pdfUrl:pdfUrl,
+    imgUrl:invoice_image,
+    excelUrl:excelUrl,
   } as any, { transaction });
 
   // ===============================

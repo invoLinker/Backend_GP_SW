@@ -161,6 +161,12 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
   })
   excelUrl: string;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  csvUrl: string;
+
   @BelongsTo(() => Supplier, { as: 'supplier' })
   supplier: Supplier;
 
