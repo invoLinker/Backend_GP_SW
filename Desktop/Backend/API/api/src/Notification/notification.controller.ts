@@ -28,34 +28,39 @@ export class NotificationController {
   }
 
   @Post('fcm-token')
-  async saveFCMToken(
-    @Body() body: { 
-      userId: string; 
-      token: string; 
-      platform?: string; 
-      deviceId?: string;
-      appId?: string; // Expo app identifier
-    }
-  ) {
-    if (!body.userId || !body.token) {
-      throw new BadRequestException('userId and token are required');
-    }
-
-    // Validate FCM token format (should be a long string)
-    if (typeof body.token !== 'string' || body.token.length < 50) {
-      throw new BadRequestException('Invalid FCM token format');
-    }
-
-    return this.notificationService.saveFCMToken(
-      body.userId,
-      body.token,
-      {
-        platform: body.platform || 'expo', // Default to 'expo' if not specified
-        deviceId: body.deviceId,
-        appId: body.appId, // Expo app identifier
-      }
-    );
+async savePushToken(
+  @Body()
+  body: {
+    userId: string;
+    token: string;        // ExponentPushToken[...]
+    platform?: string;
+    deviceId?: string;
+    appId?: string;
   }
+) {
+  const { userId, token, platform, deviceId, appId } = body;
+
+  // تحقق أساسي
+  if (!userId || !token) {
+    throw new BadRequestException('userId and token are required');
+  }
+
+  // تحقق إنو Expo Push Token
+  if (!token.startsWith('ExponentPushToken')) {
+    throw new BadRequestException('Invalid Expo push token');
+  }
+
+  return this.notificationService.saveExpoPushToken(
+    userId,
+    token,
+    {
+      platform: platform || 'expo',
+      deviceId,
+      appId,
+    }
+  );
+}
+
 
   @Get(':userId')
   async getNotifications(@Param('userId') userId: string) {

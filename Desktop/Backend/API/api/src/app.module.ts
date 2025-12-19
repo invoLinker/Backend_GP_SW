@@ -57,6 +57,8 @@ import { ReportsModule } from './Reports/reports.module';
 import { verificationExceptionsModule } from './verification_exceptions/verification_exceptions.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TrOcrModule } from './OCR/trocr.module';
+import { ShiftModule } from './shift/shift.module';
+import { Shift } from './shift/shift.model';
 
 
 
@@ -81,7 +83,8 @@ import { TrOcrModule } from './OCR/trocr.module';
       models: [Role, User, Permission, RolePermission, Supplier,
          PurchaseOrder, PurchaseOrderItem, Item, EditRequest,
          SupplierInvoice, SupplierInvoiceItem,
-         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, Stock, Task, HistoryLog],
+         GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, 
+         Shift, Stock, Task, HistoryLog],
       autoLoadModels: true,
       synchronize: false,
     }),
@@ -111,7 +114,8 @@ import { TrOcrModule } from './OCR/trocr.module';
     ChatbotModule,
     ReportsModule,
     verificationExceptionsModule,
-    TrOcrModule
+    TrOcrModule,
+    ShiftModule
   ],
   providers: [ JwtStrategy,
     {

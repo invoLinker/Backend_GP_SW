@@ -6,6 +6,7 @@ import { User } from 'src/users/users.model';
 import { hrtime, title } from 'process';
 import { NotificationService } from 'src/Notification/notification.service';
 import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
+import { Op } from 'sequelize';
 
 @Injectable()
 export class TaskService {
@@ -107,7 +108,11 @@ async getTasksAssignedToUser(userId: number): Promise<Task[]> {
   const fullName = `${user.first_name} ${user.last_name}`.trim();
 
   return this.taskModel.findAll({
-    where: { assignedTo: fullName },
+    where: {
+  assignedTo: {
+    [Op.like]: `%${fullName}%`,
+  },
+},
     order: [['dueDate', 'ASC']],
   });
 }

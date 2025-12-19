@@ -8,7 +8,7 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
   declare assignedTo: string;
   declare description?: string;
   declare priority: 'High' | 'Medium' | 'Low';
-  declare status: 'Pending' | 'In_Progress' | 'Completed';
+  declare status: 'Pending' | 'In Progress' | 'Completed';
   declare dueDate: Date;
   declare created_by: number | null;
   
@@ -21,7 +21,7 @@ Task.init(
     assignedTo: { type: DataTypes.STRING, allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     priority: { type: DataTypes.ENUM('High','Medium','Low'), allowNull: false, defaultValue: 'Medium' },
-    status: { type: DataTypes.ENUM('Pending','In_Progress','Completed'), allowNull: false, defaultValue: 'Pending' },
+    status: { type: DataTypes.ENUM('Pending','In Progress','Completed'), allowNull: false, defaultValue: 'Pending' },
     dueDate: { type: DataTypes.DATE, allowNull: false },
     created_by: { type: DataTypes.INTEGER, allowNull: true },
 

@@ -1,5 +1,6 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
 import { Role } from '../roles/roles.model';
+import { Shift } from 'src/shift/shift.model';
 
 @Table({ tableName: 'User', timestamps: true })
 export class User extends Model<User> {
@@ -107,4 +108,10 @@ export class User extends Model<User> {
 
   @BelongsTo(() => Role)
   role: Role;
+
+  @HasMany(() => Shift, {
+    foreignKey: 'user_id',
+    as: 'shifts',
+  })
+  shifts: Shift[];
 }

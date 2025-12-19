@@ -102,6 +102,13 @@ export class StockController {
     return this.stockService.getAllStocksWithQuantity(filter);
   }
 
+  @Get('check/reports')
+  async getAllStockCheckReports() {
+    return {
+      reports: await this.stockService.getAllCheckReports(),
+    };
+  }
+
   
   @Get('all')
   @UseGuards(JwtAuthGuard)

@@ -69,9 +69,9 @@ export class DeliveryNoteService {
       );
     }
     
-       let pdfUrl: string | null = null;
-  let invoice_image: string | null = null;
-  let excelUrl: string | null = null;
+    let pdfUrl: string | null = null;
+    let imgUrl: string | null = null;
+    let excelUrl: string | null = null;
 
   if (file) {
     const extRaw = file.originalname.split(".").pop();
@@ -85,7 +85,7 @@ export class DeliveryNoteService {
     if (ext === "pdf") {
       pdfUrl = filePath;
     } else if (["jpg", "jpeg", "png"].includes(ext)) {
-      invoice_image = filePath;
+      imgUrl = filePath;
     } else if (["xls", "xlsx"].includes(ext)) {
       excelUrl = filePath;
     } else {
@@ -111,7 +111,7 @@ export class DeliveryNoteService {
       status: errors.length > 0 ? 'Incident' : 'Pending', 
       notes: errors.length > 0 ? errors.join('; ') : null,
       pdfUrl,
-      invoice_image,
+      imgUrl,
       excelUrl,
       }as any, { transaction });
 
@@ -137,7 +137,7 @@ export class DeliveryNoteService {
 
     return {
      deliveryNote,
-     path: pdfUrl || invoice_image || excelUrl || null
+     path: pdfUrl || imgUrl || excelUrl || null
     };
 
 }

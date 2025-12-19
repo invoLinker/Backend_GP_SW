@@ -31,6 +31,7 @@ import { Stock } from '../models/Tables/Stock';
 import { Task } from '../models/Tables/Tasks';
 import { HistoryLog } from '../models/Tables/HistoryLog';
 import { verification_exceptions } from '../models/Tables/verification_exceptions';
+import { Shift } from '../models/Tables/shift';
 
 
 
@@ -67,7 +68,7 @@ Stock;
 Task;
 HistoryLog;
 verification_exceptions;
-
+Shift;
 
 async function main() {
   try {

@@ -1231,5 +1231,34 @@ async generateCheckReportPDF(
 }
 
 
+async getAllCheckReports() {
+  const reportsDir = path.join(process.cwd(), 'uploads', 'reports');
+
+  if (!fs.existsSync(reportsDir)) {
+    return [];
+  }
+
+  const files = fs
+    .readdirSync(reportsDir)
+    .filter(file => file.startsWith('stock-check-') && file.endsWith('.pdf'));
+
+  const reports = files.map(file => {
+    const fullPath = path.join(reportsDir, file);
+    const stats = fs.statSync(fullPath);
+
+    return {
+      path: `uploads/reports/${file}`,
+      createdAt: stats.birthtime,
+    };
+  });
+
+  reports.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  return reports;
+}
+
+
   }
   

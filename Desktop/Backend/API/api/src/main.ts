@@ -28,6 +28,7 @@ async function bootstrap() {
       'http://localhost:5173',
       'http://localhost:5174',
       'http://localhost:8081',
+      'http://localhost:8082',
       'https://hxd8mvhq-8081.euw.devtunnels.ms/',
       process.env.FRONTEND_URL || 'http://localhost:3000',
     ],

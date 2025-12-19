@@ -299,21 +299,37 @@ convertCurrency(amount: number, from: string, to: string, rate: number): number 
   return amount * rate;
 }
 
+// async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
+//   if(from === to)return 1;
+//   const formattedDate = date.toISOString().split('T')[0];
+//   const url = `https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=1&date=${formattedDate}&access_key=4e3ecc8736a617bf5db8aff010fe6eb9`;
+
+//   const response = await fetch(url);
+//   const data = await response.json();
+// // console.log("EX RATE RESPONSE >>>", data);
+
+//   if (!data.success || !data.info?.quote) {
+//     throw new BadRequestException('Currency conversion failed');
+//   }
+
+
+//   return data.info.quote;
+// }
+
 async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
-  if(from === to)return 1;
+  if (from === to) return 1;
+
   const formattedDate = date.toISOString().split('T')[0];
-  const url = `https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=1&date=${formattedDate}&access_key=4e3ecc8736a617bf5db8aff010fe6eb9`;
+  const url = `https://api.frankfurter.app/${formattedDate}?from=${from}&to=${to}`;
 
   const response = await fetch(url);
   const data = await response.json();
-// console.log("EX RATE RESPONSE >>>", data);
 
-  if (!data.success || !data.info?.quote) {
+  if (!data?.rates?.[to]) {
     throw new BadRequestException('Currency conversion failed');
   }
 
-
-  return data.info.quote;
+  return data.rates[to];
 }
 
 

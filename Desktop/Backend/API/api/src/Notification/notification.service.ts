@@ -4,6 +4,7 @@ import { CreateNotificationDto, NotificationChannel, AttachmentDto } from './cre
 import * as nodemailer from 'nodemailer';
 import * as admin from 'firebase-admin';
 import { NotificationGateway } from './notification.gateway';
+import axios from 'axios';
 
 @Injectable()
 export class NotificationService {
@@ -69,23 +70,22 @@ export class NotificationService {
           break;
 
         case NotificationChannel.PUSH:
-          // Push يحتاج FCM token
-          const pushResult = await this.sendPushNotification(dto, attachmentInfo, notificationId);
-          
-          // تحديث status في Firestore
-          await notificationRef.update({
-            status: pushResult.success ? 'sent' : 'failed',
-            deliveryInfo: {
-              success: pushResult.success,
-              messageIds: pushResult.messageIds || [],
-              devicesCount: pushResult.devicesCount || 0,
-              successCount: pushResult.successCount || 0,
-              failureCount: pushResult.failureCount || 0,
-              errors: pushResult.errors || [],
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            },
-          });
-          break;
+  await this.sendExpoPushNotification(
+    dto.userId,
+    dto.title,
+    dto.message,
+    dto.payload
+  );
+
+  await notificationRef.update({
+    status: 'sent',
+    deliveryInfo: {
+      provider: 'expo',
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    },
+  });
+  break;
+
 
         default:
           throw new Error('Invalid channel');
@@ -200,195 +200,55 @@ export class NotificationService {
   return { success: true, message: 'All notifications marked as read' };
 }
 
-  /**
-   * إرسال Push Notification عبر FCM
-   * يدعم multiple tokens (لأن المستخدم قد يكون له عدة أجهزة)
-   * @returns معلومات مفصلة عن حالة الإرسال
-   */
-  private async sendPushNotification(
-    dto: CreateNotificationDto,
-    attachmentInfo: AttachmentDto | null,
-    notificationId: string,
-  ): Promise<{
-    success: boolean;
-    messageIds?: string[];
-    devicesCount: number;
-    successCount: number;
-    failureCount: number;
-    errors?: Array<{ token: string; error: string }>;
-  }> {
-    try {
-      // جلب FCM tokens من Firestore
-      const tokenDoc = await db.collection('fcm_tokens').doc(dto.userId).get();
-      
-      if (!tokenDoc.exists) {
-        throw new Error(`FCM token not found for user: ${dto.userId}`);
-      }
+private async sendExpoPushNotification(
+  userId: string,
+  title: string,
+  body: string,
+  data?: any
+) {
+  const tokenDoc = await db
+    .collection('expo_push_tokens')
+    .doc(userId)
+    .get();
 
-      const tokenData = tokenDoc.data();
-      
-      // دعم single token أو array of tokens
-      const tokens: string[] = Array.isArray(tokenData?.tokens)
-        ? tokenData.tokens.filter((t: string) => t && t.trim())
-        : tokenData?.token
-        ? [tokenData.token]
-        : [];
-
-      if (tokens.length === 0) {
-        throw new Error(`No valid FCM tokens found for user: ${dto.userId}`);
-      }
-
-      // إعداد البيانات المرسلة
-      const dataPayload: Record<string, string> = {
-        notificationId, // ID الإشعار من Firestore
-        category: dto.category || 'general',
-        userId: dto.userId,
-        ...(dto.payload || {}),
-      };
-
-      if (attachmentInfo) {
-        dataPayload.attachment = attachmentInfo.path;
-        dataPayload.attachmentFilename = attachmentInfo.filename;
-      }
-
-      // إعداد الـ notification payload
-      const notificationPayload: admin.messaging.NotificationMessagePayload = {
-        title: dto.title,
-        body: dto.message,
-      };
-
-      // إعداد الـ message options (base options بدون token)
-      const baseMessageOptions: Omit<admin.messaging.TokenMessage, 'token'> = {
-        notification: notificationPayload,
-        data: Object.fromEntries(
-          Object.entries(dataPayload).map(([k, v]) => [k, String(v)])
-        ),
-        android: {
-          priority: 'high' as const,
-          notification: {
-            sound: 'default',
-            channelId: 'default_channel',
-            priority: 'high' as const,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-              badge: 1,
-              contentAvailable: true,
-            },
-          },
-        },
-        webpush: {
-          notification: {
-            icon: '/icon-192x192.png',
-            badge: '/badge-72x72.png',
-            requireInteraction: false,
-          },
-        },
-      };
-
-      // إرسال لجميع الأجهزة (multicast)
-      if (tokens.length === 1) {
-        // Single token
-        try {
-          const messageId = await firebaseAdmin.messaging().send({
-            ...baseMessageOptions,
-            token: tokens[0],
-          });
-          
-          this.logger.log(
-            `✅ Push notification sent to user ${dto.userId}, messageId: ${messageId}, notificationId: ${notificationId}`
-          );
-          
-          return {
-            success: true,
-            messageIds: [messageId],
-            devicesCount: 1,
-            successCount: 1,
-            failureCount: 0,
-          };
-        } catch (error: any) {
-          this.logger.error(`❌ Failed to send push notification to user ${dto.userId}:`, error);
-          
-          // تنظيف token إذا كان invalid
-          if (error.code === 'messaging/invalid-registration-token') {
-            await this.cleanupInvalidTokens(dto.userId, [tokens[0]]);
-          }
-          
-          return {
-            success: false,
-            devicesCount: 1,
-            successCount: 0,
-            failureCount: 1,
-            errors: [{ token: tokens[0], error: error.message || 'Unknown error' }],
-          };
-        }
-      } else {
-        // Multiple tokens (multicast)
-        const response = await firebaseAdmin.messaging().sendEach(
-          tokens.map(token => ({
-            ...baseMessageOptions,
-            token,
-          }))
-        );
-        
-        const messageIds: string[] = [];
-        const errors: Array<{ token: string; error: string }> = [];
-        const invalidTokens: string[] = [];
-        
-        response.responses.forEach((resp, idx) => {
-          if (resp.success && resp.messageId) {
-            messageIds.push(resp.messageId);
-          } else {
-            const errorMsg = resp.error?.message || 'Unknown error';
-            errors.push({ token: tokens[idx], error: errorMsg });
-            
-            if (resp.error?.code === 'messaging/invalid-registration-token') {
-              invalidTokens.push(tokens[idx]);
-            }
-          }
-        });
-        
-        this.logger.log(
-          `📊 Push notification results for user ${dto.userId} (notificationId: ${notificationId}): ` +
-          `${response.successCount}/${tokens.length} succeeded, ${response.failureCount} failed`
-        );
-
-        // تنظيف tokens الفاشلة (invalid tokens)
-        if (invalidTokens.length > 0) {
-          await this.cleanupInvalidTokens(dto.userId, invalidTokens);
-        }
-        
-        return {
-          success: response.successCount > 0,
-          messageIds,
-          devicesCount: tokens.length,
-          successCount: response.successCount,
-          failureCount: response.failureCount,
-          errors: errors.length > 0 ? errors : undefined,
-        };
-      }
-    } catch (error: any) {
-      this.logger.error(`Error sending push notification to user ${dto.userId}:`, error);
-      
-      // لا نرمي error إذا كان المشكلة في FCM token فقط (لأن باقي القنوات قد تعمل)
-      if (error.message?.includes('FCM token not found') || error.message?.includes('No valid FCM tokens')) {
-        throw new Error(`Push notification failed: ${error.message}`);
-      }
-      
-      // لأخطاء أخرى، نرمي error لكن نكمل باقي القنوات
-      throw error;
-    }
+  if (!tokenDoc.exists) {
+    throw new Error(`Expo push token not found for user ${userId}`);
   }
+
+  // ✅ الاسم الصح
+  const { token } = tokenDoc.data()!;
+
+  // ✅ Expo بده Array مش Object
+  const messages = [
+    {
+      to: token,
+      sound: 'default',
+      title,
+      body,
+      data: data || {},
+    },
+  ];
+
+  const response = await axios.post(
+    'https://exp.host/--/api/v2/push/send',
+    messages, // ⬅️ ARRAY
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  return response.data;
+}
+
 
   /**
    * تنظيف FCM tokens الفاشلة/غير صالحة
    */
   private async cleanupInvalidTokens(userId: string, invalidTokens: string[]) {
     try {
-      const tokenDoc = await db.collection('fcm_tokens').doc(userId).get();
+      const tokenDoc = await db.collection('expo_push_tokens').doc(userId).get();
       if (!tokenDoc.exists) return;
 
       const tokenData = tokenDoc.data();
@@ -399,7 +259,7 @@ export class NotificationService {
           (t: string) => !invalidTokens.includes(t)
         );
         
-        await db.collection('fcm_tokens').doc(userId).update({
+        await db.collection('expo_push_tokens').doc(userId).update({
           tokens: validTokens,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -407,7 +267,7 @@ export class NotificationService {
         this.logger.log(`Cleaned up ${invalidTokens.length} invalid FCM tokens for user ${userId}`);
       } else if (tokenData?.token && invalidTokens.includes(tokenData.token)) {
         // إذا كان single token وهو invalid، نحذف المستند
-        await db.collection('fcm_tokens').doc(userId).delete();
+        await db.collection('expo_push_tokens').doc(userId).delete();
         this.logger.log(`Deleted FCM token document for user ${userId} (invalid token)`);
       }
     } catch (error) {
@@ -419,52 +279,24 @@ export class NotificationService {
    * حفظ/تحديث FCM token للمستخدم
    * يمكن استدعاؤها من endpoint منفصل عند تسجيل الدخول أو تحديث الـ token
    */
-  async saveFCMToken(
-    userId: string, 
-    token: string, 
-    deviceInfo?: { platform?: string; deviceId?: string; appId?: string }
-  ) {
-    try {
-      const tokenDoc = await db.collection('fcm_tokens').doc(userId).get();
-      
-      if (tokenDoc.exists) {
-        const tokenData = tokenDoc.data();
-        
-        if (Array.isArray(tokenData?.tokens)) {
-          // إذا كان array موجود، نضيف token جديد إذا لم يكن موجود
-          if (!tokenData.tokens.includes(token)) {
-            await db.collection('fcm_tokens').doc(userId).update({
-              tokens: admin.firestore.FieldValue.arrayUnion(token),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-              ...(deviceInfo && { deviceInfo }),
-            });
-          }
-        } else if (tokenData?.token && tokenData.token !== token) {
-          // إذا كان single token مختلف، نحوله لـ array
-          await db.collection('fcm_tokens').doc(userId).update({
-            tokens: [tokenData.token, token],
-            token: admin.firestore.FieldValue.delete(), // نحذف الـ single token
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...(deviceInfo && { deviceInfo }),
-          });
-        }
-      } else {
-        // إنشاء مستند جديد
-        await db.collection('fcm_tokens').doc(userId).set({
-          token, // نضيف single token للتوافق مع الكود القديم
-          tokens: [token], // ونضيف array للدعم المستقبلي
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          ...(deviceInfo && { deviceInfo }),
-        });
-      }
-      
-      this.logger.log(`FCM token saved/updated for user: ${userId}`);
-      return { success: true, message: 'FCM token saved successfully' };
-    } catch (error) {
-      this.logger.error(`Error saving FCM token for user ${userId}:`, error);
-      throw error;
-    }
+  async saveExpoPushToken(
+  userId: string,
+  token: string,
+  deviceInfo?: {
+    platform?: string;
+    deviceId?: string;
+    appId?: string;
   }
+) {
+  await db.collection('expo_push_tokens').doc(userId).set({
+    token,
+    deviceInfo: deviceInfo || {},
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  this.logger.log(`Expo push token saved for user ${userId}`);
+  return { success: true, message: 'Expo push token saved' };
+}
+
 
 }
