@@ -87,18 +87,12 @@ export class PaymentsController {
     }
   }
 
+
   @Get('invoice/:id/payments')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_all_payment_for_invoice')
   async getInvoicePayments(@Param('id') invoice_id: number) {
     return this.paymentsService.getInvoicePayments(invoice_id);
-  }
-
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  @PermissionName('get_all_payment')
-  async getAllPaymentBySupplier(@Query('id') id:number) {
-    return this.paymentsService.getAllPaymentBySupplier(id);
   }
 
   @Get('paymentOfficier')
@@ -108,12 +102,27 @@ export class PaymentsController {
   }
 
 
-  @Get(':id')
+   @Get('by-id')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_payment')
-  async getPayment(@Param('id') payment_id: number) {
-    return this.paymentsService.getPayment(payment_id);
+  async getPayment(@Query('id') id: number) {
+    return this.paymentsService.getPayment(id);
   }
+
+   @Get('All')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_all_payment')
+  async getAllPayment() {
+    return this.paymentsService.getAllPayment();
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('get_all_payment')
+  async getAllPaymentBySupplier(@Query('id') id:number) {
+    return this.paymentsService.getAllPaymentBySupplier(id);
+  }
+
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)

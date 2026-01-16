@@ -469,6 +469,7 @@ async getFile(invoice_number: string, type: 'pdf' | 'excel' | 'img') {
     throw new NotFoundException(`Supplier invoice with number ${invoice_number} not found`);
   }
 
+  
   if (type === 'pdf') {
     if (!si.pdfUrl) {
       throw new NotFoundException(`PDF file not found for Supplier invoice ${invoice_number}`);

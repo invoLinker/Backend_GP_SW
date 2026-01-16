@@ -14,7 +14,7 @@ export class InvoiceController {
     const { po_number } = body;
         
     try {
-          const result = await this.invoiceService.compareInvoices(po_number);
+          const result = await this.invoiceService.compareInvoices(po_number, req.user.userId);
     
           await this.historyLogService.createLog({
             action: 'Verification Between PO and Supplier Invoice',
@@ -44,7 +44,7 @@ export class InvoiceController {
   @Post('DN')
   async compareDN(@Body('po_number') po_number: string, @Request() req) {
    try {
-          const result = await this.invoiceService.compareDN(po_number);
+          const result = await this.invoiceService.compareDN(po_number, req.user.userId);
     
           await this.historyLogService.createLog({
             action: 'Verification Between PO and Delivery Note',
@@ -76,7 +76,7 @@ export class InvoiceController {
   @Post('GR')
   async compareGR(@Body('po_number') po_number: string, @Request() req) {
   try {
-          const result = await this.invoiceService.compareGR(po_number);
+          const result = await this.invoiceService.compareGR(po_number, req.user.userId);
     
           await this.historyLogService.createLog({
             action: 'Verification Between PO and Good Receipt',

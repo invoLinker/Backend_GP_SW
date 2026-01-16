@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import { PurchaseOrder } from './po.model';
@@ -116,12 +116,19 @@ async create(createPoDto: CreatePurchaseOrderDto, createdBy: number): Promise<Pu
     );
 
     for (const itemDto of createPoDto.items || []) {
+      const isArabic = /[\u0600-\u06FF]/.test(itemDto.item_name);
+
+const prefix = isArabic
+  ? 'AR'
+  : itemDto.item_name.substring(0, 2).toUpperCase();
+
     
       await this.itemModel.create(
         {
           po_id: po.po_id,
           item_name: itemDto.item_name,
-          barcode: `${itemDto.item_name.substring(0,2).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          // barcode: `${itemDto.item_name.substring(0,2).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          barcode: `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`,
           quantity: itemDto.quantity,
           unit: itemDto.unit,
           unit_price: itemDto.unit_price,
@@ -313,32 +320,110 @@ async findAll(): Promise<PurchaseOrder[]> {
 
 
 
+// public async applyPoUpdate(
+//   po: PurchaseOrder,
+//   updateDto: Partial<CreatePurchaseOrderDto>,
+//   transaction: any
+// ) {
+//   if (updateDto.supplier_email) {
+//     const supplierUser = await User.findOne({
+//       where: { email: updateDto.supplier_email },
+//       // transaction,
+//     });
+//     if (!supplierUser) {
+//       throw new BadRequestException(`Supplier with email "${updateDto.supplier_email}" does not exist.`);
+//     }
+
+//     const supplier = await Supplier.findOne({
+//       where: { user_id: supplierUser.user_id },
+//       // transaction,
+//     });
+//     if (!supplier) {
+//       throw new BadRequestException(`This Supplier with email ${updateDto.supplier_email} not found`);
+//     }
+
+//     po.supplier_id = supplier.supplier_id;
+//     po.supplier_email = updateDto.supplier_email;
+//   }
+
+//   Object.assign(po, {
+//     supplier_phone: updateDto.supplier_phone ?? po.supplier_phone,
+//     supplier_address: updateDto.supplier_address ?? po.supplier_address,
+//     text: updateDto.text ?? po.text,
+//     company_name: updateDto.company_name ?? po.company_name,
+//     company_email: updateDto.company_email ?? po.company_email,
+//     company_phone: updateDto.company_phone ?? po.company_phone,
+//     company_address: updateDto.company_address ?? po.company_address,
+//     currency: updateDto.currency ?? po.currency,
+//     status: updateDto.status ?? po.status,
+//     payment_method: updateDto.payment_method ?? po.payment_method,
+//   });
+
+//   if (updateDto.order_date) {
+//     po.order_date = new Date(updateDto.order_date);
+//   }
+
+//   // items
+//   if (updateDto.items) {
+//     await PurchaseOrderItem.destroy({ where: { po_id: po.po_id } });
+
+//     for (const item of updateDto.items) {
+//       await PurchaseOrderItem.create(
+//         {
+//           po_id: po.po_id,
+//           item_name: item.item_name,
+//           barcode: item.barcode,
+//           quantity: item.quantity,
+//           unit: item.unit,
+//           unit_price: item.unit_price,
+//         } as any,
+//         // { transaction }
+//       );
+//     }
+//   }
+
+//   // recalc
+//   const items = updateDto.items ?? po.items;
+//   po.subtotal = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+//   po.vat = po.subtotal * 0.16;
+//   po.total_amount = po.subtotal + po.vat;
+
+//   await po.save({ transaction });
+  
+// }
+
 public async applyPoUpdate(
   po: PurchaseOrder,
   updateDto: Partial<CreatePurchaseOrderDto>,
   transaction: any
 ) {
+  /* ================= SUPPLIER ================= */
   if (updateDto.supplier_email) {
     const supplierUser = await User.findOne({
       where: { email: updateDto.supplier_email },
-      // transaction,
     });
+
     if (!supplierUser) {
-      throw new BadRequestException(`Supplier with email "${updateDto.supplier_email}" does not exist.`);
+      throw new BadRequestException(
+        `Supplier with email "${updateDto.supplier_email}" does not exist.`
+      );
     }
 
     const supplier = await Supplier.findOne({
       where: { user_id: supplierUser.user_id },
-      // transaction,
     });
+
     if (!supplier) {
-      throw new BadRequestException(`This Supplier with email ${updateDto.supplier_email} not found`);
+      throw new BadRequestException(
+        `This Supplier with email ${updateDto.supplier_email} not found`
+      );
     }
 
     po.supplier_id = supplier.supplier_id;
     po.supplier_email = updateDto.supplier_email;
   }
 
+  /* ================= BASIC FIELDS ================= */
   Object.assign(po, {
     supplier_phone: updateDto.supplier_phone ?? po.supplier_phone,
     supplier_address: updateDto.supplier_address ?? po.supplier_address,
@@ -356,10 +441,17 @@ public async applyPoUpdate(
     po.order_date = new Date(updateDto.order_date);
   }
 
-  // items
-  if (updateDto.items) {
-    await PurchaseOrderItem.destroy({ where: { po_id: po.po_id } });
+  /* ================= ITEMS ================= */
+  let itemsForTotals: Array<{ quantity: number; unit_price: number }> | null = null;
 
+  if (Array.isArray(updateDto.items)) {
+    // حذف العناصر القديمة
+    await PurchaseOrderItem.destroy({
+      where: { po_id: po.po_id },
+      transaction,
+    });
+
+    // إضافة العناصر الجديدة
     for (const item of updateDto.items) {
       await PurchaseOrderItem.create(
         {
@@ -370,20 +462,27 @@ public async applyPoUpdate(
           unit: item.unit,
           unit_price: item.unit_price,
         } as any,
-        // { transaction }
+        { transaction }
       );
     }
+
+    itemsForTotals = updateDto.items;
   }
 
-  // recalc
-  const items = updateDto.items ?? po.items;
-  po.subtotal = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-  po.vat = po.subtotal * 0.16;
-  po.total_amount = po.subtotal + po.vat;
+  /* ================= TOTALS ================= */
+  if (itemsForTotals) {
+    po.subtotal = itemsForTotals.reduce(
+      (sum, i) => sum + i.quantity * i.unit_price,
+      0
+    );
+
+    po.vat = po.subtotal * 0.16;
+    po.total_amount = po.subtotal + po.vat;
+  }
 
   await po.save({ transaction });
-  
 }
+
 
 
 
@@ -783,7 +882,7 @@ async approveOrReject(body: { type: 'Order' | 'Edit Request', id: number, status
   const req = await this.editRequestModel.findByPk(id);
   if (!req) throw new NotFoundException(`Edit Request with id ${id} not found`);
 
-  const updated = await this.editRequestService.update(id, { status });
+  const updated = await this.editRequestService.update(id, {status});
 
   return { message: `Edit Request ${status}`, status: req.status };
 }
@@ -794,20 +893,40 @@ async approveOrReject(body: { type: 'Order' | 'Edit Request', id: number, status
 
 
 
-async getItemBarName(id: string) {
+async getItemBarName(poNumber: string, requestUser: number) {
   const po = await this.poModel.findOne({
-    where: { po_number: id },
+    where: { po_number: poNumber },
     include: [
       {
         model: PurchaseOrderItem,
         as: 'items',
-        attributes: ['item_name', 'barcode', 'quantity', 'unit_price', 'unit']
-      }
-    ]
+        attributes: ['item_name', 'barcode', 'quantity', 'unit_price', 'unit'],
+      },
+    ],
   });
 
   if (!po) {
-    throw new NotFoundException(`Purchase Order with #${id} not found`);
+    throw new NotFoundException(
+      `Purchase Order with #${poNumber} not found`
+    );
+  }
+
+  // 🔍 جيب اليوزر المرتبط بالـ supplier_email الموجود بالـ PO
+  const supplierUser = await this.userModel.findOne({
+    where: { email: po.supplier_email },
+  });
+
+  if (!supplierUser) {
+    throw new BadRequestException(
+      'Supplier linked to this Purchase Order does not exist'
+    );
+  }
+
+  // 🔐 التحقق: اليوزر اللي عامل الريكويست لازم يكون نفس supplier
+  if (supplierUser.user_id !== requestUser) {
+    throw new BadRequestException(
+      'You are not allowed to view items of this Purchase Order'
+    );
   }
 
   return po.items.map(item => ({
@@ -815,9 +934,11 @@ async getItemBarName(id: string) {
     barcode: item.barcode,
     quantity: item.quantity,
     unit_price: item.unit_price,
-    unit: item.unit
+    unit: item.unit,
   }));
 }
+
+
 
 
  async getReadyForPaidInvoices() {
@@ -850,6 +971,14 @@ async getItemBarName(id: string) {
   }
 
   return enriched;
+}
+
+async Ai() {
+  return await this.poModel.findAll({
+    where: { status: ['ReadyForPaid', 'Partial_paid', 'Closed'] },
+    order: [['createdAt', 'DESC']],
+  });
+
 }
 
 

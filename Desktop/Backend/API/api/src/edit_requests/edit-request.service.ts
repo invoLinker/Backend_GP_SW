@@ -7,6 +7,7 @@ import { UpdateEditRequestDto } from './UpdateEditRequestDto';
 import { NotificationService } from 'src/Notification/notification.service';
 import {NotificationCategory, NotificationChannel} from '../Notification/create-notification.dto'
 import { PurchaseOrderService } from 'src/PO/po.service';
+import { Sequelize } from 'sequelize-typescript';
 
 
 @Injectable()
@@ -14,6 +15,9 @@ export class EditRequestService {
   constructor(
   @InjectModel(EditRequest)
   private editRequestModel: typeof EditRequest,
+
+  @Inject(Sequelize)
+  private  sequelize: Sequelize,
 
   @Inject(forwardRef(() => PurchaseOrderService))
   private readonly purchaseOrderService: PurchaseOrderService,
@@ -106,7 +110,12 @@ async update(id: number, data: UpdateEditRequestDto) {
 
   if (!request) throw new NotFoundException('Request not found');
 
-  const po = request.invoice;
+  const po_id = request.invoice_id;
+
+  const po= await PurchaseOrder.findByPk(po_id);
+  if(!po){
+    throw new NotFoundException("PO not found");
+  }
 
   if (data.status === 'Rejected') {
     request.status = 'Rejected';
@@ -130,45 +139,92 @@ async update(id: number, data: UpdateEditRequestDto) {
     return request;
   }
 
-  if (data.status === 'Approved') {
+  // if (data.status === 'Approved') {
 
-    const msg = request.message;
-    const jsonStart = msg.indexOf('{');
-    const jsonString = msg.slice(jsonStart);
+  //   const msg = request.message;
+  //   const jsonStart = msg.indexOf('{');
+  //   const jsonString = msg.slice(jsonStart);
 
-    let updateDto: any;
-    try {
-      updateDto = JSON.parse(jsonString);
-    } catch (e) {
-      throw new BadRequestException('Invalid edit request JSON');
-    }
+  //   let updateDto: any;
+  //   try {
+  //     updateDto = JSON.parse(jsonString);
+  //   } catch (e) {
+  //     throw new BadRequestException('Invalid edit request JSON');
+  //   }
 
-    // تطبيق التعديلات
-    await this.purchaseOrderService.applyPoUpdate(po, updateDto, null);
+  //   // تطبيق التعديلات
+  //   await this.purchaseOrderService.applyPoUpdate(po, updateDto, null);
+
+  //   request.status = 'Approved';
+  //   request.is_edit = true;
+  //   await request.save();
+
+  //   if (request.user_id) {
+  //     await this.notificationService.sendNotification({
+  //       title: `Edit Request Approved`,
+  //       message: `Your edit request for purchase order #${po.po_number} has been Approved and applied successfully.`,
+  //       userId: request.user_id.toString(),
+  //       channel: NotificationChannel.IN_APP,
+  //       category: NotificationCategory.SYSTEM,
+  //       payload: {
+  //         editRequestId: request.id?.toString() ?? id.toString(),
+  //         poNumber: po.po_number,
+  //         status: 'Approved',
+  //       },
+  //     });
+  //   }
+
+  //   return request;
+  // }
+if (data.status === 'Approved') {
+
+  const rawMessage = request.message;
+  const jsonStart = rawMessage.indexOf('{');
+
+  if (jsonStart === -1) {
+    throw new BadRequestException('No JSON found in edit request message');
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(rawMessage.slice(jsonStart));
+  } catch {
+    throw new BadRequestException('Invalid JSON format in edit request');
+  }
+
+  // ✅ هذا هو التعديل الفعلي
+  const poUpdates = parsed.message;
+
+  if (!poUpdates || typeof poUpdates !== 'object') {
+    throw new BadRequestException('Invalid PO update payload');
+  }
+
+  await this.sequelize.transaction(async (t) => {
+    await this.purchaseOrderService.applyPoUpdate(po, poUpdates, t);
 
     request.status = 'Approved';
     request.is_edit = true;
-    await request.save();
+    await request.save({ transaction: t });
+  });
 
-    if (request.user_id) {
-      await this.notificationService.sendNotification({
-        title: `Edit Request Approved`,
-        message: `Your edit request for purchase order #${po.po_number} has been Approved and applied successfully.`,
-        userId: request.user_id.toString(),
-        channel: NotificationChannel.IN_APP,
-        category: NotificationCategory.SYSTEM,
-        payload: {
-          editRequestId: request.id?.toString() ?? id.toString(),
-          poNumber: po.po_number,
-          status: 'Approved',
-        },
-      });
+  await this.notificationService.sendNotification({
+    title: 'Edit Request Approved',
+    message: `Your edit request for purchase order #${po.po_number} has been approved.`,
+    userId: request.user_id.toString(),
+    channel: NotificationChannel.IN_APP,
+    category: NotificationCategory.SYSTEM,
+    payload: {
+      poNumber: po.po_number,
+      updates: poUpdates
     }
-
-    return request;
-  }
+  });
 
   return request;
+}
+
+
+
+  // return request;
 }
 
 

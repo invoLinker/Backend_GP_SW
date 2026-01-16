@@ -738,8 +738,23 @@ async paymentOfficier(){
     PaymentMethod:4
   }
 
-
 }
+
+async getAllPayment() {
+  return await Payment.findAll({
+    attributes: {
+      exclude: ['invoice_id'], // نخفي الـ id
+    },
+    include: [
+      {
+        model: SupplierInvoice,
+        attributes: ['invoice_number'], // بس الرقم
+      },
+    ],
+  });
+}
+
+
 
 
 }

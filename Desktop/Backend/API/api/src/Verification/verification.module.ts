@@ -1,54 +1,3 @@
-// import { Module } from '@nestjs/common';
-// import { SequelizeModule } from '@nestjs/sequelize';
-
-// import { InvoiceController } from './verification.controller';
-// import { InvoiceService } from './verification.service';
-// import { DeliveryNoteService } from '../DeliveryNote/DeliveryNote.service';
-// import { GoodsReceiptService } from '../GoodsReceipt/GoodsReceipt.service';
-// import { DeliveryNoteItem } from 'src/DeliveryNote/delivery-note-item.model';
-// import { DeliveryNote } from 'src/DeliveryNote/delivery-note.model';
-// import { GoodsReceipts } from 'src/GoodsReceipt/GoodsReceipt.model';
-// import { GoodsReceiptItem } from 'src/GoodsReceipt/GoodsReceiptItem.model';
-// import { SupplierInvoice } from 'src/supplier-invoices/supplier-invoice.model';
-// import { SupplierInvoiceItem } from 'src/supplier-invoices/supplier-invoice-item.model';
-// import { PurchaseOrder } from 'src/PO/po.model';
-// import { PurchaseOrderItem } from 'src/PO/PoItem.model';
-
-// @Module({
-//     imports: [
-//     SequelizeModule.forFeature([
-//       DeliveryNote,
-//       DeliveryNoteItem,
-//       GoodsReceipts,
-//       GoodsReceiptItem,
-//       SupplierInvoice,
-//       SupplierInvoiceItem,
-//       PurchaseOrder,
-//       PurchaseOrderItem
-//     ]),
-//   ],
-//   controllers: [InvoiceController],
-//   providers: [InvoiceService,],
-// })
-// export class VerificationModule {}
-
-// // import { Module } from '@nestjs/common';
-// // import { SequelizeModule } from '@nestjs/sequelize';
-// // import { InvoiceService } from './verification.service';
-// // import { InvoiceController } from './verification.controller';
-
-
-// // @Module({
-// //     imports: [
-// //     SequelizeModule.forFeature([
-// //     ]),
-// //   ],
-// //   controllers: [InvoiceController],
-// //   providers: [InvoiceService],
-// // })
-// // export class VerificationModule {}
-
-
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 
@@ -67,6 +16,7 @@ import { PurchaseOrderItem } from 'src/PO/PoItem.model';
 import { HistoryLogService } from 'src/History/history-log.service';
 import { HistoryLog } from 'src/History/history-log.model';
 import { NotificationModule } from 'src/Notification/notification.module';
+import { VerificationLogModule } from 'src/verification-log/verification-log.module';
 
 @Module({
     imports: [
@@ -79,9 +29,10 @@ import { NotificationModule } from 'src/Notification/notification.module';
       SupplierInvoiceItem,
       PurchaseOrder,
       PurchaseOrderItem,
-      HistoryLog
+      HistoryLog,
     ]),
-    NotificationModule
+    NotificationModule,
+    VerificationLogModule
   ],
   controllers: [InvoiceController],
   providers: [InvoiceService,HistoryLogService],
@@ -89,18 +40,3 @@ import { NotificationModule } from 'src/Notification/notification.module';
 })
 export class VerificationModule {}
 
-// import { Module } from '@nestjs/common';
-// import { SequelizeModule } from '@nestjs/sequelize';
-// import { InvoiceService } from './verification.service';
-// import { InvoiceController } from './verification.controller';
-
-
-// @Module({
-//     imports: [
-//     SequelizeModule.forFeature([
-//     ]),
-//   ],
-//   controllers: [InvoiceController],
-//   providers: [InvoiceService],
-// })
-// export class VerificationModule {}

@@ -59,6 +59,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TrOcrModule } from './OCR/trocr.module';
 import { ShiftModule } from './shift/shift.module';
 import { Shift } from './shift/shift.model';
+import { VerificationLogModule } from './verification-log/verification-log.module';
+import { VerificationLog } from './verification-log/verification-log.model';
 
 
 
@@ -84,7 +86,7 @@ import { Shift } from './shift/shift.model';
          PurchaseOrder, PurchaseOrderItem, Item, EditRequest,
          SupplierInvoice, SupplierInvoiceItem,
          GoodsReceipts, GoodsReceiptItem, InvoiceIncident, InvoiceIncidentItem, DeliveryNote, DeliveryNoteItem, Payment, 
-         Shift, Stock, Task, HistoryLog],
+         Shift, Stock, Task, HistoryLog, VerificationLog],
       autoLoadModels: true,
       synchronize: false,
     }),
@@ -115,7 +117,8 @@ import { Shift } from './shift/shift.model';
     ReportsModule,
     verificationExceptionsModule,
     TrOcrModule,
-    ShiftModule
+    ShiftModule,
+    VerificationLogModule
   ],
   providers: [ JwtStrategy,
     {

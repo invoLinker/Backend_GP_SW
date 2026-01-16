@@ -24,7 +24,7 @@
     "@google/genai": "^1.27.0",
     "@google/generative-ai": "^0.24.1",
     "@gradio/client": "^2.0.0-dev.1",
-    "@huggingface/inference": "^4.13.2",
+    "@huggingface/inference": "^4.13.8",
     "@nestjs/common": "^11.1.7",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.7",

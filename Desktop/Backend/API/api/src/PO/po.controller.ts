@@ -96,9 +96,13 @@ export class PurchaseOrderController {
   @Get('po-numberItem/:po_number')
   @UseGuards(JwtAuthGuard)
   @PermissionName('get_purchase_order')
-   getItemBarName(@Param('po_number') po_number: string){
-    return this.poService.getItemBarName(po_number);
+  getItemBarName(
+    @Param('po_number') po_number: string,
+    @Req() req
+  ) {
+    return this.poService.getItemBarName(po_number, req.user.userId);
   }
+
   
 
   @Get('status/ReadyForPaid')
@@ -106,6 +110,13 @@ export class PurchaseOrderController {
   @PermissionName('search_supplier-invoices')
   async getReadyForPaidInvoices() {
     return this.poService.getReadyForPaidInvoices();
+  }
+
+  @Get('status/Ai')
+  @UseGuards(JwtAuthGuard)
+  @PermissionName('search_supplier-invoices')
+  async Ai() {
+    return this.poService.Ai();
   }
 
   @Get('supplier/:id')

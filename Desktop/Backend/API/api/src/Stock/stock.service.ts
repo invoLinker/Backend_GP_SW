@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { StockCheckItemDto } from './stock-check.dto';
  import puppeteer from 'puppeteer';
+import { InvoiceService } from 'src/Verification/verification.service';
 
 
 type CheckStatus =
@@ -34,6 +35,7 @@ type CheckStatus =
       @InjectModel(Stock) private stockModel: typeof Stock,
       @InjectModel(SupplierInvoice) private invoiceModel: typeof SupplierInvoice,
       @InjectModel(GoodsReceipts) private goodModel: typeof GoodsReceipts,
+      private readonly invoiceService: InvoiceService,
       private readonly notificationService: NotificationService,
     ) {}
 
@@ -162,6 +164,8 @@ type CheckStatus =
     'Stock Updated',
     `New stock items have been added from PO ${po_number}.`
     );
+
+    await this.invoiceService.updateWorkflowState(po_number, 'GR', true);
 
     return {message: "Add Items To Stock Successfully"};
   }
