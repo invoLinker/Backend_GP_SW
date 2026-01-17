@@ -523,7 +523,7 @@ async getAllPaymentBySupplier(supplierId: number) {
   const user = await User.findByPk(supplierId);
   if(!user){ throw new NotFoundException('Supplier not found')};
     
-  const supplier = await Supplier.findOne({where:{user_id: user.user_id}});
+  const supplier = await Supplier.findOne({where:{user_id: supplierId}});
 
   if(!supplier){ throw new NotFoundException('Supplier not found')};
 
@@ -570,7 +570,9 @@ async getAllPaymentBySupplier(supplierId: number) {
       ...pay.toJSON(),
       supplier_full_name: supplierFullName,
       to_name: invoice?.to_name ?? null,
+      invoice: {
       invoice_number: invoice?.invoice_number ?? null,
+    },
     });
   }
 
@@ -742,9 +744,9 @@ async paymentOfficier(){
 
 async getAllPayment() {
   return await Payment.findAll({
-    attributes: {
-      exclude: ['invoice_id'], // نخفي الـ id
-    },
+    // attributes: {
+    //   // exclude: ['invoice_id'], // نخفي الـ id
+    // },
     include: [
       {
         model: SupplierInvoice,
