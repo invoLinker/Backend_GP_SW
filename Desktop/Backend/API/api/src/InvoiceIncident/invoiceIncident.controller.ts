@@ -1,4 +1,4 @@
-import {Controller,Get,Patch,Param,Request,UseGuards, Delete,} from '@nestjs/common';
+import {Controller,Get,Patch,Param,Request,UseGuards, Delete, Query,} from '@nestjs/common';
 import { SupplierIncidentService } from './invoiceIncident.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { HistoryLogService } from '../History/history-log.service';
@@ -10,7 +10,6 @@ export class SupplierIncidentController {
   constructor(private readonly incidentService: SupplierIncidentService,
               private readonly historyLogService: HistoryLogService
   ) {}
-
   @UseGuards(JwtAuthGuard)
   @Get()
   async getAllIncidents() {
@@ -18,9 +17,9 @@ export class SupplierIncidentController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':id')
+  @Patch()
   async updateIncidentStatus(
-    @Param('id') id: number, @Request() req
+    @Query('id') id: number, @Request() req
   ) {
      try {
       const result = await this.incidentService.updateIncidentStatus(id);

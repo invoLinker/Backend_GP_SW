@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, ForbiddenException, NotAcceptableException } from '@nestjs/common';
 import { Sequelize } from 'sequelize-typescript';
 import { LlmService } from './llm.service';
 import { ChatPermissionService } from './chat-permission.service';
@@ -42,7 +42,7 @@ export class ChatService {
               ? 'عذراً، لا يمكنني الإجابة على سؤالك بناءً على الصلاحيات المعطاة لي.'
               : 'Sorry, I cannot answer your question based on the permissions granted to me.'
           );
-          throw new ForbiddenException(friendlyMessage);
+          throw new NotAcceptableException(friendlyMessage);
         }
       }
 
@@ -124,14 +124,14 @@ export class ChatService {
         try {
           await this.permissionService.checkPermissions(userRole, sql);
         } catch (error: any) {
-          if (error.message === 'PERMISSION_DENIED' || error.statusCode === 403) {
-            throw new ForbiddenException(
+          if (error.message === 'PERMISSION_DENIED' || error.statusCode === 401) {
+            throw new NotAcceptableException(
               isArabic
                 ? 'عذراً، لا يمكنني الإجابة على سؤالك بناءً على الصلاحيات المعطاة لي.'
                 : 'Sorry, I cannot answer your question based on the permissions granted to me.'
             );
           }
-          throw error;
+          // throw error;
         }
       }
 
