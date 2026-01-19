@@ -209,7 +209,7 @@ export class ChatService {
       throw new BadRequestException(
         isArabic
           ? `حدث خطأ أثناء معالجة السؤال: ${error.message || 'خطأ غير معروف'}`
-          : `An error occurred while processing the question: ${error.message || 'Unknown error'}`
+          : `${error.message || 'Unknown error'}`
       );
     }
   }

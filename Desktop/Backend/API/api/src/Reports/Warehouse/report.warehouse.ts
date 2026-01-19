@@ -396,7 +396,7 @@ export class warehouseReportService {
           attributes: ['po_number'],
         },
       ],
-      attributes: ['stock_id', 'item_name', 'quantity', 'unit', 'expiration_date'],
+      attributes: ['stock_id', 'item_name', 'barcode', 'quantity', 'unit', 'expiration_date'],
     });
 
     if (!expiredStocks.length) {
@@ -456,7 +456,9 @@ export class warehouseReportService {
           [Op.in]: poIds,
         },
       },
-      attributes: ['po_id', 'item_name', 'unit_price'],
+      // attributes: ['po_id', 'item_name', 'unit_price'],
+      attributes: ['po_id', 'barcode', 'unit_price'],
+
       raw: true,
     });
 
@@ -475,8 +477,11 @@ export class warehouseReportService {
     poItems.forEach((item: any) => {
       const poNumber = poNumberMap.get(item.po_id);
       if (poNumber) {
-        const key = `${poNumber}|${item.item_name.toLowerCase()}`;
+        // const key = `${poNumber}|${item.item_name.toLowerCase()}`;
+        // priceMap.set(key, Number(item.unit_price) || 0);
+        const key = `${poNumber}|${item.barcode}`;
         priceMap.set(key, Number(item.unit_price) || 0);
+
       }
     });
 
@@ -495,9 +500,12 @@ export class warehouseReportService {
         const poNumber = stock.delivery_note?.po_number;
         if (!poNumber) return null;
 
-        const key = `${poNumber}|${stock.item_name.toLowerCase()}`;
+        // const key = `${poNumber}|${stock.item_name.toLowerCase()}`;
+        // const unitPrice = priceMap.get(key) || 0;
+        const key = `${poNumber}|${stock.barcode}`;
         const unitPrice = priceMap.get(key) || 0;
-        const loss = qty * unitPrice;
+
+        const loss = qty ;
 
         // Get supplier from PO
         const poId = poNumberToPoIdMap.get(poNumber);
