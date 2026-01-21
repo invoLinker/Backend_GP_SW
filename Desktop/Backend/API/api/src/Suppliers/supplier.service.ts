@@ -44,17 +44,17 @@ export class SupplierService {
 
 
   async getBankInfo(id: number) {
-    const supplierUser = await User.findByPk(id, {
-      include: ['role'],
+    const supplierUser = await Supplier.findByPk(id, {
+      // include: ['role'],
     });
 
     if (!supplierUser) {
       throw new NotFoundException(`Supplier not found`);
     }
 
-    if (supplierUser.role?.role_name !== 'Supplier') {
-      throw new BadRequestException('Not a supplier');
-    }
+    // if (supplierUser.role?.role_name !== 'Supplier') {
+    //   throw new BadRequestException('Not a supplier');
+    // }
 
     const supplier = await Supplier.findOne({
       where: { user_id: supplierUser.user_id },

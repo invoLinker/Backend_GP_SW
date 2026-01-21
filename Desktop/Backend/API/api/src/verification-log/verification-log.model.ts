@@ -23,7 +23,11 @@ export class VerificationLog extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   stage: string; // المرحلة: 'PO-SI', 'PO-DN', 'PO-GR'
 
-  @Column({ type: DataType.TEXT, allowNull: true })
-  aiMessage: string; // الرسالة اللي رجعها الـ AI
+  @Column({
+  type: DataType.TEXT('long'),
+  allowNull: true,
+})
+aiMessage: string;
+
 
 }

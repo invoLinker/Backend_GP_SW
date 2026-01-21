@@ -54,10 +54,19 @@ export class AIVerificationService {
   //   }));
   // }
   async getLogsByPONumber(poNumber: string) {
-  const logs = await this.logModel.findAll({
-    where: { poNumber },
-    order: [['createdAt', 'ASC']],
-  });
+  // const logs = await this.logModel.findAll({
+  //   where: { poNumber },
+  //   order: [['createdAt', 'ASC']],
+  // });
+  const cleanPONumber = poNumber.trim().toUpperCase();
+
+const logs = await this.logModel.findAll({
+  where: {
+    poNumber: cleanPONumber,
+  },
+  order: [['createdAt', 'ASC']],
+});
+
 
   if (!logs || logs.length === 0) {
     throw new NotFoundException(`No verification logs found for PO ${poNumber}`);
