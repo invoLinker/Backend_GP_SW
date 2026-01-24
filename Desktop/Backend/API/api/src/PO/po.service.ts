@@ -127,7 +127,6 @@ const prefix = isArabic
         {
           po_id: po.po_id,
           item_name: itemDto.item_name,
-          // barcode: `${itemDto.item_name.substring(0,2).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
           barcode: `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`,
           quantity: itemDto.quantity,
           unit: itemDto.unit,
@@ -164,14 +163,6 @@ const prefix = isArabic
         payload: {},
       });
 
-      // await this.notificationService.sendNotification({
-      //   title: 'New Purchase Order Created',
-      //   message: `PO ${po.po_number} has been created by ${po.company_name}.`,
-      //   userId: admin.user_id.toString(),
-      //   channel: NotificationChannel.PUSH,
-      //   category: NotificationCategory.SYSTEM,
-      //   payload: {},
-      // });
     }
 
   } catch (notifErr) {
@@ -279,9 +270,7 @@ async findAll(): Promise<PurchaseOrder[]> {
     const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
     const admins = await this.userModel.findAll({ where: { role_id: adminRole!.role_id } });
 
-    // ============================================================
-    // 1) إذا المستخدم ليس أدمن → إنشاء Edit Request فقط
-    // ============================================================
+
     if (!isAdmin) {
       await this.editRequestModel.create({
         invoice_id: po.po_id,
@@ -306,9 +295,7 @@ async findAll(): Promise<PurchaseOrder[]> {
       return { message: 'Edit request submitted to admin' };
     }
 
-    // ============================================================
-    // 2) إذا المستخدم Admin → طبّق التعديلات مباشرة
-    // ============================================================
+
     await this.applyPoUpdate(po, updateDto, transaction);
 
     await transaction.commit();
@@ -320,84 +307,13 @@ async findAll(): Promise<PurchaseOrder[]> {
 
 
 
-// public async applyPoUpdate(
-//   po: PurchaseOrder,
-//   updateDto: Partial<CreatePurchaseOrderDto>,
-//   transaction: any
-// ) {
-//   if (updateDto.supplier_email) {
-//     const supplierUser = await User.findOne({
-//       where: { email: updateDto.supplier_email },
-//       // transaction,
-//     });
-//     if (!supplierUser) {
-//       throw new BadRequestException(`Supplier with email "${updateDto.supplier_email}" does not exist.`);
-//     }
 
-//     const supplier = await Supplier.findOne({
-//       where: { user_id: supplierUser.user_id },
-//       // transaction,
-//     });
-//     if (!supplier) {
-//       throw new BadRequestException(`This Supplier with email ${updateDto.supplier_email} not found`);
-//     }
-
-//     po.supplier_id = supplier.supplier_id;
-//     po.supplier_email = updateDto.supplier_email;
-//   }
-
-//   Object.assign(po, {
-//     supplier_phone: updateDto.supplier_phone ?? po.supplier_phone,
-//     supplier_address: updateDto.supplier_address ?? po.supplier_address,
-//     text: updateDto.text ?? po.text,
-//     company_name: updateDto.company_name ?? po.company_name,
-//     company_email: updateDto.company_email ?? po.company_email,
-//     company_phone: updateDto.company_phone ?? po.company_phone,
-//     company_address: updateDto.company_address ?? po.company_address,
-//     currency: updateDto.currency ?? po.currency,
-//     status: updateDto.status ?? po.status,
-//     payment_method: updateDto.payment_method ?? po.payment_method,
-//   });
-
-//   if (updateDto.order_date) {
-//     po.order_date = new Date(updateDto.order_date);
-//   }
-
-//   // items
-//   if (updateDto.items) {
-//     await PurchaseOrderItem.destroy({ where: { po_id: po.po_id } });
-
-//     for (const item of updateDto.items) {
-//       await PurchaseOrderItem.create(
-//         {
-//           po_id: po.po_id,
-//           item_name: item.item_name,
-//           barcode: item.barcode,
-//           quantity: item.quantity,
-//           unit: item.unit,
-//           unit_price: item.unit_price,
-//         } as any,
-//         // { transaction }
-//       );
-//     }
-//   }
-
-//   // recalc
-//   const items = updateDto.items ?? po.items;
-//   po.subtotal = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-//   po.vat = po.subtotal * 0.16;
-//   po.total_amount = po.subtotal + po.vat;
-
-//   await po.save({ transaction });
-  
-// }
 
 public async applyPoUpdate(
   po: PurchaseOrder,
   updateDto: Partial<CreatePurchaseOrderDto>,
   transaction: any
 ) {
-  /* ================= SUPPLIER ================= */
   if (updateDto.supplier_email) {
     const supplierUser = await User.findOne({
       where: { email: updateDto.supplier_email },
@@ -423,7 +339,6 @@ public async applyPoUpdate(
     po.supplier_email = updateDto.supplier_email;
   }
 
-  /* ================= BASIC FIELDS ================= */
   Object.assign(po, {
     supplier_phone: updateDto.supplier_phone ?? po.supplier_phone,
     supplier_address: updateDto.supplier_address ?? po.supplier_address,
@@ -441,17 +356,14 @@ public async applyPoUpdate(
     po.order_date = new Date(updateDto.order_date);
   }
 
-  /* ================= ITEMS ================= */
   let itemsForTotals: Array<{ quantity: number; unit_price: number }> | null = null;
 
   if (Array.isArray(updateDto.items)) {
-    // حذف العناصر القديمة
     await PurchaseOrderItem.destroy({
       where: { po_id: po.po_id },
       transaction,
     });
 
-    // إضافة العناصر الجديدة
     for (const item of updateDto.items) {
       await PurchaseOrderItem.create(
         {
@@ -469,7 +381,6 @@ public async applyPoUpdate(
     itemsForTotals = updateDto.items;
   }
 
-  /* ================= TOTALS ================= */
   if (itemsForTotals) {
     po.subtotal = itemsForTotals.reduce(
       (sum, i) => sum + i.quantity * i.unit_price,
@@ -490,7 +401,6 @@ async deleteById(poNumber: string): Promise<{ message: string }> {
   const transaction = await this.poModel.sequelize!.transaction();
 
   try {
-    // 1) احضار الفاتورة
     const po = await this.poModel.findOne({
       where: { po_number: poNumber },
       transaction
@@ -500,7 +410,6 @@ async deleteById(poNumber: string): Promise<{ message: string }> {
       throw new NotFoundException(`Purchase Order with #${poNumber} not found`);
     }
 
-    // 2) منع الحذف في حالات معينة
     const blockedStatuses = ['Sent', 'Closed', 'Approved', 'ReadyForPaid'];
     if (blockedStatuses.includes(po.status)) {
       throw new BadRequestException(
@@ -508,14 +417,11 @@ async deleteById(poNumber: string): Promise<{ message: string }> {
       );
     }
 
-    // 3) حذف Items (لا يعمل Cascade عادة)
     await this.itemModel.destroy({
       where: { po_id: po.po_id },
       transaction
     });
 
-    // 4) حذف الـ PO
-    //    وهنا MySQL سوف يحذف Edit Requests تلقائياً بسبب ON DELETE CASCADE
     await po.destroy({ transaction });
 
     await transaction.commit();
@@ -847,10 +753,8 @@ async approveOrReject(body: { type: 'Order' | 'Edit Request', id: number, status
     po.status = 'Approved';
     await po.save();
 
-    // 📧 إرسال الإيميل فورًا
     await this.sendPoEmailToSupplier(po);
 
-    // ⏱ بعد 5 دقائق: حوّلي الحالة + نوتيفيكيشن
     setTimeout(async () => {
       po.status = 'Sent';
       await po.save();
@@ -911,7 +815,6 @@ async getItemBarName(poNumber: string, requestUser: number) {
     );
   }
 
-  // 🔍 جيب اليوزر المرتبط بالـ supplier_email الموجود بالـ PO
   const supplierUser = await this.userModel.findOne({
     where: { email: po.supplier_email },
   });
@@ -922,7 +825,6 @@ async getItemBarName(poNumber: string, requestUser: number) {
     );
   }
 
-  // 🔐 التحقق: اليوزر اللي عامل الريكويست لازم يكون نفس supplier
   if (supplierUser.user_id !== requestUser) {
     throw new BadRequestException(
       'You are not allowed to view items of this Purchase Order'
@@ -948,7 +850,7 @@ async getItemBarName(poNumber: string, requestUser: number) {
     order: [['createdAt', 'DESC']],
   });
 
-  const enriched: any[] = []; // حل الخطأ
+  const enriched: any[] = [];
 
   for (const po of pos) {
     let supplierFullName: string | null = null;
@@ -989,7 +891,6 @@ async getPurchaseOrderInv(po_number: string) {
     throw new NotFoundException("PO Not Found");
   }
 
-  // -------------------- Supplier Invoice + Items --------------------
   const si = await SupplierInvoice.findAll({
     where: { po_number },
     include: [
@@ -1000,11 +901,7 @@ async getPurchaseOrderInv(po_number: string) {
     ],
   });
 
-  // if (!si || si.length === 0) {
-  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Supplier Invoice`);
-  // }
 
-  // -------------------- Delivery Note + Items --------------------
   const dn = await DeliveryNote.findAll({
     where: { po_number },
     include: [
@@ -1015,11 +912,7 @@ async getPurchaseOrderInv(po_number: string) {
     ],
   });
 
-  // if (!dn || dn.length === 0) {
-  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Delivery Note`);
-  // }
 
-  // -------------------- Goods Receipt + Items --------------------
   const gr = await GoodsReceipts.findAll({
     where: { po_number },
     include: [
@@ -1030,9 +923,7 @@ async getPurchaseOrderInv(po_number: string) {
     ],
   });
 
-  // if (!gr || gr.length === 0) {
-  //   throw new NotFoundException(`The PO with #${po_number} doesn't have a Goods Receipt`);
-  // }
+
 
   return {
     supplier_invoices: si,

@@ -14,13 +14,11 @@ export class ItemService {
  async create(createItemDto: CreateItemDto): Promise<Item> {
     const name = createItemDto.item_name.trim();
 
-    // تحقق من وجود عنصر نشط بنفس الاسم
     const existing = await this.itemModel.findOne({
       where: { item_name: { [Op.like]: name }, status: 'active' },
     });
     if (existing) throw new BadRequestException('Item with this name already exists.');
 
-    // توليد كود تلقائي إذا لم يرسل
     const code = createItemDto.item_code || `${name.substring(0,2).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const item = await this.itemModel.create({
@@ -34,16 +32,13 @@ export class ItemService {
     return item;
   }
 
-  // تحديث عنصر (اسم، أسعار، الحالة)
   async update(id: number, updateDto: UpdateItemDto): Promise<Item> {
     const item = await this.itemModel.findByPk(id);
     if (!item) throw new NotFoundException('Item not found');
 
-    // لو هناك تغيير في الاسم
     if (updateDto.item_name) {
       const name = updateDto.item_name.trim();
 
-      // تحقق من وجود عنصر نشط بنفس الاسم (مع استثناء نفس العنصر)
       const existing = await this.itemModel.findOne({
         where: {
           item_name: { [Op.like]: name },
@@ -67,8 +62,8 @@ export class ItemService {
 async search(name: string): Promise<Item[]> {
   return await this.itemModel.findAll({
     where: {
-      item_name: { [Op.like]: `%${name}%` }, // أي جزء من الاسم
-      status: 'active', // ممكن تغيّر حسب الحاجة
+      item_name: { [Op.like]: `%${name}%` }, 
+      status: 'active', 
     },
   });
 }

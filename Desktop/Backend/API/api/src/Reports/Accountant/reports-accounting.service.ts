@@ -121,7 +121,6 @@
       incident: [],
     };
 
-    // =============== Supplier Invoice ===============
     data.verified.push(
       await this.invoiceModel.count({
         where: {
@@ -149,7 +148,6 @@
       })
     );
 
-    // =============== Delivery Notes ===============
     data.verified.push(
       await this.dnModel.count({
         where: {
@@ -177,7 +175,6 @@
       })
     );
 
-    // =============== Goods Receipts ===============
     data.verified.push(
       await this.grModel.count({
         where: {

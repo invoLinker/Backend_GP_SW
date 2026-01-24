@@ -41,14 +41,6 @@ export class TaskService {
     payload: { taskId: task.id, dueDate: task.dueDate },
   });
 
-  // await this.notificationService.sendNotification({
-  //   title: 'New Task Assigned',
-  //   message: `You have been assigned a new task: "${dto.title}"`,
-  //   userId: assignee.user_id.toString(),
-  //   channel: NotificationChannel.PUSH,
-  //   category: NotificationCategory.TASK,
-  //   payload: { taskId: task.id, dueDate: task.dueDate },
-  // });
 
  return {message: 'Task Created Successfully'}
 }

@@ -63,7 +63,7 @@ export class ShiftService {
         end_time: shift.end_time,
         status: shift.status,
         duration_minutes: durationMinutes,
-        duration, // ⬅️ جاهز للعرض
+        duration, 
         },
     };
     }
@@ -112,7 +112,6 @@ export class ShiftService {
   };
 }
 
-//========================= for admin =========================
 
     async getEmployeesShifts(date?: string) {
     const shiftWhere: any = {};

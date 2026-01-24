@@ -52,10 +52,8 @@ export class ChatService {
       let sql = await this.llm.generateSQL(question);
       this.logger.log(`Generated SQL (before filter): ${sql}`);
       
-      // If user is Supplier, filter suppliers by user_id
       if (userRole === 'Supplier' && userId) {
         const sqlLower = sql.toLowerCase();
-        // Check if query involves suppliers table - more comprehensive check
         const hasSuppliersTable = sqlLower.includes('from suppliers') || 
                                    sqlLower.includes('join suppliers') || 
                                    sqlLower.includes(' suppliers ') || 
@@ -67,26 +65,20 @@ export class ChatService {
                                    sqlLower.includes('suppliers.user_id');
         
         if (hasSuppliersTable) {
-          // Check if already filtered by user_id
           const alreadyFiltered = sqlLower.includes(`suppliers.user_id = ${userId}`) || 
                                   sqlLower.includes(`user_id = ${userId}`) ||
                                   sqlLower.includes(`s.user_id = ${userId}`);
           
           if (!alreadyFiltered) {
-            // Determine the alias used for suppliers table
             let supplierAlias = 'suppliers';
             const aliasMatch = sql.match(/from\s+suppliers\s+(\w+)/i) || sql.match(/join\s+suppliers\s+(\w+)/i);
             if (aliasMatch && aliasMatch[1]) {
               supplierAlias = aliasMatch[1];
             }
-            
-            // Add WHERE clause to filter by user_id
-            // Handle different SQL patterns
+     
             if (sqlLower.includes(' where ')) {
-              // Add AND condition
               sql = sql.replace(/ where /gi, ` WHERE ${supplierAlias}.user_id = ${userId} AND `);
             } else {
-              // No WHERE clause - add one before GROUP BY, ORDER BY, or LIMIT
               const groupByIndex = sqlLower.indexOf(' group by');
               const orderByIndex = sqlLower.indexOf(' order by');
               const limitIndex = sqlLower.indexOf(' limit');
@@ -96,7 +88,6 @@ export class ChatService {
               if (orderByIndex !== -1) insertIndex = Math.min(insertIndex, orderByIndex);
               if (limitIndex !== -1) insertIndex = Math.min(insertIndex, limitIndex);
               
-              // Insert WHERE clause
               const beforeWhere = sql.substring(0, insertIndex).trim();
               const afterWhere = sql.substring(insertIndex).trim();
               sql = `${beforeWhere} WHERE ${supplierAlias}.user_id = ${userId} ${afterWhere}`;
@@ -131,7 +122,6 @@ export class ChatService {
                 : 'Sorry, I cannot answer your question based on the permissions granted to me.'
             );
           }
-          // throw error;
         }
       }
 
@@ -317,7 +307,6 @@ export class ChatService {
       };
     }
 
-    // رد على "كيفك" أو "كيف حالك"
     if (trimmedQuestion.includes('كيفك') || trimmedQuestion.includes('كيف حالك') ||
         trimmedQuestion.includes('شلونك') || trimmedQuestion.includes('شلون') ||
         trimmedQuestion.includes('how are you') || trimmedQuestion.includes('how do you do')) {

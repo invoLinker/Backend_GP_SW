@@ -43,7 +43,7 @@ export class OcrController {
   @UseInterceptors(
   FileInterceptor('file', {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB upload limit
+      fileSize: 10 * 1024 * 1024, 
     },
   }),
 )

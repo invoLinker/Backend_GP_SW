@@ -66,38 +66,7 @@ async findByStatus(status: 'Pending' | 'Approved' | 'Rejected'): Promise<EditReq
 }
 
 
-// async update(id: number, data: UpdateEditRequestDto): Promise<EditRequest> {
-//   const request = await this.editRequestModel.findByPk(id);
 
-//   if (!request) throw new NotFoundException(`EditRequest with id ${id} not found`);
- 
-//   const po = await PurchaseOrder.findByPk(request?.invoice_id);
-   
-//   if (!po) throw new NotFoundException(`PO for this edit request does not exist.`);
-
-
-//   if (!request.is_edit) {
-//     if (data.message !== undefined) request.message = data.message;
-//     if (data.status !== undefined) request.status = data.status;
-
-//     await request.save();
-
-//     if (request.user) {
-//       await this.notificationService.sendNotification({
-//         title: `Edit Request ${data.status}`,
-//         message: `Your edit request for purchase order #${po?.po_number} with request (${request.message}) has been ${data.status}.`,
-//         userId: request.user.user_id.toString(),
-//         channel: NotificationChannel.IN_APP,
-//         category: NotificationCategory.SYSTEM,
-//         payload: {},
-//       });
-//     }
-
-//     return request;
-//   }
-
-//   return request;
-// }
 
 
 async update(id: number, data: UpdateEditRequestDto) {
@@ -139,43 +108,7 @@ async update(id: number, data: UpdateEditRequestDto) {
     return request;
   }
 
-  // if (data.status === 'Approved') {
 
-  //   const msg = request.message;
-  //   const jsonStart = msg.indexOf('{');
-  //   const jsonString = msg.slice(jsonStart);
-
-  //   let updateDto: any;
-  //   try {
-  //     updateDto = JSON.parse(jsonString);
-  //   } catch (e) {
-  //     throw new BadRequestException('Invalid edit request JSON');
-  //   }
-
-  //   // تطبيق التعديلات
-  //   await this.purchaseOrderService.applyPoUpdate(po, updateDto, null);
-
-  //   request.status = 'Approved';
-  //   request.is_edit = true;
-  //   await request.save();
-
-  //   if (request.user_id) {
-  //     await this.notificationService.sendNotification({
-  //       title: `Edit Request Approved`,
-  //       message: `Your edit request for purchase order #${po.po_number} has been Approved and applied successfully.`,
-  //       userId: request.user_id.toString(),
-  //       channel: NotificationChannel.IN_APP,
-  //       category: NotificationCategory.SYSTEM,
-  //       payload: {
-  //         editRequestId: request.id?.toString() ?? id.toString(),
-  //         poNumber: po.po_number,
-  //         status: 'Approved',
-  //       },
-  //     });
-  //   }
-
-  //   return request;
-  // }
 if (data.status === 'Approved') {
 
   const rawMessage = request.message;
@@ -192,7 +125,6 @@ if (data.status === 'Approved') {
     throw new BadRequestException('Invalid JSON format in edit request');
   }
 
-  // ✅ هذا هو التعديل الفعلي
   const poUpdates = parsed.message;
 
   if (!poUpdates || typeof poUpdates !== 'object') {
@@ -223,8 +155,6 @@ if (data.status === 'Approved') {
 }
 
 
-
-  // return request;
 }
 
 

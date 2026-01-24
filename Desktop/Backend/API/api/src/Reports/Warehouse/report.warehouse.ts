@@ -28,7 +28,6 @@ export class warehouseReportService {
   async getStockStatusDistribution(year?: number) {
     const where: any = {};
 
-    // لو حابة تضيفي فلترة سنة (اختياري)
     if (year) {
       where.createdAt = {
         [Op.between]: [
@@ -48,7 +47,6 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // default values
     const summary = {
       Available: 0,
       OutOfStock: 0,
@@ -121,8 +119,8 @@ export class warehouseReportService {
     where: {
       status: ['Available', 'Reserved'],
     },
-    group: [fn('LOWER', col('item_name'))],   // ✅ بدون literal
-    order: [[fn('SUM', col('quantity')), 'DESC']], // ✅ بدون literal
+    group: [fn('LOWER', col('item_name'))],   
+    order: [[fn('SUM', col('quantity')), 'DESC']], 
     limit: 10,
     raw: true,
   });
@@ -165,7 +163,6 @@ export class warehouseReportService {
         raw: true,
       });
 
-      // 12 months default = 0
       const monthly = Array(12).fill(0);
 
       results.forEach((r: any) => {
@@ -180,7 +177,6 @@ export class warehouseReportService {
       };
     }
 
-    // ===== YEARLY =====
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 11 }, (_, i) => currentYear - i);
 
@@ -263,7 +259,6 @@ export class warehouseReportService {
   }
 
   async getStockValueReport() {
-    // 1️⃣ Get stock + delivery note (po_number)
     const stocks = await this.stockModel.findAll({
       where: {
         status: ['Available', 'Expired', 'Reserved'],
@@ -285,7 +280,6 @@ export class warehouseReportService {
       };
     }
 
-    // 2️⃣ Collect unique PO numbers
     const poNumbers = [
       ...new Set(
         stocks
@@ -303,7 +297,6 @@ export class warehouseReportService {
       };
     }
 
-    // 3️⃣ Fetch all Purchase Orders for these PO numbers
     const purchaseOrders = await PurchaseOrder.findAll({
       where: {
         po_number: {
@@ -323,10 +316,8 @@ export class warehouseReportService {
       };
     }
 
-    // 4️⃣ Get all PO IDs
     const poIds = purchaseOrders.map(po => po.po_id);
 
-    // 5️⃣ Fetch purchase order items (prices) for all PO IDs
     const poItems = await this.poItemModel.findAll({
       where: {
         po_id: {
@@ -337,14 +328,12 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // 6️⃣ Build PO number map (po_id -> po_number)
     const poNumberMap = new Map<number, string>();
     purchaseOrders.forEach((po: any) => {
       poNumberMap.set(po.po_id, po.po_number);
     });
 
-    // 7️⃣ Build price map
-    // key = po_number|item_name
+
     const priceMap = new Map<string, number>();
 
     poItems.forEach((item: any) => {
@@ -355,7 +344,6 @@ export class warehouseReportService {
       }
     });
 
-    // 8️⃣ Calculate values
     const result = {
       Available: 0,
       Expired: 0,
@@ -385,7 +373,6 @@ export class warehouseReportService {
   }
 
   async getExpiredLossReport() {
-    // 1️⃣ Get all expired stock items with delivery note
     const expiredStocks = await this.stockModel.findAll({
       where: {
         status: 'Expired',
@@ -408,7 +395,6 @@ export class warehouseReportService {
       };
     }
 
-    // 2️⃣ Collect unique PO numbers
     const poNumbers = [
       ...new Set(
         expiredStocks
@@ -426,7 +412,6 @@ export class warehouseReportService {
       };
     }
 
-    // 3️⃣ Fetch all Purchase Orders with supplier info
     const purchaseOrders = await PurchaseOrder.findAll({
       where: {
         po_number: {
@@ -446,52 +431,42 @@ export class warehouseReportService {
       };
     }
 
-    // 4️⃣ Get all PO IDs
     const poIds = purchaseOrders.map(po => po.po_id);
 
-    // 5️⃣ Fetch purchase order items (prices)
     const poItems = await this.poItemModel.findAll({
       where: {
         po_id: {
           [Op.in]: poIds,
         },
       },
-      // attributes: ['po_id', 'item_name', 'unit_price'],
       attributes: ['po_id', 'barcode', 'unit_price'],
 
       raw: true,
     });
 
-    // 6️⃣ Build PO number map and supplier map
     const poNumberMap = new Map<number, string>();
-    const poSupplierMap = new Map<number, string>(); // po_id -> supplier identifier
+    const poSupplierMap = new Map<number, string>();
     purchaseOrders.forEach((po: any) => {
       poNumberMap.set(po.po_id, po.po_number);
-      // Use supplier email as supplier identifier (or extract supplier name if available)
       const supplierId = po.supplier_email ? po.supplier_email.split('@')[0] : `S${po.po_id}`;
       poSupplierMap.set(po.po_id, supplierId);
     });
 
-    // 7️⃣ Build price map
     const priceMap = new Map<string, number>();
     poItems.forEach((item: any) => {
       const poNumber = poNumberMap.get(item.po_id);
       if (poNumber) {
-        // const key = `${poNumber}|${item.item_name.toLowerCase()}`;
-        // priceMap.set(key, Number(item.unit_price) || 0);
         const key = `${poNumber}|${item.barcode}`;
         priceMap.set(key, Number(item.unit_price) || 0);
 
       }
     });
 
-    // 8️⃣ Build PO number to PO ID map (for supplier lookup)
     const poNumberToPoIdMap = new Map<string, number>();
     purchaseOrders.forEach((po: any) => {
       poNumberToPoIdMap.set(po.po_number, po.po_id);
     });
 
-    // 9️⃣ Calculate losses for each expired item
     const itemsWithLoss = expiredStocks
       .map((stock: any) => {
         const qty = Number(stock.quantity) || 0;
@@ -500,14 +475,11 @@ export class warehouseReportService {
         const poNumber = stock.delivery_note?.po_number;
         if (!poNumber) return null;
 
-        // const key = `${poNumber}|${stock.item_name.toLowerCase()}`;
-        // const unitPrice = priceMap.get(key) || 0;
         const key = `${poNumber}|${stock.barcode}`;
         const unitPrice = priceMap.get(key) || 0;
 
         const loss = qty ;
 
-        // Get supplier from PO
         const poId = poNumberToPoIdMap.get(poNumber);
         const supplier = poId ? poSupplierMap.get(poId) || '' : '';
 
@@ -516,14 +488,14 @@ export class warehouseReportService {
           quantity: qty,
           unitPrice: unitPrice,
           unit: stock.unit || '',
-          category: '', // يمكن إضافتها من Item model لاحقاً
+          category: '',
           supplier: supplier,
           loss: loss,
           expirationDate: stock.expiration_date,
         };
       })
       .filter(Boolean)
-      .sort((a: any, b: any) => b.loss - a.loss); // Sort by loss descending
+      .sort((a: any, b: any) => b.loss - a.loss); 
 
     const totalLoss = itemsWithLoss.reduce((sum: number, item: any) => sum + item.loss, 0);
     const top5 = itemsWithLoss.slice(0, 5);
@@ -537,7 +509,6 @@ export class warehouseReportService {
   }
 
   async getSupplierImpactOnStock() {
-    // 1️⃣ Get all expired stock items with delivery note and PO info
     const expiredStocks = await this.stockModel.findAll({
       where: {
         status: 'Expired',
@@ -555,7 +526,6 @@ export class warehouseReportService {
       return [];
     }
 
-    // 2️⃣ Collect unique PO numbers
     const poNumbers = [
       ...new Set(
         expiredStocks
@@ -568,7 +538,6 @@ export class warehouseReportService {
       return [];
     }
 
-    // 3️⃣ Fetch all Purchase Orders with order dates
     const purchaseOrders = await PurchaseOrder.findAll({
       where: {
         po_number: {
@@ -583,10 +552,8 @@ export class warehouseReportService {
       return [];
     }
 
-    // 4️⃣ Get all PO IDs
     const poIds = purchaseOrders.map(po => po.po_id);
 
-    // 5️⃣ Fetch purchase order items (prices)
     const poItems = await this.poItemModel.findAll({
       where: {
         po_id: {
@@ -597,10 +564,9 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // 6️⃣ Build maps
     const poNumberMap = new Map<number, string>();
-    const poOrderDateMap = new Map<number, Date>(); // po_id -> order_date
-    const poNumberToPoIdMap = new Map<string, number>(); // po_number -> po_id
+    const poOrderDateMap = new Map<number, Date>(); 
+    const poNumberToPoIdMap = new Map<string, number>(); 
 
     purchaseOrders.forEach((po: any) => {
       poNumberMap.set(po.po_id, po.po_number);
@@ -608,7 +574,6 @@ export class warehouseReportService {
       poNumberToPoIdMap.set(po.po_number, po.po_id);
     });
 
-    // 1️⃣0️⃣ Build price map
     const priceMap = new Map<string, number>();
     poItems.forEach((item: any) => {
       const poNumber = poNumberMap.get(item.po_id);
@@ -618,13 +583,12 @@ export class warehouseReportService {
       }
     });
 
-    // 1️⃣1️⃣ Group expired stocks by supplier
     const supplierDataMap = new Map<string, {
       supplier: string;
       expiredItems: any[];
       totalExpiredValue: number;
-      deliveryNotes: Set<string>; // Track unique delivery notes for delay calculation
-      poNumbers: Set<string>; // Track unique PO numbers
+      deliveryNotes: Set<string>;
+      poNumbers: Set<string>;
     }>();
 
     expiredStocks.forEach((stock: any) => {
@@ -634,7 +598,6 @@ export class warehouseReportService {
       const poNumber = stock.delivery_note?.po_number;
       if (!poNumber) return;
 
-      // Get supplier name directly from DeliveryNote
       const supplier = stock.delivery_note?.supplier_name || 'Unknown';
       const key = `${poNumber}|${stock.item_name.toLowerCase()}`;
       const unitPrice = priceMap.get(key) || 0;
@@ -661,8 +624,7 @@ export class warehouseReportService {
       supplierData.poNumbers.add(poNumber);
     });
 
-    // 9️⃣ Calculate delay rate for each supplier
-    // Get all delivery notes for these suppliers to calculate delays
+
     const allDeliveryNotes = await DeliveryNote.findAll({
       where: {
         po_number: {
@@ -679,8 +641,7 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // Calculate delay rate: compare dn_date with po order_date
-    const delayRates = new Map<string, number>(); // supplier -> delay rate
+    const delayRates = new Map<string, number>(); 
 
     supplierDataMap.forEach((data, supplier) => {
       let totalDelays = 0;
@@ -702,7 +663,6 @@ export class warehouseReportService {
             const dnDateObj = new Date(dn.dn_date);
             const daysDiff = Math.max(0, (dnDateObj.getTime() - orderDateObj.getTime()) / (1000 * 60 * 60 * 24));
             
-            // Consider delay if more than 7 days late
             if (daysDiff > 7) {
               totalDelays++;
             }
@@ -717,26 +677,21 @@ export class warehouseReportService {
       delayRates.set(supplier, delayRate);
     });
 
-    // 1️⃣0️⃣ Calculate quality score (based on expired rate, delay rate, etc.)
-    // Quality score formula: 5 - (expiredValue/100000 * 0.5) - (delayRate/20 * 1) - (expiredCount/50 * 0.3)
-    // Clamped between 1 and 5
     const qualityScores = new Map<string, number>();
 
     supplierDataMap.forEach((data, supplier) => {
       const expiredCount = data.expiredItems.length;
       const delayRate = delayRates.get(supplier) || 0;
       
-      // Calculate quality score (inverse of problems)
       let score = 5;
-      score -= Math.min(2, (data.totalExpiredValue / 100000) * 0.5); // Max -2 for high expired value
-      score -= Math.min(1.5, (delayRate / 20) * 1); // Max -1.5 for high delay rate
-      score -= Math.min(1.5, (expiredCount / 50) * 0.3); // Max -1.5 for high expired count
+      score -= Math.min(2, (data.totalExpiredValue / 100000) * 0.5); 
+      score -= Math.min(1.5, (delayRate / 20) * 1);
+      score -= Math.min(1.5, (expiredCount / 50) * 0.3);
       
-      score = Math.max(1, Math.min(5, Number(score.toFixed(1)))); // Clamp between 1 and 5
+      score = Math.max(1, Math.min(5, Number(score.toFixed(1))));
       qualityScores.set(supplier, score);
     });
 
-    // 1️⃣1️⃣ Build final result
     const result = Array.from(supplierDataMap.values()).map(data => {
       const supplier = data.supplier;
       const delayRate = delayRates.get(supplier) || 0;
@@ -751,12 +706,10 @@ export class warehouseReportService {
       };
     });
 
-    // Sort by expired value (worst first)
     return result.sort((a, b) => b.expiredValue - a.expiredValue);
   }
 
   async getFastVsSlowMovingProducts() {
-    // 1️⃣ Get all unique products from Stock with their total quantity
     const stockItems = await this.stockModel.findAll({
       attributes: [
         'item_name',
@@ -778,7 +731,6 @@ export class warehouseReportService {
       };
     }
 
-    // 2️⃣ Get all stock movement logs (when items are taken from stock)
     const stockLogs = await this.historyLogModel.findAll({
       where: {
         action: 'Stock Quantity Updated',
@@ -787,24 +739,19 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // 3️⃣ Extract item names from descriptions and count movements (case-insensitive)
-    // Description format: "Stock of {item_name} decreased by {quantity}"
-    const movementMap = new Map<string, number>(); // Key: lowercase item_name, Value: count
+    const movementMap = new Map<string, number>(); 
     
     stockLogs.forEach((log: any) => {
       const description = log.description || '';
       
-      // Check if description matches the exact pattern
       if (description.startsWith('Stock of ') && description.includes(' decreased by ')) {
-        // Extract item_name: "Stock of {item_name} decreased by {quantity}"
-        // Split by " decreased by " and take the part after "Stock of "
+
         const parts = description.split(' decreased by ');
         if (parts.length >= 1) {
-          const itemNamePart = parts[0]; // "Stock of {item_name}"
+          const itemNamePart = parts[0];
           if (itemNamePart.startsWith('Stock of ')) {
-            const itemName = itemNamePart.substring(9).trim(); // Remove "Stock of " prefix
+            const itemName = itemNamePart.substring(9).trim();
             if (itemName) {
-              // Use lowercase for case-insensitive matching
               const itemNameLower = itemName.toLowerCase();
               const currentCount = movementMap.get(itemNameLower) || 0;
               movementMap.set(itemNameLower, currentCount + 1);
@@ -814,14 +761,11 @@ export class warehouseReportService {
       }
     });
 
-    // 4️⃣ Build products array with classification
     const products = stockItems.map((item: any) => {
       const itemName = item.item_name;
       const quantity = Number(item.total_quantity) || 0;
-      // Use lowercase for case-insensitive matching
       const movementCount = movementMap.get(itemName.toLowerCase()) || 0;
 
-      // Classify by movement count
       let category: 'Fast' | 'Medium' | 'Slow';
       if (movementCount >= 20) {
         category = 'Fast';
@@ -839,13 +783,12 @@ export class warehouseReportService {
       };
     });
 
-    // 5️⃣ Calculate distribution
     const fast = products.filter(p => p.category === 'Fast').length;
     const medium = products.filter(p => p.category === 'Medium').length;
     const slow = products.filter(p => p.category === 'Slow').length;
 
     return {
-      products: products.sort((a, b) => b.movementCount - a.movementCount), // Sort by movement count descending
+      products: products.sort((a, b) => b.movementCount - a.movementCount), 
       distribution: {
         fast: fast,
         medium: medium,
@@ -856,7 +799,6 @@ export class warehouseReportService {
   }
 
   async getWarehouseSummary() {
-    // 1️⃣ Get all stock items grouped by status
     const stockStatusCounts = await this.stockModel.findAll({
       attributes: [
         'status',
@@ -866,13 +808,11 @@ export class warehouseReportService {
       raw: true,
     });
 
-    // 2️⃣ Build status count map
     const statusMap = new Map<string, number>();
     stockStatusCounts.forEach((item: any) => {
       statusMap.set(item.status, Number(item.count) || 0);
     });
 
-    // 3️⃣ Calculate totals
     const totalItems = stockStatusCounts.reduce((sum: number, item: any) => {
       return sum + (Number(item.count) || 0);
     }, 0);
@@ -882,7 +822,6 @@ export class warehouseReportService {
     const expiredItems = statusMap.get('Expired') || 0;
     const reservedItems = statusMap.get('Reserved') || 0;
 
-    // 4️⃣ Get total goods receipts count
     const totalGoodsReceipts = await this.grModel.count();
 
     return {

@@ -91,20 +91,16 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
   const adminRole = await Role.findOne({ where: { role_name: 'Admin' } });
   const accountantRole = await Role.findOne({ where: { role_name: 'Accountant' } });
 
-  // get admins
   const admins = await this.userModel.findAll({
     where: { role_id: adminRole!.role_id },
   });
 
-  // get accountants
   const accountants = await this.userModel.findAll({
     where: { role_id: accountantRole!.role_id },
   });
 
 
-  // ===============================
-  // 1) supplier & PO validation
-  // ===============================
+
   let supplier: Supplier | null = null;
 
   if (dto.supplier_email) {
@@ -137,9 +133,7 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     errors.push("PO number missing");
   }
 
-  // ===============================
-  // 2) If errors → create incident
-  // ===============================
+
   if (errors.length > 0) {
     const incident = await this.incidentModel.create({
       ...dto,
@@ -161,9 +155,6 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     return { message: "Invoice added to incidents", errors };
   }
 
-  // ===============================
-  // 3) Ensure invoice number unique
-  // ===============================
   const existingInvoice = await this.supplierInvoiceModel.findOne({
     where: { invoice_number: dto.invoice_number },
     transaction,
@@ -176,9 +167,7 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     );
   }
 
-  // ===============================
-  // 4) Detect file type & assign path
-  // ===============================
+
   let pdfUrl: string | null = null;
   let invoice_image: string | null = null;
   let excelUrl: string | null = null;
@@ -204,9 +193,7 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     }
   }
 
-  // ===============================
-  // 5) Create Invoice
-  // ===============================
+
   const invoice = await this.supplierInvoiceModel.create({
     invoice_number: dto.invoice_number,
     invoice_date: dto.invoice_date,
@@ -240,9 +227,7 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
     excelUrl:excelUrl,
   } as any, { transaction });
 
-  // ===============================
-  // 6) Add items
-  // ===============================
+
   for (const item of dto.items) {
     await this.supplierInvoiceItemModel.create({
       ...item,
@@ -254,11 +239,9 @@ async createInvoice(dto: CreateSupplierInvoiceDto, createdBy: number, file?: Exp
 
   let notifyTargets: User[] = [];
 
-  // اذا اللي رفع سبلاير → notify admin + accountant
   if (createdByUser?.role?.role_name === 'Supplier') {
     notifyTargets = [...admins, ...accountants];
   }
-  // اذا اللي رفع محاسب → notify admin بس
   else if (createdByUser?.role?.role_name === 'Accountant') {
     notifyTargets = admins;
   }

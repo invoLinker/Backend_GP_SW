@@ -35,29 +35,9 @@ export class AIVerificationService {
     };
   }
 
-  // async getLogsByPONumber(poNumber: string) {
-  //   const logs = await this.logModel.findAll({
-  //     where: { poNumber },
-  //     order: [['createdAt', 'ASC']],
-  //   });
 
-  //   if (!logs || logs.length === 0) {
-  //     throw new NotFoundException(`No verification logs found for PO ${poNumber}`);
-  //   }
-
-  //   return logs.map(log => ({
-  //     id: log.id,
-  //     poNumber: log.poNumber,
-  //     userId: log.userId,
-  //     stage: log.stage,
-  //     aiMessage: log.aiMessage
-  //   }));
-  // }
   async getLogsByPONumber(poNumber: string) {
-  // const logs = await this.logModel.findAll({
-  //   where: { poNumber },
-  //   order: [['createdAt', 'ASC']],
-  // });
+
   const cleanPONumber = poNumber.trim().toUpperCase();
 
 const logs = await this.logModel.findAll({
@@ -72,13 +52,12 @@ const logs = await this.logModel.findAll({
     throw new NotFoundException(`No verification logs found for PO ${poNumber}`);
   }
 
-  // رجع كل log بشكل مرتب
   return logs.map(log => {
     let parsedAIMessage: any = null;
     try {
-      parsedAIMessage = JSON.parse(log.aiMessage); // نفك الـ JSON string
+      parsedAIMessage = JSON.parse(log.aiMessage); 
     } catch (err) {
-      parsedAIMessage = log.aiMessage; // إذا كان غير صالح، نرجع النص كما هو
+      parsedAIMessage = log.aiMessage; 
     }
 
     return {

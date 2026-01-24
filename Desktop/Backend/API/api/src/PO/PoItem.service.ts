@@ -18,24 +18,20 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
   const transaction = await this.poItemModel.sequelize!.transaction();
 
   try {
-    // جلب الفاتورة مع العناصر
     const po = await this.poModel.findByPk(poId, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],
       transaction,
     });
     if (!po) throw new NotFoundException(`Purchase Order with id ${poId} not found`);
 
-    // الحالات الممنوعة من التعديل مباشرة
     const blockedStatuses = ['Sent', 'Closed', 'Cancelled'];
     
-    // 1️⃣ إذا الفاتورة في status ممنوع → نرجع BadRequest
     if (blockedStatuses.includes(po.status)) {
       throw new BadRequestException(`Cannot add items to Purchase Order with status "${po.status}"`);
     }
 
 
     let approvedRequest: EditRequest | null = null;
-    // 2️⃣ إذا الفاتورة Approved → نتحقق من EditRequest الموافق عليه
     if (po.status === 'Approved') {
        approvedRequest = await this.editRequestModel.findOne({
         where: {
@@ -47,7 +43,6 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
       });
 
       if (!approvedRequest) {
-        // إنشاء طلب تعديل جديد بدل الإضافة مباشرة
         const editRequest = await this.editRequestModel.create({
           invoice_id: po.po_id,
           user_id: userId,
@@ -61,7 +56,6 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
       }
     }
 
-    // التحقق من وجود العنصر في جدول Items
     const existingItem = await Item.findOne({
       where: {
         item_code: itemData.barcode,
@@ -77,12 +71,10 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
 
 
     if (approvedRequest) {
-      // بعد الانتهاء من التعديل نضع can_edit = false
       approvedRequest.is_edit = true;
       await approvedRequest.save({ transaction });
     }
 
-    // إنشاء العنصر الجديد باستخدام القيم الصحيحة من جدول Items
     await this.poItemModel.create(
       {
         po_id: poId,
@@ -97,7 +89,6 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
 
 
 
-    // إعادة حساب الـ subtotal بعد الإضافة
     const items = await this.poItemModel.findAll({ where: { po_id: poId }, transaction });
     let subtotal = 0;
     for (const item of items) {
@@ -107,7 +98,6 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
     const vat = subtotal * 0.16;
     const total_amount = subtotal + vat;
 
-    // تحديث الفاتورة
     po.subtotal = subtotal;
     po.vat = vat;
     po.total_amount = total_amount;
@@ -115,7 +105,6 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
     await po.save({ transaction });
     await transaction.commit();
 
-    // جلب الفاتورة مع كل العناصر بعد التحديث
     const updatedPo = await this.poModel.findByPk(poId, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],
     });
@@ -144,7 +133,7 @@ async createItem(poId: number, itemData: Partial<PurchaseOrderItem>, userId: num
 
   if (!po) throw new NotFoundException(`Purchase Order with id ${poId} not found`);
 
-  return po.items; // ترجع كل العناصر المرتبطة بالفاتورة
+  return po.items; 
 }
 
 async getItemById(itemId: number): Promise<PurchaseOrderItem> {
@@ -157,7 +146,7 @@ async getItemById(itemId: number): Promise<PurchaseOrderItem> {
 
 async getAll() {
     return await this.poItemModel.findAll({
-      include: [PurchaseOrder], // بيرجع كمان بيانات الفاتورة المرتبطة
+      include: [PurchaseOrder], 
     });
   }
 
@@ -169,11 +158,9 @@ async updateItem(
   const transaction = await this.poItemModel.sequelize!.transaction();
 
   try {
-    // جلب العنصر
     const item = await this.poItemModel.findByPk(itemId, { transaction });
     if (!item) throw new NotFoundException(`Purchase Order Item with id ${itemId} not found`);
 
-    // جلب الفاتورة المرتبطة
     const poId = item.po_id;
     const po = await this.poModel.findByPk(poId, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],
@@ -181,13 +168,11 @@ async updateItem(
     });
     if (!po) throw new NotFoundException(`Purchase Order with id ${poId} not found`);
 
-    // الحالات الممنوعة من التعديل مباشرة
     const blockedStatuses = ['Sent', 'Closed', 'Cancelled'];
     if (blockedStatuses.includes(po.status)) {
       throw new BadRequestException(`Cannot edit items of Purchase Order with status "${po.status}"`);
     }
 
-    // إذا الفاتورة Approved → التحقق من EditRequest
     let approvedRequest: EditRequest | null = null;
     if (po.status === 'Approved') {
       approvedRequest = await this.editRequestModel.findOne({
@@ -200,7 +185,6 @@ async updateItem(
       });
 
       if (!approvedRequest) {
-        // إنشاء طلب تعديل بدل التعديل مباشرة
         const editRequest = await this.editRequestModel.create({
           invoice_id: poId,
           user_id: userId,
@@ -214,20 +198,17 @@ async updateItem(
       }
     }
 
-    // التعديل الفعلي للعنصر
     item.item_name = itemData.item_name ?? item.item_name;
     item.quantity = itemData.quantity ?? item.quantity;
     item.unit = itemData.unit ?? item.unit;
     item.unit_price = itemData.unit_price ?? item.unit_price;
     await item.save({ transaction });
 
-    // إذا موجود approvedRequest → تحديث is_edit بعد التعديل
     if (approvedRequest) {
       approvedRequest.is_edit = true;
       await approvedRequest.save({ transaction });
     }
 
-    // إعادة حساب subtotal والفاتورة
     const items = await this.poItemModel.findAll({ where: { po_id: poId }, transaction });
     let subtotal = 0;
     for (const i of items) {
@@ -240,7 +221,6 @@ async updateItem(
     await po.save({ transaction });
     await transaction.commit();
 
-    // جلب الفاتورة بعد التحديث
     const updatedPo = await this.poModel.findByPk(poId, {
       include: [{ model: PurchaseOrderItem, as: 'items' }],
     });
@@ -275,7 +255,6 @@ async deleteItems(poId: number, itemIds: number[], userId: number): Promise<Purc
       throw new BadRequestException(`Cannot delete items from Purchase Order with status "${po.status}"`);
     }
 
-    // إذا الفاتورة Approved → نتحقق من طلب تعديل مقبول
     let approvedRequest: EditRequest | null = null;
     if (po.status === 'Approved') {
       approvedRequest = await this.editRequestModel.findOne({
@@ -289,14 +268,13 @@ async deleteItems(poId: number, itemIds: number[], userId: number): Promise<Purc
       });
 
       if (!approvedRequest) {
-        // إنشاء طلب تعديل جديد بدل الحذف المباشر
       const editRequest = await this.editRequestModel.create({
         invoice_id: poId,
         user_id: userId,
         message: `User requests to delete items: ${po.items
           .filter(i => itemIds.includes(i.po_item_id))
           .map(i => i.item_name)
-          .join(', ')}`,  // هنا نرسل الاسم بدل الرقم
+          .join(', ')}`,  
         status: 'pending',
         is_edit: false,
       } as any, { transaction });
@@ -307,14 +285,12 @@ async deleteItems(poId: number, itemIds: number[], userId: number): Promise<Purc
       }
     }
 
-    // ✅ التحقق إن كل العناصر موجودة داخل الفاتورة
     const poItemIds = po.items.map(i => i.po_item_id);
     const notFoundItems = itemIds.filter(id => !poItemIds.includes(id));
     if (notFoundItems.length > 0) {
       throw new BadRequestException(`Items with ids ${notFoundItems.join(', ')} not found in this Purchase Order`);
     }
 
-    // حذف العناصر
     await this.poItemModel.destroy({
       where: { po_item_id: itemIds },
       transaction,
@@ -325,7 +301,6 @@ async deleteItems(poId: number, itemIds: number[], userId: number): Promise<Purc
       await approvedRequest.save({ transaction });
     }
 
-    // تحديث الفاتورة بعد الحذف
     let subtotal = 0;
     for (const item of po.items.filter(i => !itemIds.includes(i.po_item_id))) {
       subtotal += item.quantity * item.unit_price;

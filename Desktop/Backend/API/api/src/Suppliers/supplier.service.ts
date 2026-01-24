@@ -45,16 +45,13 @@ export class SupplierService {
 
   async getBankInfo(id: number) {
     const supplierUser = await Supplier.findByPk(id, {
-      // include: ['role'],
     });
 
     if (!supplierUser) {
       throw new NotFoundException(`Supplier not found`);
     }
 
-    // if (supplierUser.role?.role_name !== 'Supplier') {
-    //   throw new BadRequestException('Not a supplier');
-    // }
+    
 
     const supplier = await Supplier.findOne({
       where: { user_id: supplierUser.user_id },
@@ -93,10 +90,8 @@ async supplierPaymentSummary(supplierId: number) {
 
   const invoiceIds = invoices.map(inv => inv.invoice_id);
 
-  // 2️⃣ عدد فواتير السبلاير
   const supplierInvoicesCount = invoiceIds.length;
 
-  // 3️⃣ عدد الدفعات Pending
   const pendingPaymentsCount = await Payment.count({
     where: {
       invoice_id: {
@@ -106,7 +101,6 @@ async supplierPaymentSummary(supplierId: number) {
     },
   });
 
-  // 4️⃣ مجموع المدفوعات Paid (الربح)
   const totalPaidAmount = await Payment.sum('amount_paid', {
     where: {
       invoice_id: {

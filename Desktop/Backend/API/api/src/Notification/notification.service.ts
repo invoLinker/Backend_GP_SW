@@ -32,7 +32,6 @@ export class NotificationService {
         };
       }
 
-      // حفظ الاشعار في Firestore
       const notificationRef = db.collection('notifications').doc();
       const notificationId = notificationRef.id;
       
@@ -45,8 +44,8 @@ export class NotificationService {
         payload: { ...dto.payload, attachment: attachmentInfo },
         read: false,
         sender: dto.userEmail || 'System',
-        status: 'pending', // pending, sent, delivered, failed
-        deliveryInfo: {}, // سيتم تحديثه بعد الإرسال
+        status: 'pending',
+        deliveryInfo: {}, 
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       this.logger.log(`Notification saved in Firestore for user: ${dto.userId}, id: ${notificationId}`);
@@ -65,7 +64,6 @@ export class NotificationService {
           break;
 
         case NotificationChannel.IN_APP:
-          // In-App notification (سيتم إرساله عبر WebSocket في النهاية)
           this.logger.log(`In-App notification ready for user: ${dto.userId}`);
           break;
 
@@ -91,7 +89,6 @@ export class NotificationService {
           throw new Error('Invalid channel');
       }
 
-      // إرسال الاشعار عبر WebSocket لجميع القنوات (لإظهاره في In-App)
       const wsNotificationData = {
         id: notificationId,
         title: dto.title,
@@ -105,7 +102,6 @@ export class NotificationService {
       };
       this.notificationGateway.sendToUser(dto.userId, wsNotificationData);
 
-      // إرجاع معلومات مفصلة عن حالة الإشعار
       const notificationDoc = await notificationRef.get();
       const notificationDocData = notificationDoc.data();
       
@@ -144,9 +140,7 @@ export class NotificationService {
     });
   }
 
-  /**
-   * الحصول على حالة الإشعار (status) ومعلومات التسليم
-   */
+
   async getNotificationStatus(notificationId: string) {
     const notificationRef = db.collection('notifications').doc(notificationId);
     const doc = await notificationRef.get();
@@ -158,7 +152,7 @@ export class NotificationService {
     const data = doc.data();
     return {
       id: notificationId,
-      status: data?.status || 'unknown', // pending, sent, delivered, failed
+      status: data?.status || 'unknown', 
       deliveryInfo: data?.deliveryInfo || {},
       createdAt: data?.createdAt?.toDate().toISOString() || null,
       title: data?.title || '',
@@ -215,10 +209,8 @@ private async sendExpoPushNotification(
     throw new Error(`Expo push token not found for user ${userId}`);
   }
 
-  // ✅ الاسم الصح
   const { token } = tokenDoc.data()!;
 
-  // ✅ Expo بده Array مش Object
   const messages = [
     {
       to: token,
@@ -231,7 +223,7 @@ private async sendExpoPushNotification(
 
   const response = await axios.post(
     'https://exp.host/--/api/v2/push/send',
-    messages, // ⬅️ ARRAY
+    messages,
     {
       headers: {
         'Content-Type': 'application/json',
@@ -243,9 +235,7 @@ private async sendExpoPushNotification(
 }
 
 
-  /**
-   * تنظيف FCM tokens الفاشلة/غير صالحة
-   */
+
   private async cleanupInvalidTokens(userId: string, invalidTokens: string[]) {
     try {
       const tokenDoc = await db.collection('expo_push_tokens').doc(userId).get();
@@ -254,7 +244,6 @@ private async sendExpoPushNotification(
       const tokenData = tokenDoc.data();
       
       if (Array.isArray(tokenData?.tokens)) {
-        // إزالة invalid tokens من الـ array
         const validTokens = tokenData.tokens.filter(
           (t: string) => !invalidTokens.includes(t)
         );
@@ -266,7 +255,6 @@ private async sendExpoPushNotification(
         
         this.logger.log(`Cleaned up ${invalidTokens.length} invalid FCM tokens for user ${userId}`);
       } else if (tokenData?.token && invalidTokens.includes(tokenData.token)) {
-        // إذا كان single token وهو invalid، نحذف المستند
         await db.collection('expo_push_tokens').doc(userId).delete();
         this.logger.log(`Deleted FCM token document for user ${userId} (invalid token)`);
       }
@@ -275,10 +263,7 @@ private async sendExpoPushNotification(
     }
   }
 
-  /**
-   * حفظ/تحديث FCM token للمستخدم
-   * يمكن استدعاؤها من endpoint منفصل عند تسجيل الدخول أو تحديث الـ token
-   */
+
   async saveExpoPushToken(
   userId: string,
   token: string,

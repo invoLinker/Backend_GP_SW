@@ -18,14 +18,14 @@ export class Item extends Model<Item> {
     type: DataType.STRING,
     allowNull: false,
   })
-  item_name!: string; // اسم العنصر: مش unique
+  item_name!: string; 
 
   @Column({
     type: DataType.STRING,
     allowNull: false,
     unique: true,
   })
-  item_code!: string; // الكود: unique
+  item_code!: string; 
 
   @Column({
     type: DataType.FLOAT,

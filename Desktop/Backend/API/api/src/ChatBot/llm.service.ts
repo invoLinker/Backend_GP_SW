@@ -9,20 +9,16 @@ export class LlmService {
   private readonly answerModel: string;
 
    constructor() {
-    // Using Hugging Face (was working better)
     this.client = new OpenAI({
       apiKey: process.env.HF_TOKEN2,
       baseURL: "https://router.huggingface.co/v1",
     });
 
-    // Original model that was working
     this.sqlModel = "meta-llama/Llama-3.1-8B-Instruct:novita";
     this.answerModel = "meta-llama/Llama-3.1-8B-Instruct:novita";
   }
 
-  /**
-   * Generate SQL from natural language
-   */
+
   async generateSQL(question: string): Promise<string> {
     const systemPrompt = `
 You are an elite MySQL query generator for an ERP/Accounting system.
@@ -378,9 +374,6 @@ ${DB_SCHEMA}
     return sql;
   }
 
-  /**
-   * Clean rows before sending to LLM
-   */
   private sanitizeRows(rows: any[]): any[] {
     const MAX_ROWS = 10;
     const MAX_STRING_LENGTH = 500;
@@ -434,13 +427,10 @@ ${DB_SCHEMA}
     });
   }
 
-  /**
-   * Final answer formatter
-   */
+
   async formatAnswer(question: string, rows: any[]): Promise<string> {
     const cleanRows = this.sanitizeRows(rows);
 
-    // Detect language from question
     const isArabic = /[\u0600-\u06FF]/.test(question);
 
     const systemPrompt = isArabic
@@ -506,7 +496,6 @@ Answer in English only based on the data above.
 
     const answer = res.choices[0].message?.content?.trim();
     
-    // Fallback based on language
     if (!answer) {
       return isArabic ? "لا توجد إجابة متاحة." : "No answer available.";
     }
@@ -514,9 +503,7 @@ Answer in English only based on the data above.
     return answer;
   }
 
-  /**
-   * Format answer specifically for analysis queries
-   */
+  
   async formatAnalysisAnswer(question: string, rows: any[], statistics?: any): Promise<string> {
     const cleanRows = this.sanitizeRows(rows);
     const isArabic = /[\u0600-\u06FF]/.test(question);
@@ -567,15 +554,13 @@ Provide a comprehensive analysis based on this data.
           `.trim(),
         },
       ],
-      temperature: 0.4, // Higher temperature for more creative analysis
+      temperature: 0.4, 
     });
 
     return res.choices[0].message?.content?.trim() ?? "Analysis unavailable.";
   }
 
-  /**
-   * Generate AI Insights as JSON array
-   */
+
   async generateAIInsights(data: any): Promise<any[]> {
     const prompt = `You are a professional data analyst for a procurement and invoice management system. Analyze the following data and create intelligent insights and actionable recommendations.
 
@@ -629,14 +614,12 @@ Return the result in JSON array format only, without any additional text or mark
 
     let insightsText = res.choices[0].message?.content?.trim() || '[]';
     
-    // تنظيف الرد من markdown إذا كان موجوداً
     insightsText = insightsText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     try {
       const insights = JSON.parse(insightsText);
       return Array.isArray(insights) ? insights : [];
     } catch (e) {
-      // إذا فشل parsing، حاول استخراج JSON من النص
       const jsonMatch = insightsText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         try {

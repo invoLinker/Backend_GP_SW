@@ -29,63 +29,6 @@ export class GoodsReceiptService {
     return `GR-${(lastNumber + 1).toString().padStart(5, '0')}`;
   }
 
-  // async createGR(dto: CreateGoodsReceiptDto, userId: number) {
-  //   const transaction = await this.grModel.sequelize!.transaction();
-
-  //   const dn = await this.dnModel.findOne({
-  //       where: { dn_number: dto.dn_number },
-  //       transaction,
-  //     });
-
-  //      const po = await this.poModel.findOne({
-  //       where: { po_number: dto.po_number },
-  //       transaction,
-  //     });
-
-        
-  //     if (!po || !dn) {
-  //       throw new NotFoundException('Purchase Order number or Delivery Note number not found');
-  //     }
-
-  //     const generatedGRNumber = await this.generateGRNumber();
-
-  //     const gr = await this.grModel.create(
-  //       {
-  //         gr_number: generatedGRNumber,
-  //         gr_date: new Date(),
-  //         dn_id: dn.dn_id,
-  //         received_by: userId,
-  //         notes: dto.notes ?? null,
-  //         po_number: dto.po_number,
-  //         status: 'Pending',
-  //       } as any,
-  //       { transaction },
-  //     );
-
-  //     for (const item of dto.items!) {
-  //       await this.grItemModel.create(
-  //         {
-  //           ...item,
-  //           gr_id: gr.gr_id,
-  //         } as any,
-  //         { transaction },
-  //       );
-  //     }
-
-  //     const grWithItems = await this.grModel.findOne({
-  //       where: { gr_id: gr.gr_id },
-  //       include: [{ model: this.grItemModel, as: 'items' }],
-  //       transaction,
-  //     });
-
-  //     await transaction.commit();
-           
-  //     await this.notifyAdmins(['Admin', 'Accountant'],`New Goods Receipt Created`, `GR ${gr.gr_number} has been created for DN ${dto.dn_number}.`);
-
-  //     return grWithItems;
-    
-  // }
-
   async createGR(dto: CreateGoodsReceiptDto, userId: number) {
   const transaction = await this.grModel.sequelize!.transaction();
 
@@ -123,7 +66,6 @@ export class GoodsReceiptService {
 
     for (const item of dto.items ?? []) {
 
-      // ✅ معالجة expiration_date بشكل آمن
       let expirationDate: Date | null = null;
 
       if (item.expiration_date) {
@@ -137,7 +79,7 @@ export class GoodsReceiptService {
         {
           ...item,
           gr_id: gr.gr_id,
-          expiration_date: expirationDate, // 👈 فقط Date صحيح أو null
+          expiration_date: expirationDate, 
         } as any,
         { transaction },
       );
@@ -151,7 +93,6 @@ export class GoodsReceiptService {
 
     await transaction.commit();
 
-    // الإشعارات خارج الـ transaction ✔️
     await this.notifyAdmins(
       ['Admin', 'Accountant'],
       'New Goods Receipt Created',
@@ -161,7 +102,7 @@ export class GoodsReceiptService {
     return grWithItems;
 
   } catch (error) {
-    await transaction.rollback(); // 🚨 مهم جدًا
+    await transaction.rollback(); 
     throw error;
   }
 }
@@ -289,28 +230,13 @@ async getByStatus(status: string) {
     }
   }
 
-  // private async notifyAdmins(roles: string[], title: string, message: string) {
-  // const users = await this.userModel.findAll({
-  //   where: { role: roles },
-  // });
 
-  // for (const user of users) {
-  //     await this.notificationService.sendNotification({
-  //       title,
-  //       message,
-  //       userId: user.user_id.toString(),
-  //       channel: NotificationChannel.IN_APP,
-  //       category: NotificationCategory.SYSTEM,
-  //       payload: {},
-  //     });
-  //   }
-  // }
 private async notifyAdmins(roleNames: string[], title: string, message: string) {
   const users = await this.userModel.findAll({
     include: [
       {
         model: Role,
-        where: { role_name: roleNames }, // فلترة حسب اسم الدور
+        where: { role_name: roleNames }, 
       },
     ],
   });

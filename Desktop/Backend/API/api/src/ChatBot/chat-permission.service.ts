@@ -96,7 +96,6 @@ export class ChatPermissionService {
   async checkQuestionPermissions(userRole: string, question: string): Promise<{ allowed: boolean; reason?: string }> {
     const questionLower = question.toLowerCase();
     
-    // Check if it's a general question about the system - ALLOW FOR EVERYONE
     const generalKeywords = [
       'مرحبا', 'hello', 'hi', 'hey', 'أهلا', 'هلا',
       'مشروع', 'نظام', 'project', 'system', 'app', 'application',
@@ -111,7 +110,7 @@ export class ChatPermissionService {
     
     const isGeneral = generalKeywords.some(keyword => questionLower.includes(keyword));
     if (isGeneral) {
-      return { allowed: true }; // General questions allowed for everyone
+      return { allowed: true };
     }
     
     const normalizedRole = this.normalizeRoleName(userRole);

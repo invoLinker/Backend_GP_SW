@@ -1,7 +1,6 @@
-// permissions.guard.ts
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RolePermissionService } from '../RolePermission/RolePermission.service'; // عدلي المسار
+import { RolePermissionService } from '../RolePermission/RolePermission.service'; 
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -16,14 +15,13 @@ export class PermissionsGuard implements CanActivate {
       context.getHandler(),
     );
 
-    if (!requiredPermission) return true; // إذا مافي permission محدد
+    if (!requiredPermission) return true; 
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user; // لازم JWT guard يكون مفعل قبل هذا guard
+    const user = request.user; 
 
     if (!user || !user.role) throw new ForbiddenException('No role found');
 
-    // جلب Permissions الخاصة بالرول من الـ DB
     const permissions = await this.rolePermissionService.getPermissionsForRole(user.role);
 
     if (permissions.includes(requiredPermission)) return true;

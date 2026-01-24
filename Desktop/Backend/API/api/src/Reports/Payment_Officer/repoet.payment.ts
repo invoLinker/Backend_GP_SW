@@ -7,9 +7,7 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 
 dayjs.extend(isoWeek);
 
-// ------------------------------
-// Month name → month number
-// ------------------------------
+
 const MONTH_MAP: Record<string, number> = {
   January: 1,
   February: 2,
@@ -25,9 +23,7 @@ const MONTH_MAP: Record<string, number> = {
   December: 12,
 };
 
-// ------------------------------
-// "Week 3" → 3
-// ------------------------------
+
 function parseWeek(weekStr: string): number {
   return Number(weekStr.replace("Week ", ""));
 }
@@ -39,9 +35,7 @@ export class ReportsPaymentService {
     private paymentModel: typeof Payment
   ) {}
 
-  // ======================================================
-  // MAIN ENTRY — called by controller
-  // ======================================================
+
   async getTransactionVolume(
     periodType: 'weekly' | 'monthly' | 'yearly',
     year: number,
@@ -50,18 +44,15 @@ export class ReportsPaymentService {
   ) {
     let period: 'year' | 'month' | 'week';
 
-    // convert frontend period to backend period
     if (periodType === 'yearly') period = 'year';
     else if (periodType === 'monthly') period = 'month';
     else if (periodType === 'weekly') period = 'week';
     else throw new BadRequestException('Invalid periodType');
 
-    // YEARLY
     if (period === 'year') {
       return this.getYearData(year);
     }
 
-    // MONTHLY
     if (period === 'month') {
       if (!month) throw new BadRequestException('month is required');
       const monthNumber = MONTH_MAP[month];
@@ -69,7 +60,6 @@ export class ReportsPaymentService {
       return this.getMonthData(year, monthNumber);
     }
 
-    // WEEKLY
     if (period === 'week') {
       if (!week) throw new BadRequestException('week is required');
       const weekNumber = parseWeek(week);
@@ -77,9 +67,7 @@ export class ReportsPaymentService {
     }
   }
 
-  // ======================================================
-  // YEARLY — first 6 months only (like frontend)
-  // ======================================================
+
   private async getYearData(year: number) {
   const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -105,9 +93,7 @@ export class ReportsPaymentService {
     return this.formatAggregatedResults(labels, results, 'month');
   }
 
-  // ======================================================
-  // MONTHLY — returns real number of weeks (4 or 5)
-  // ======================================================
+
   private async getMonthData(year: number, month: number) {
     const start = dayjs(`${year}-${month}-01`).startOf('month');
     const end = start.endOf('month');
@@ -121,7 +107,6 @@ export class ReportsPaymentService {
 
     const weekCount = endWeek - startWeek + 1;
 
-    // dynamic labels
     const labels = Array.from({ length: weekCount }, (_, i) => `Week ${i + 1}`);
 
     const payments = await this.paymentModel.findAll({
@@ -166,9 +151,7 @@ export class ReportsPaymentService {
     return { labels, datasets };
   }
 
-  // ======================================================
-  // WEEKLY — 7 days (Mon–Sun)
-  // ======================================================
+
   private async getWeekData(year: number, week: number) {
     const start = dayjs().year(year).isoWeek(week).startOf('week');
     const end = dayjs().year(year).isoWeek(week).endOf('week');
@@ -200,8 +183,8 @@ export class ReportsPaymentService {
     };
 
     results.forEach((r: any) => {
-      const dayNum = Number(r.day); // 1 = Sunday
-      const index = (dayNum + 5) % 7; // convert to Monday=0
+      const dayNum = Number(r.day); 
+      const index = (dayNum + 5) % 7;
 
       dataMap[r.currency_paid][index] = parseFloat(r.total);
     });
@@ -214,9 +197,7 @@ export class ReportsPaymentService {
     return { labels, datasets };
   }
 
-  // ======================================================
-  // Common formatter (used for yearly only)
-  // ======================================================
+
   private formatAggregatedResults(labels: string[], rows: any[], field: 'month' | 'week' | 'day') {
     const currencies = ['USD', 'JOD', 'ILS'];
 
@@ -268,14 +249,12 @@ export class ReportsPaymentService {
     throw new BadRequestException('Invalid periodType');
   }
 
-  // ======================================================
-  // MONTHLY → Day 1 → Day N
-  // ======================================================
+
   private async getMonthlyTrends(year: number, monthNum: number) {
     const start = dayjs(`${year}-${monthNum}-01`);
     const end = start.endOf('month');
 
-    const daysCount = end.date(); // 28–31 days
+    const daysCount = end.date(); 
     const labels = Array.from({ length: daysCount }, (_, i) => `Day ${i + 1}`);
 
     const results = await this.paymentModel.findAll({
@@ -311,9 +290,7 @@ export class ReportsPaymentService {
     };
   }
 
-  // ======================================================
-  // WEEKLY → Mon → Sun
-  // ======================================================
+
   private async getWeeklyTrends(year: number, weekNum: number) {
     const start = dayjs().year(year).isoWeek(weekNum).startOf('week');
     const end = dayjs().year(year).isoWeek(weekNum).endOf('week');
@@ -322,7 +299,7 @@ export class ReportsPaymentService {
 
     const results = await this.paymentModel.findAll({
       attributes: [
-        [fn('DAYOFWEEK', col('payment_date')), 'day'], // Sunday=1
+        [fn('DAYOFWEEK', col('payment_date')), 'day'], 
         'status',
         [fn('COUNT', col('payment_id')), 'count'],
       ],
@@ -338,7 +315,7 @@ export class ReportsPaymentService {
 
     results.forEach((r: any) => {
       const dayNum = Number(r.day);
-      const index = (dayNum + 5) % 7; // Sunday=1 → index=6, Monday=2 → index=0
+      const index = (dayNum + 5) % 7; 
 
       const count = Number(r.count);
 
@@ -378,9 +355,7 @@ export class ReportsPaymentService {
     }
   }
 
-  // ===========================================================
-  //  MONTHLY  → Return Week 1 → Week N (4 or 5 weeks)
-  // ===========================================================
+
   private async getMonthlyComparison(year: number, monthNum: number) {
     const start = dayjs(`${year}-${monthNum}-01`).startOf('month');
     const end = start.endOf('month');
@@ -395,7 +370,6 @@ export class ReportsPaymentService {
     const weekCount = endWeek - startWeek + 1;
     const labels = Array.from({ length: weekCount }, (_, i) => `Week ${i + 1}`);
 
-    // احضار جميع الدفعات لهذا الشهر
     const payments = await this.paymentModel.findAll({
       attributes: ['amount_paid', 'status', 'payment_date'],
       where: {
@@ -430,9 +404,7 @@ export class ReportsPaymentService {
     };
   }
 
-  // ===========================================================
-  //  WEEKLY  → Return Mon → Sun
-  // ===========================================================
+
   private async getWeeklyComparison(year: number, weekNum: number) {
     const start = dayjs().year(year).isoWeek(weekNum).startOf('week');
     const end = dayjs().year(year).isoWeek(weekNum).endOf('week');
@@ -453,8 +425,8 @@ export class ReportsPaymentService {
     const countArr = Array(7).fill(0);
 
     results.forEach((r: any) => {
-      const dayNum = Number(r.day); // 1 = Sun
-      const index = (dayNum + 5) % 7; // Monday = 0
+      const dayNum = Number(r.day);
+      const index = (dayNum + 5) % 7; 
 
       amountArr[index] = Number(r.amount);
       countArr[index] = Number(r.count);
@@ -478,7 +450,6 @@ export class ReportsPaymentService {
     raw: true,
   });
 
-  // Prepare aggregation containers
   const successRate: Record<string, number> = {};
   const methodTotals: Record<string, number> = {};
 
@@ -487,7 +458,6 @@ export class ReportsPaymentService {
     methodTotals[m] = 0;
   });
 
-  // Process each payment
   results.forEach((r: any) => {
     const method = r.payment_method;
     if (!methods.includes(method)) return;
@@ -499,7 +469,6 @@ export class ReportsPaymentService {
     }
   });
 
-  // Build final dataset array
   const successRateArr: number[] = [];
 
   methods.forEach(method => {
@@ -512,7 +481,6 @@ export class ReportsPaymentService {
     successRateArr.push(successPercent);
   });
 
-  // Return Chart.js format
   return {
     labels: methods,
     datasets: [
@@ -526,7 +494,6 @@ export class ReportsPaymentService {
 
 
 async getSuccessRate(year: number) {
-    // Get all payments for the given year
     const payments = await this.paymentModel.findAll({
       attributes: ['status', 'payment_date'],
       where: {
@@ -571,21 +538,16 @@ async getSuccessRate(year: number) {
   month?: string,
   week?: string
 ) {
-  // Assign default values to avoid TS error
   let start: Date = new Date();
   let end: Date = new Date();
 
-  // -----------------------
-  // YEARLY RANGE
-  // -----------------------
+
   if (periodType === 'yearly') {
     start = new Date(`${year}-01-01`);
     end = new Date(`${year}-12-31`);
   }
 
-  // -----------------------
-  // MONTHLY RANGE
-  // -----------------------
+
   else if (periodType === 'monthly') {
     if (!month) throw new BadRequestException("Month is required");
 
@@ -596,9 +558,7 @@ async getSuccessRate(year: number) {
     end = d.endOf('month').toDate();
   }
 
-  // -----------------------
-  // WEEKLY RANGE
-  // -----------------------
+
   else if (periodType === 'weekly') {
     if (!week) throw new BadRequestException("Week is required");
 
@@ -609,13 +569,11 @@ async getSuccessRate(year: number) {
     end = d.endOf('week').toDate();
   }
 
-  // -----------------------
-  // Run SQL
-  // -----------------------
+
   const rows = await this.paymentModel.findAll({
     attributes: [
-      'currency',        // invoice currency
-      'currency_paid',   // currency used to pay
+      'currency',       
+      'currency_paid',  
       [fn('SUM', col('currency_difference')), 'impact']
     ],
     where: {
@@ -626,14 +584,13 @@ async getSuccessRate(year: number) {
     raw: true,
   });
 
-  // rows is raw → use any
   const labels: string[] = [];
   const values: number[] = [];
 
   (rows as any[]).forEach(r => {
     const label = `${r.currency} → ${r.currency_paid}`;
     labels.push(label);
-    values.push(Number(r.impact));  // fixed
+    values.push(Number(r.impact));  
   });
 
   return {
@@ -680,11 +637,11 @@ async getPaymentSummary() {
       : 0;
 
   return {
-    totalProcessed,                 // عدد كل الدفعات
+    totalProcessed,                 
     successfulPayments: successfulPayments.length,
     failedPayments: failedPayments.length,
     pendingPayments: pendingPayments.length,
-    totalAmount,             // ✅ مجموع المبالغ المدفوعة
+    totalAmount,           
     successRate,
   };
 }

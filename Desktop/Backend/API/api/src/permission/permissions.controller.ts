@@ -15,7 +15,6 @@ export class PermissionsController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @PermissionName("get_permission") 
-//   @Roles('Admin') 
   async findAll() {
     return this.permissionsService.findAll();
   }
@@ -23,7 +22,6 @@ export class PermissionsController {
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @PermissionName("get_permission_by_id")  
-//   @Roles('Admin')
   async findOne(@Param('id') id: number) {
     return this.permissionsService.findOne(id);
   }
@@ -40,7 +38,6 @@ export class PermissionsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @PermissionName("create_permission") 
-//   @Roles('Admin')
   async create(@Body() dto: CreatePermissionDto) {
     return this.permissionsService.create(dto);
   }
@@ -48,7 +45,6 @@ export class PermissionsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
  @PermissionName("update_permission")
-//   @Roles('Admin')
   async update( @Param('id') id: number, @Body() dto: UpdatePermissionDto) {
   return this.permissionsService.update(id, dto);
 }
@@ -57,7 +53,6 @@ export class PermissionsController {
 @Delete('id/:id')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @PermissionName("delete_permission_by_id")
-// @Roles('Admin')
 async deleteById(@Param('id') id: number) {
   return this.permissionsService.removeById(id);
 }
@@ -65,7 +60,6 @@ async deleteById(@Param('id') id: number) {
 @Delete('name/:name')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @PermissionName("delete_permission_by_name")
-// @Roles('Admin')
 async deleteByName(@Param('name') name: string) {
   return this.permissionsService.removeByName(name);
 }
@@ -73,7 +67,6 @@ async deleteByName(@Param('name') name: string) {
 @Delete('all')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @PermissionName("delete_all_permission")
-// @Roles('Admin')
 async deleteAll() {
   return this.permissionsService.removeAll();
 }

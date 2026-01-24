@@ -82,18 +82,7 @@ export class PurchaseOrder extends Model<PurchaseOrder> {
     defaultValue: 'Pending',
   })
   status: 'Pending'| 'Closed'| 'Rejected'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
-  // @Column({
-  //   type: DataType.ENUM('Pending', 
-  //     'Closed',// لما تخلص دفعها
-  //      'Rejected',// لما يرفضها الادمن 
-  //       'Approved',//  لما يقبلها الادمن
-  //        'Sent',// لما ابعتها للمورد
-  //        'Incident',// لما يكون صار في غلط اثناء الفيريفيكيشن
-  //        'ReadyForPaid'),// بس يكون كلو تمام بالفيريفيكيشن
-  //   allowNull: false,
-  //   defaultValue: 'Pending',
-  // })
-  // status: 'Pending'| 'Closed'| 'Rejected'| 'Approved'| 'Sent' | 'Incident'| 'ReadyForPaid';
+
 
    @Column({
     type: DataType.ENUM('Cash', 'Bank Transfer', 'Stripe', 'Credit'),

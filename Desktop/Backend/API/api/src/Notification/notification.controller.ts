@@ -32,7 +32,7 @@ async savePushToken(
   @Body()
   body: {
     userId: string;
-    token: string;        // ExponentPushToken[...]
+    token: string;       
     platform?: string;
     deviceId?: string;
     appId?: string;
@@ -40,12 +40,10 @@ async savePushToken(
 ) {
   const { userId, token, platform, deviceId, appId } = body;
 
-  // تحقق أساسي
   if (!userId || !token) {
     throw new BadRequestException('userId and token are required');
   }
 
-  // تحقق إنو Expo Push Token
   if (!token.startsWith('ExponentPushToken')) {
     throw new BadRequestException('Invalid Expo push token');
   }

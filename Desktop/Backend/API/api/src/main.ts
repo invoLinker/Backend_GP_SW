@@ -20,7 +20,6 @@ async function bootstrap() {
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
   app.use('/public', express.static(path.join(__dirname, '..', 'public')));
 
-  // Enable CORS
   app.enableCors({
     origin: [
       'http://localhost:3000',
@@ -51,7 +50,6 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      // enableImplicitConversion: true, // Enable automatic type conversion for query parameters
     })
   );
 

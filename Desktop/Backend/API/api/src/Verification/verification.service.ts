@@ -23,7 +23,6 @@ export class InvoiceService {
   private HF_MINIMAX_MODEL = 'MiniMaxAI/MiniMax-M2:novita';
   private client: OpenAI;
 
-  // Normalize barcodes so formatting differences don't cause false "missing/extra" results
   private normalizeBarcode(v?: string | null): string {
     return (v ?? '')
       .trim()
@@ -53,7 +52,6 @@ export class InvoiceService {
     });
   }
 
-  // 🧠 Helper: use MiniMax model to decide if two items are the same product
   private async areItemsMatchingWithAI(
   left: { name: string; barcode?: string | null },
   right: { name: string; barcode?: string | null },
@@ -64,7 +62,6 @@ export class InvoiceService {
   const leftNameNorm = normalize(left.name);
   const rightNameNorm = normalize(right.name);
 
-  // Fast path: exact same name after normalization
   if (leftNameNorm && rightNameNorm && leftNameNorm === rightNameNorm) {
     return true;
   }
@@ -72,14 +69,11 @@ export class InvoiceService {
   const leftBarcode = this.normalizeBarcode(left.barcode);
   const rightBarcode = this.normalizeBarcode(right.barcode);
 
-  // 🚨 HARD RULE: different barcodes = different products
   if (leftBarcode && rightBarcode && leftBarcode !== rightBarcode) {
     return false;
   }
 
-  // If no AI client → fallback
   if (!this.groq) {
-    // If barcodes are same but names clearly different, treat as different
     if (leftBarcode && rightBarcode && leftBarcode === rightBarcode) {
       return leftNameNorm === rightNameNorm;
     }
@@ -164,7 +158,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
       return 'No invoices linked to this PO';
     }
 
-    // Helper function to normalize numeric values in an object
     const normalizeNumericValues = (obj: any): any => {
       if (obj === null || obj === undefined) return obj;
       if (Array.isArray(obj)) {
@@ -173,7 +166,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
       if (typeof obj === 'object') {
         const normalized: any = {};
         for (const [key, value] of Object.entries(obj)) {
-          // Normalize common numeric fields - convert strings to numbers
           if (['quantity', 'unit_price', 'total_price', 'subtotal', 'vat', 'total_amount', 'discount', 'po_id', 'invoice_id', 'supplier_id', 'dn_id', 'gr_id'].includes(key)) {
             if (value !== null && value !== undefined && value !== '') {
               const numValue = Number(value);
@@ -182,7 +174,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
               normalized[key] = value;
             }
           } else if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
-            // Also normalize any string that looks like a number
             const numValue = Number(value);
             if (!isNaN(numValue)) {
               normalized[key] = numValue;
@@ -195,14 +186,12 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
         }
         return normalized;
       }
-      // If it's a string that looks like a number, convert it
       if (typeof obj === 'string' && !isNaN(Number(obj)) && obj.trim() !== '') {
         return Number(obj);
       }
       return obj;
     };
 
-    // Sort invoices and items consistently for deterministic results, then normalize numeric values
     const sortedInvoices = invoices
       .map(inv => {
         const invJson = inv.toJSON();
@@ -229,8 +218,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
       }).map(item => normalizeNumericValues(item)) : []
     });
 
-    // 🔁 جهّز لستة من الأيتيمات من الـ PO والفواتير عشان نبعثها لموديل MiniMax
-    // IMPORTANT: keep unit_price so price comparison can follow the same matching logic (barcode/AI), not raw name keys.
     const poItems = (po.items || []).map((item: any) => ({
       ref: item,
       name: item.item_name || '',
@@ -278,7 +265,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
         const poItem = poItems[i];
         let foundMatch = false;
 
-        // 1) Prefer matching by barcode when present
         if (poItem.barcode) {
           const indices = invoiceItemsByBarcode.get(poItem.barcode) || [];
           for (const j of indices) {
@@ -302,12 +288,11 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
           }
         }
 
-        // 2) If PO item has NO barcode, match semantically against invoice items with NO barcode
         if (!foundMatch && !poItem.barcode) {
           for (let j = 0; j < invoiceItems.length; j++) {
             if (matchedInvoiceIndices.has(j)) continue;
             const invItem = invoiceItems[j];
-            if (invItem.barcode) continue; // only compare no-barcode with no-barcode
+            if (invItem.barcode) continue; 
 
             const sameProduct = await this.areItemsMatchingWithAI(
               { name: poItem.name, barcode: poItem.barcode },
@@ -332,14 +317,12 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
         }
     }
 
-    // Extra items: anything in invoices that didn't get matched (covers barcode + no-barcode + Arabic/English names)
     invoiceItems.forEach((invItem, idx) => {
       if (matchedInvoiceIndices.has(idx)) return;
       const label = invItem.name || invItem.barcode || `Invoice item #${idx + 1}`;
       extraItems.push(`${label}${invItem.barcode ? ` (barcode: ${invItem.barcode})` : ''}`);
     });
 
-    // Check for unit price mismatches using the SAME matching logic (barcode/AI), not literal name keys
     const priceMismatches: string[] = [];
     for (const pair of matchedPairs) {
       const poItem = poItems[pair.poIdx];
@@ -352,7 +335,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
       }
     }
 
-    // Calculate totals for comparison
     const poSubtotal = Number(po.subtotal) || 0;
     const poVat = Number(po.vat) || 0;
     const poTotal = Number(po.total_amount) || 0;
@@ -369,7 +351,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
       invoiceDiscount += Number(inv.discount) || 0;
     });
 
-    // Create total comparison message
     const totalComparison: string[] = [];
     if (Math.abs(poSubtotal - invoiceSubtotal) > 0.01) {
       totalComparison.push(`Subtotal: PO=${poSubtotal}, Invoice=${invoiceSubtotal}`);
@@ -377,9 +358,7 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
     if (Math.abs(poVat - invoiceVat) > 0.01) {
       totalComparison.push(`VAT: PO=${poVat}, Invoice=${invoiceVat}`);
     }
-    // if (Math.abs(poTotal - invoiceTotal) > 0.01) {
-    //   totalComparison.push(`Total: PO=${poTotal}, Invoice=${invoiceTotal}`);
-    // }
+
     let calculatedInvoiceTotal = invoiceSubtotal;
 
   if (invoiceDiscount < 0 || invoiceDiscount > 100) {
@@ -389,7 +368,6 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
     calculatedInvoiceTotal = invoiceSubtotal - discountAmount;
   }
 
-  // VAT after discount
   calculatedInvoiceTotal += invoiceVat;
 
   if (Math.abs(poTotal - calculatedInvoiceTotal) > 0.01) {
@@ -400,6 +378,25 @@ ${leftBarcode && rightBarcode && leftBarcode !== rightBarcode ? `Note: Items hav
     if (invoiceDiscount > 0) {
       totalComparison.push(`Discount applied: ${invoiceDiscount}`);
     }
+
+let stage4Pass = true;
+let stage4Notes: string[] = [];
+
+const poPaymentMethod =
+  sortedPo?.payment_method?.toString().trim().toLowerCase() ?? '';
+
+const invoicePaymentMethod =
+  sortedInvoices?.[0]?.payment_method?.toString().trim().toLowerCase() ?? '';
+
+if (poPaymentMethod && invoicePaymentMethod) {
+  if (poPaymentMethod !== invoicePaymentMethod) {
+    stage4Pass = false;
+    stage4Notes.push(
+      `Payment method mismatch: PO: ${sortedPo.payment_method}, Invoice: ${sortedInvoices[0].payment_method}`,
+    );
+  }
+}
+
     
       const prompt = `
     // You're a smart invoice audit assistant.
@@ -608,20 +605,18 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         { role: "system", content: "You are a structured invoice auditing assistant. You MUST output ONLY valid JSON. Never add explanations or reasoning after the JSON. CRITICAL: All numeric values in the data have been normalized (strings converted to numbers). Do NOT report 'string vs number' mismatches - if numeric values are equal, they match. Never mention data types (string/number) in your notes." },
         { role: "user", content: prompt }
       ],
-      temperature: 0, // Set to 0 for deterministic results
-      max_tokens: 2000, // Limit response length to prevent infinite loops
+      temperature: 0,
+      max_tokens: 2000, 
     })
 
 
       let aiResponse = chatCompletion.choices[0].message.content ?? '';
 
-      // Extract JSON more accurately - find the first complete JSON object
       const firstBrace = aiResponse.indexOf('{');
       if (firstBrace === -1) {
         throw new InternalServerErrorException('AI response is not valid JSON');
       }
       
-      // Find the matching closing brace by counting braces
       let braceCount = 0;
       let lastBrace = -1;
       for (let i = firstBrace; i < aiResponse.length; i++) {
@@ -641,15 +636,12 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
       
       aiResponse = aiResponse.slice(firstBrace, lastBrace + 1);
 
-      // Parse and clean the result - remove false mismatches where values are actually equal
       let result = JSON.parse(aiResponse);
       
-      // Clean notes: remove mismatches where values are actually equal
       const cleanNotes = (notes: string[]): string[] => {
         if (!Array.isArray(notes)) return notes;
         
-        // First, check if we have both "missing item" and "extra item" with same barcode
-        // This happens when item_name is different (Arabic/English) but barcode is same
+
         const missingItems: string[] = [];
         const extraItems: string[] = [];
         const barcodesInNotes = new Set<string>();
@@ -657,7 +649,6 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         notes.forEach(note => {
           if (!note || typeof note !== 'string') return;
           
-          // Extract barcode from note
           const barcodeMatch = note.match(/barcode:\s*([^\s\)]+)/i);
           if (barcodeMatch) {
             const barcode = barcodeMatch[1].trim();
@@ -672,14 +663,11 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
           }
         });
         
-        // If same barcode appears in both missing and extra, they cancel out (same item, different name language)
         const conflictingBarcodes = new Set(missingItems.filter(b => extraItems.includes(b)));
         
         return notes.filter(note => {
           if (!note || typeof note !== 'string') return true;
 
-          // Unit price mismatch false positive where values are equal
-          // e.g. "Unit price mismatch for item 'potato': PO unit price: 10, Invoice unit price: 10"
           const unitPriceEqual = note.match(
             /unit\s*price.*mismatch[\s\S]*?PO\s*unit\s*price\s*:\s*(\d+(?:\.\d+)?)\b[\s\S]*?Invoice\s*unit\s*price\s*:\s*\1\b/i,
           );
@@ -687,8 +675,7 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
             return false;
           }
           
-          // Special case: "number 10 vs string '10'" style messages where numeric values are equal
-          // e.g. "Quantity mismatch: PO shows number 10, invoice shows string '10'"
+
           const numStrEqual = note.match(
             /number\s+(\d+(?:\.\d+)?)\b[^;]*string\s*'?\1'?/i,
           );
@@ -696,27 +683,23 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
             return false;
           }
 
-          // Remove notes about items with conflicting barcodes (same barcode in missing and extra)
           if (conflictingBarcodes.size > 0) {
             const barcodeMatch = note.match(/barcode:\s*([^\s\)]+)/i);
             if (barcodeMatch && conflictingBarcodes.has(barcodeMatch[1].trim())) {
-              return false; // Same barcode in both missing and extra - cancel out
+              return false;
             }
           }
           
-          // Pattern 1: Check for explicit "PO shows X, invoice shows X" or "4 (PO) vs 4 (DN)" patterns
           const explicitEqualMatch = note.match(/(?:PO|purchase order|DN|delivery note|invoice).*?(?:is|shows|has|vs)\s*(?:number\s+)?(\d+(?:\.\d+)?)\b.*?(?:PO|purchase order|DN|delivery note|invoice).*?(?:is|shows|has|vs)\s*(?:number\s+)?\1\b/gi);
           if (explicitEqualMatch) {
-            return false; // Same value for PO and Invoice/DN - false positive
+            return false; 
           }
           
-          // Pattern 2: Check for "X (PO) vs X (DN)" or "X (PO) vs X (Invoice)" patterns
           const vsPatternMatch = note.match(/(\d+(?:\.\d+)?)\s*\([^)]+\)\s+vs\s+\1\s*\([^)]+\)/gi);
           if (vsPatternMatch) {
-            return false; // Same value on both sides of "vs" - false positive
+            return false; 
           }
           
-          // Pattern 3: Check for multiple mismatches where all values are equal
           const allMatches = [...note.matchAll(/(?:PO|purchase order|DN|delivery note|invoice).*?(?:is|shows|has|vs)\s*(?:number\s+)?(\d+(?:\.\d+)?)\b/gi)];
           const values: string[] = [];
           for (const match of allMatches) {
@@ -731,44 +714,37 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
               }
             }
             if (allEqual) {
-              return false; // All comparisons show equal values - false positive
+              return false; 
             }
           }
           
-          // Pattern 4: Simple pattern "is X ... is X" or "shows X ... shows X" or "X vs X"
           const simpleEqualMatch = note.match(/(?:is|shows|vs)\s*(?:number\s+)?(\d+(?:\.\d+)?)\b.*?(?:is|shows|vs)\s*(?:number\s+)?\1\b/gi);
           if (simpleEqualMatch) {
-            return false; // Same value mentioned twice - false positive
+            return false; 
           }
           
-          // Pattern 5: "quantity mismatch: X (PO) vs X (DN)" - same value
           const quantityMismatchMatch = note.match(/quantity.*mismatch.*?(\d+(?:\.\d+)?).*?vs.*?\1/gi);
           if (quantityMismatchMatch) {
-            return false; // Same quantity on both sides - false positive
+            return false; 
           }
           
-          // Remove notes about unit being "box" vs null (they're equivalent)
           if (note.match(/unit.*"box".*null|unit.*null.*"box"|unit.*box.*null|unit.*null.*box/i)) {
-            return false; // box and null are equivalent
+            return false; 
           }
           
-          // Remove notes about discount being 0 vs 0
           if (note.match(/discount.*0.*0|discount.*0.*invoice.*0|discount.*validity.*0.*0/i)) {
-            return false; // 0 discount is valid
+            return false; 
           }
           
           return true;
         });
       };
 
-      // Clean all stage notes
       if (result.stage1?.notes) result.stage1.notes = cleanNotes(result.stage1.notes);
       if (result.stage2?.notes) result.stage2.notes = cleanNotes(result.stage2.notes);
       if (result.stage3?.notes) result.stage3.notes = cleanNotes(result.stage3.notes);
       if (result.stage4?.notes) result.stage4.notes = cleanNotes(result.stage4.notes);
 
-      // IMPORTANT: Override Stage 2/3 decisions using our deterministic pre-validation,
-      // because the AI can hallucinate "missing item" even when barcode/semantic matching proved it's present.
       const stage2Notes: string[] = [];
       if (missingItems.length > 0) stage2Notes.push(...missingItems.map((x) => `Missing item in invoices: ${x}`));
       if (extraItems.length > 0) stage2Notes.push(...extraItems.map((x) => `Extra item in invoices: ${x}`));
@@ -780,7 +756,15 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
       if (totalComparison.length > 0) stage3Notes.push(...totalComparison.map((x) => `Amount mismatch: ${x}`));
       result.stage3 = { pass: stage3Notes.length === 0, notes: stage3Notes };
 
-      // Update overall status
+result.stage4 = {
+  pass: stage4Pass,
+  notes: stage4Notes,
+};
+
+if (!stage4Pass) {
+  result.overall = 'Failed at stage 4';
+}
+
       const allPassed = result.stage1?.pass && result.stage2?.pass && result.stage3?.pass && result.stage4?.pass;
       result.overall = allPassed ? "Passed" : 
         !result.stage1?.pass ? "Failed at stage 1" :
@@ -788,23 +772,12 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         !result.stage3?.pass ? "Failed at stage 3" :
         "Failed at stage 4";
 
-      // const allPassed =
-      //   result.stage1.pass &&
-      //   result.stage2.pass &&
-      //   result.stage3.pass &&
-      //   result.stage4.pass;
-
-      // for (const si of invoices) {
-      //   si.is_verified = allPassed;
-      //   si.status = allPassed ? 'Verified' : 'Rejected';
-      //   await si.save();
-      // }
 
       await this.aiVerificationService.createLog(
-      po_number,          // PO number
-      req,         // userId (أو user اللي عمل continue)
-      'PO-SI',               // stage الحالي
-      JSON.stringify(result) // شو صار بالتحقق
+      po_number,       
+      req,      
+      'PO-SI',            
+      JSON.stringify(result) 
     );
 
 
@@ -819,6 +792,7 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
     }
   }
 
+  
   async compareDN(po_number: string, req): Promise<string> {
     try {
       const po = await this.poModel.findOne({ where: { po_number }, include: ['items', 'supplier'] });
@@ -829,7 +803,6 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         return 'No delivery notes linked to this PO';
       }
 
-      // Sort delivery notes and items consistently for deterministic results
       const sortedDeliveryNotes = deliveryNotes
         .map(dn => ({
           ...dn.toJSON(),
@@ -852,7 +825,6 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         }) : []
       };
 
-      // 🔁 جهّز لستة من الأيتيمات من الـ PO و Delivery Notes
       const poItems = (po.items || []).map((item: any) => ({
         ref: item,
         name: item.item_name || '',
@@ -883,7 +855,6 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
       const extraItems: string[] = [];
       const nameMismatches: string[] = [];
 
-      // 1) مطابقة معتمدة على الباركود أولاً (تجميع كميات لكل باركود)
       const poByBarcode = new Map<
         string,
         { name: string; totalQty: number }
@@ -913,13 +884,11 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         dnByBarcode.set(it.barcode, entry);
       });
 
-      // تحقق من المفقود والكمية حسب الباركود
       for (const [barcode, poInfo] of poByBarcode.entries()) {
         const dnInfo = dnByBarcode.get(barcode);
         if (!dnInfo) {
           missingItems.push(`${poInfo.name} (barcode: ${barcode})`);
         } else {
-          // Barcode exists on both sides → MUST verify name semantically too
           const sameProduct = await this.areItemsMatchingWithAI(
             { name: poInfo.name, barcode },
             { name: dnInfo.name, barcode },
@@ -936,14 +905,12 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         }
       }
 
-      // عناصر زيادة في الـ DN حسب الباركود
       for (const [barcode, dnInfo] of dnByBarcode.entries()) {
         if (!poByBarcode.has(barcode)) {
           extraItems.push(`${dnInfo.name} (barcode: ${barcode})`);
         }
       }
 
-      // 2) للأصناف بدون باركود، استخدم MiniMax كمطابقة احتياطية (اختياري)
       const poNoBarcode = poItems.filter((it) => !it.barcode);
       const dnNoBarcode = dnItems.filter((it) => !it.barcode);
       const matchedDnNoBarcode = new Set<number>();
@@ -987,13 +954,13 @@ IMPORTANT: All values above have been normalized (strings converted to numbers).
         }
       });
 
-      // Deterministic Stage 2 decision (do not let LLM hallucinate missing/matching)
       const deterministicStage2Notes: string[] = [];
       if (missingItems.length) deterministicStage2Notes.push(...missingItems.map(x => `Missing item in delivery notes: ${x}`));
       if (extraItems.length) deterministicStage2Notes.push(...extraItems.map(x => `Extra item in delivery notes: ${x}`));
       if (nameMismatches.length) deterministicStage2Notes.push(...nameMismatches.map(x => `Name mismatch (same barcode): ${x}`));
       if (quantityMismatches.length) deterministicStage2Notes.push(...quantityMismatches.map(x => `Quantity mismatch: ${x}`));
 
+      
         const prompt = `
     // You're a smart delivery audit assistant.
 
@@ -1148,19 +1115,17 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
           { role: "system", content: "You are a smart logistics audit agent. You MUST output ONLY valid JSON. Never add explanations or reasoning after the JSON." },
           { role: "user", content: prompt }
         ],
-        temperature: 0, // Set to 0 for deterministic results
-        max_tokens: 1500, // Limit response length to prevent infinite loops
+        temperature: 0, 
+        max_tokens: 1500,
       });
 
       let aiResponse = chatCompletion.choices[0].message.content ?? '';
 
-      // Extract JSON more accurately - find the first complete JSON object
       const firstBrace = aiResponse.indexOf('{');
       if (firstBrace === -1) {
         throw new InternalServerErrorException('AI response is not valid JSON');
       }
       
-      // Find the matching closing brace by counting braces
       let braceCount = 0;
       let lastBrace = -1;
       for (let i = firstBrace; i < aiResponse.length; i++) {
@@ -1180,26 +1145,21 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       
       aiResponse = aiResponse.slice(firstBrace, lastBrace + 1);
 
-      // Parse and clean the result - remove false mismatches where values are actually equal
       let result = JSON.parse(aiResponse);
       
-      // Clean notes: remove mismatches where values are actually equal
       const cleanNotes = (notes: string[]): string[] => {
         if (!Array.isArray(notes)) return notes;
         return notes.filter(note => {
           if (!note || typeof note !== 'string') return true;
           
-          // Remove notes that say values are equal (e.g., "PO quantity is 4, invoice quantity is 4")
           const equalValueMatch = note.match(/is\s+(\d+(?:\.\d+)?)\b.*?is\s+\1\b/i);
           if (equalValueMatch) {
-            return false; // Same value mentioned twice - false positive
+            return false; 
           }
           
-          // Remove notes about unit being "box" vs null (they're equivalent)
           if (note.match(/unit.*"box".*null|unit.*null.*"box"|unit.*box.*null|unit.*null.*box/i)) {
-            return false; // box and null are equivalent
+            return false;
           }
-          // Remove quantity mismatch when expected == found
           if (
             note.match(/quantity mismatch/i) &&
             note.match(/expected\s+(\d+).*found\s+\1/i)
@@ -1212,33 +1172,22 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
         });
       };
 
-      // Clean all stage notes
       if (result.stage1?.notes) result.stage1.notes = cleanNotes(result.stage1.notes);
       if (result.stage2?.notes) result.stage2.notes = cleanNotes(result.stage2.notes);
 
-      // Re-evaluate pass status based on cleaned notes
       result.stage2 = { pass: deterministicStage2Notes.length === 0, notes: deterministicStage2Notes };
 
-      // Update overall status
       const allPassed = result.stage1?.pass && result.stage2?.pass;
       result.overall = allPassed ? "Passed" : 
         !result.stage1?.pass ? "Failed at stage 1" :
         "Failed at stage 2";
 
-      // const allPassed = result.stage1.pass && result.stage2.pass;
-
-      // for (const dn of deliveryNotes) {
-      //   dn.is_verified = allPassed;
-      //   dn.status = allPassed ? 'Verified' : 'Rejected';
-      //   await dn.save();
-      // }
-
 
        await this.aiVerificationService.createLog(
-      po_number,          // PO number
-      req,         // userId (أو user اللي عمل continue)
-      'PO-DN',               // stage الحالي
-      JSON.stringify(result) // شو صار بالتحقق
+      po_number,       
+      req,        
+      'PO-DN',             
+      JSON.stringify(result) 
     );
 
       return JSON.stringify(result);
@@ -1261,7 +1210,6 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       return 'No goods receipts linked to this PO';
     }
 
-    // Sort goods receipts and items consistently for deterministic results
     const sortedGoodsReceipts = goodsReceipts
       .map(gr => ({
         ...gr.toJSON(),
@@ -1284,7 +1232,6 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       }) : []
     };
 
-    // 🔁 جهّز لستة من الأيتيمات من الـ PO و Goods Receipts
     const poItems = (po.items || []).map((item: any) => ({
       ref: item,
       name: item.item_name || '',
@@ -1315,7 +1262,6 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
     const extraItems: string[] = [];
     const nameMismatches: string[] = [];
     
-    // 1) مطابقة معتمدة على الباركود أولاً (تجميع كميات لكل باركود)
     const poByBarcode = new Map<
       string,
       { name: string; totalQty: number }
@@ -1345,13 +1291,11 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       grByBarcode.set(it.barcode, entry);
     });
 
-    // تحقق من المفقود والكمية حسب الباركود
     for (const [barcode, poInfo] of poByBarcode.entries()) {
       const grInfo = grByBarcode.get(barcode);
       if (!grInfo) {
         missingItems.push(`${poInfo.name} (barcode: ${barcode})`);
       } else {
-        // Barcode exists on both sides → MUST verify name semantically too
         const sameProduct = await this.areItemsMatchingWithAI(
           { name: poInfo.name, barcode },
           { name: grInfo.name, barcode },
@@ -1368,14 +1312,12 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       }
     }
 
-    // عناصر زيادة في الـ GR حسب الباركود
     for (const [barcode, grInfo] of grByBarcode.entries()) {
       if (!poByBarcode.has(barcode)) {
         extraItems.push(`${grInfo.name} (barcode: ${barcode})`);
       }
     }
 
-    // 2) للأصناف بدون باركود، استخدم MiniMax كمطابقة احتياطية (اختياري)
     const poNoBarcode = poItems.filter((it) => !it.barcode);
     const grNoBarcode = grItems.filter((it) => !it.barcode);
     const matchedGrNoBarcode = new Set<number>();
@@ -1419,7 +1361,6 @@ ${extraItems.length > 0 ? `Extra items in delivery notes (not in PO): ${extraIte
       }
     });
 
-    // Deterministic Stage 2 decision (do not let LLM hallucinate missing/matching)
     const deterministicStage2Notes: string[] = [];
     if (missingItems.length) deterministicStage2Notes.push(...missingItems.map(x => `Missing item in goods receipts: ${x}`));
     if (extraItems.length) deterministicStage2Notes.push(...extraItems.map(x => `Extra item in goods receipts: ${x}`));
@@ -1600,19 +1541,17 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
           { role: "system", content: "You are a smart goods receipt audit agent. You MUST output ONLY valid JSON. Never add explanations or reasoning after the JSON." },
           { role: "user", content: prompt }
         ],
-        temperature: 0, // Set to 0 for deterministic results
-        max_tokens: 1500, // Limit response length to prevent infinite loops
+        temperature: 0,
+        max_tokens: 1500, 
       });
 
       let aiResponse = chatCompletion.choices[0].message.content ?? '';
 
-      // Extract JSON more accurately - find the first complete JSON object
       const firstBrace = aiResponse.indexOf('{');
       if (firstBrace === -1) {
         throw new InternalServerErrorException('AI response is not valid JSON');
       }
       
-      // Find the matching closing brace by counting braces
       let braceCount = 0;
       let lastBrace = -1;
       for (let i = firstBrace; i < aiResponse.length; i++) {
@@ -1632,38 +1571,31 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
       
       aiResponse = aiResponse.slice(firstBrace, lastBrace + 1);
 
-      // Parse and clean the result - remove false mismatches where values are actually equal
       let result = JSON.parse(aiResponse);
       
-      // Clean notes: remove mismatches where values are actually equal
       const cleanNotes = (notes: string[]): string[] => {
         if (!Array.isArray(notes)) return notes;
         return notes.filter(note => {
           if (!note || typeof note !== 'string') return true;
           
-          // Remove notes that say values are equal (e.g., "PO quantity is 4, invoice quantity is 4")
           const equalValueMatch = note.match(/is\s+(\d+(?:\.\d+)?)\b.*?is\s+\1\b/i);
           if (equalValueMatch) {
-            return false; // Same value mentioned twice - false positive
+            return false; 
           }
           
-          // Remove notes about unit being "box" vs null (they're equivalent)
           if (note.match(/unit.*"box".*null|unit.*null.*"box"|unit.*box.*null|unit.*null.*box/i)) {
-            return false; // box and null are equivalent
+            return false;
           }
           
           return true;
         });
       };
 
-      // Clean all stage notes
       if (result.stage1?.notes) result.stage1.notes = cleanNotes(result.stage1.notes);
       if (result.stage2?.notes) result.stage2.notes = cleanNotes(result.stage2.notes);
 
-      // Re-evaluate pass status based on cleaned notes
       result.stage2 = { pass: deterministicStage2Notes.length === 0, notes: deterministicStage2Notes };
 
-      // Update overall status
       const allPassed = result.stage1?.pass && result.stage2?.pass;
       result.overall = allPassed ? "Passed" : 
         !result.stage1?.pass ? "Failed at stage 1" :
@@ -1693,10 +1625,10 @@ ${extraItems.length > 0 ? `Extra items in goods receipts (not in PO): ${extraIte
       }
 
        await this.aiVerificationService.createLog(
-      po_number,          // PO number
-      req,         // userId (أو user اللي عمل continue)
-      'PO-GR',               // stage الحالي
-      JSON.stringify(result) // شو صار بالتحقق
+      po_number,        
+      req,         
+      'PO-GR',             
+      JSON.stringify(result) 
     );
 
       return JSON.stringify(result);

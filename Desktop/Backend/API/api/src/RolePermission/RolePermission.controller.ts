@@ -13,7 +13,6 @@ export class RolePermissionController {
 
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @PermissionName("add_relation")
-//  @Roles('Admin')
  @Post()
   async add(@Body() dto: RolePermissionDto) {
     return this.rolePermissionService.addRolePermission(dto);
@@ -21,7 +20,6 @@ export class RolePermissionController {
 
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @PermissionName("delete_relation")
-// @Roles('Admin')
 @Delete()
 async removeRelation(@Body() dto: RolePermissionDto) {
   return this.rolePermissionService.removeRelation(dto);

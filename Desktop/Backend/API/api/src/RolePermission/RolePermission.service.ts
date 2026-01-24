@@ -20,21 +20,17 @@ export class RolePermissionService {
   async addRolePermission(dto: RolePermissionDto ): Promise<{ message: string }> {
     const { roleName, permissionName } = dto;
 
-    // جلب الـRole
     const role = await this.roleModel.findOne({ where: { role_name: roleName } });
     if (!role) throw new NotFoundException(`Role "${roleName}" not found`);
 
-    // جلب الـPermission
     const permission = await this.permissionModel.findOne({ where: { permission_name: permissionName } });
     if (!permission) throw new NotFoundException(`Permission "${permissionName}" not found`);
 
-    // التحقق إذا موجود مسبقًا
     const existing = await this.rolePermissionModel.findOne({
       where: { roleId: role.role_id, permissionId: permission.permission_id },
     });
     if (existing) throw new BadRequestException('Permission already assigned to this role');
 
-    // إنشاء سجل جديد
     const rp = new RolePermission();
     rp.roleId = role.role_id;
     rp.permissionId = permission.permission_id;
@@ -66,12 +62,11 @@ export class RolePermissionService {
 
     return { message: `Permission "${dto.permissionName}" removed from Role "${dto.roleName}"` };
   } catch (error) {
-    console.error(error); // لتشوف السبب بالكونسول
+    console.error(error);
     throw new InternalServerErrorException('Failed to remove role-permission relation');
   }
 }
 
-// RolePermission.service.ts
 async getPermissionsForRole(roleName: string): Promise<string[]> {
   const role = await this.roleModel.findOne({ where: { role_name: roleName } });
   if (!role) return [];

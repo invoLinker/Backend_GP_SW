@@ -29,7 +29,7 @@ export class CreateNotificationDto {
   message: string;
 
   @IsString()
-  userId: string; // app user id / firebase uid
+  userId: string;
 
   @IsEnum(NotificationChannel)
   channel: NotificationChannel;

@@ -532,14 +532,12 @@ type CheckStatus =
     barcode: string,
     image?: Express.Multer.File,
   ) {
-    // 1️⃣ دور على الايتيم
     const item = await this.stockModel.findOne({ where: { barcode } });
     if (!item) {
       throw new NotFoundException('Stock item not found');
     }
 
     try {
-      // 2️⃣ مسار QR
       const qrDir = path.join(process.cwd(), 'uploads', 'QR');
       if (!fs.existsSync(qrDir)) {
         fs.mkdirSync(qrDir, { recursive: true });
@@ -548,14 +546,12 @@ type CheckStatus =
       const qrFileName = `${barcode}.png`;
       const qrFilePath = path.join(qrDir, qrFileName);
 
-      // 3️⃣ توليد QR
       await QRCode.toFile(qrFilePath, barcode, {
         width: 300,
         margin: 2,
         errorCorrectionLevel: 'M',
       });
 
-      // 4️⃣ تخزين المسارات بالداتابيس
       item.QR = `uploads/QR/${qrFileName}`;
 
 
@@ -587,7 +583,6 @@ type CheckStatus =
     return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
   };
 
-  // 1️⃣ Normalize input
   const normalizedItems = items.map(i => ({
     item_name: i.item_name?.trim().toLowerCase(),
     barcode: i.barcode?.trim(),
@@ -595,7 +590,6 @@ type CheckStatus =
     physical_quantity: i.physical_quantity ?? 0,
   }));
 
-  // 2️⃣ Group physical input by (barcode + expiration)
   const physicalMap = new Map<string, number>();
   const physicalKeys = new Set<string>();
   const physicalBarcodes = new Set<string>();
@@ -607,10 +601,8 @@ type CheckStatus =
     physicalBarcodes.add(item.barcode!);
   }
 
-  // 3️⃣ Load ALL system stock (including Expired)
   const systemStocks = await this.stockModel.findAll();
 
-  // 4️⃣ Build system map (barcode + expiration)
   const systemMap = new Map<
     string,
     {
@@ -635,11 +627,9 @@ type CheckStatus =
     const entry = systemMap.get(key)!;
     entry.quantity += s.quantity || 0;
 
-    // إذا أي سجل Expired → كله Expired
     if (s.status === 'Expired') {
       entry.status = 'Expired';
     }
-    // إذا أي سجل OutOfStock → كله OutOfStock (لكن بس لو ما فيش Expired)
     else if (s.status === 'OutOfStock' && entry.status !== 'Expired') {
       entry.status = 'OutOfStock';
     }
@@ -647,7 +637,6 @@ type CheckStatus =
 
   const results: any[] = [];
 
-  // 5️⃣ Compare physical vs system
   for (const [key, physicalQty] of physicalMap.entries()) {
     const [barcode, expRaw] = key.split('_');
     const expiration_date = expRaw === 'NULL' ? null : expRaw;
@@ -656,10 +645,8 @@ type CheckStatus =
     let systemQty = systemEntry?.quantity || 0;
     let systemStatus = systemEntry?.status;
 
-    // 🔍 If no exact match, search for same barcode + same expiration date
     if (!systemEntry) {
       if (expiration_date) {
-        // Search for entries with same barcode and exact expiration date
         for (const [sysKey, sysEntry] of systemMap.entries()) {
           const [sysBarcode, sysExpRaw] = sysKey.split('_');
           const sysExpDate = sysExpRaw === 'NULL' ? null : sysExpRaw;
@@ -673,14 +660,12 @@ type CheckStatus =
         }
       }
       
-      // If still not found and no expiration date specified, search by barcode only
       if (!systemEntry) {
         const sameBarcodeEntries = [...systemMap.entries()].filter(([k]) =>
           k.startsWith(`${barcode}_`)
         );
         
         if (sameBarcodeEntries.length > 0) {
-          // Get the first entry to get item name and check status
           const firstEntry = sameBarcodeEntries[0][1];
           systemEntry = {
             quantity: 0,
@@ -688,10 +673,8 @@ type CheckStatus =
             status: firstEntry.status,
           };
           
-          // Sum all quantities for this barcode
           for (const [, entry] of sameBarcodeEntries) {
             systemEntry.quantity += entry.quantity || 0;
-            // If any is Expired, mark as Expired
             if (entry.status === 'Expired') {
               systemEntry.status = 'Expired';
             }
@@ -706,22 +689,18 @@ type CheckStatus =
     let status: CheckStatus;
     let message: string;
 
-    // 🔴 غير موجود بالسيستم نهائيًا
     if (!systemEntry) {
       status = 'NOT_IN_SYSTEM';
       message = 'Not in system';
     }
-    // 🟤 Waste (Expired) - always WASTE regardless of quantity
     else if (systemStatus === 'Expired') {
       status = 'WASTE';
       message = 'This item needs to be disposed because it has expired';
     }
-    // ⚫ Out of Stock
     else if (systemStatus === 'OutOfStock') {
       status = 'OUT_OF_STOCK';
       message = 'This is registered in the system as out of stock';
     }
-    // 🟢 Available - compare quantities
     else if (systemStatus === 'Available') {
       if (physicalQty === systemQty) {
         status = 'MATCH';
@@ -734,7 +713,6 @@ type CheckStatus =
         message = 'Quantity in warehouse is less than stored in system';
       }
     }
-    // 🔵 Reserved - same logic as Available
     else if (systemStatus === 'Reserved') {
       if (physicalQty === systemQty) {
         status = 'MATCH';
@@ -747,7 +725,6 @@ type CheckStatus =
         message = 'Quantity in warehouse is less than stored in system';
       }
     }
-    // 🔵 Default case
     else {
       if (physicalQty === systemQty) {
         status = 'MATCH';
@@ -773,7 +750,6 @@ type CheckStatus =
     });
   }
 
-  // 6️⃣ System items not counted physically
   for (const [key, systemEntry] of systemMap.entries()) {
     if (!physicalKeys.has(key) && systemEntry.quantity > 0) {
       const [barcode, expRaw] = key.split('_');
@@ -806,7 +782,6 @@ type CheckStatus =
     }
   }
 
-  // 7️⃣ تجميع النتائج حسب الباركود (تقرير منظم)
   const reportMap = new Map<string, {
     item_name: string;
     barcode: string;
@@ -828,7 +803,6 @@ type CheckStatus =
     const barcode = result.barcode;
     
     if (!reportMap.has(barcode)) {
-      // 🔍 Calculate total system quantity from systemMap for this barcode
       let totalSystemQty = 0;
       let itemName = result.item_name || '';
       let overallStatus: CheckStatus = result.status;
@@ -864,11 +838,9 @@ type CheckStatus =
       message: result.message,
     });
 
-    // Only add physical quantity (system quantity already calculated from systemMap)
     reportItem.total_physical_quantity += result.physical_quantity;
     reportItem.total_difference = reportItem.total_physical_quantity - reportItem.total_system_quantity;
 
-    // تحديث الحالة الإجمالية (الأولوية: WASTE > OUT_OF_STOCK > SHORTAGE > EXTRA > NOT_IN_SYSTEM > MISSING_IN_PHYSICAL > MATCH)
     const priority: Record<CheckStatus, number> = {
       'WASTE': 7,
       'OUT_OF_STOCK': 6,
@@ -884,7 +856,6 @@ type CheckStatus =
     }
   }
 
-  // تحويل الـ Map لـ Array وترتيب حسب الأولوية
   const report = Array.from(reportMap.values()).sort((a, b) => {
     const priority: Record<CheckStatus, number> = {
       'WASTE': 7,
@@ -898,7 +869,6 @@ type CheckStatus =
     return priority[b.overall_status] - priority[a.overall_status];
   });
 
-  // 8️⃣ Summary
   const summary = {
     MATCH: results.filter(r => r.status === 'MATCH').length,
     SHORTAGE: results.filter(r => r.status === 'SHORTAGE').length,
@@ -914,7 +884,6 @@ type CheckStatus =
   return {
     report,
     summary,
-    // للتوافق مع الكود القديم
     items: results,
   };
 }
@@ -925,10 +894,8 @@ async generateCheckReportPDF(
   items: StockCheckItemDto[],
 ): Promise<string> {
 
-  // 1️⃣ نجيب نتيجة الجرد
   const { report, summary } = await this.check(items);
 
-  // 2️⃣ Date
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -936,18 +903,16 @@ async generateCheckReportPDF(
     day: 'numeric',
   });
 
-  // 3️⃣ Status colors - Blue theme for invoices
   const statusColors: Record<string, string> = {
-    MATCH: '#28a745', // Green (keep for success)
-    SHORTAGE: '#1e88e5', // Blue
-    EXTRA: '#42a5f5', // Light Blue
-    NOT_IN_SYSTEM: '#64b5f6', // Lighter Blue
-    MISSING_IN_PHYSICAL: '#90caf9', // Very Light Blue
-    WASTE: '#dc3545', // Red (keep for waste)
-    OUT_OF_STOCK: '#5c6bc0', // Indigo Blue
+    MATCH: '#28a745', 
+    SHORTAGE: '#1e88e5',
+    EXTRA: '#42a5f5', 
+    NOT_IN_SYSTEM: '#64b5f6',
+    MISSING_IN_PHYSICAL: '#90caf9',
+    WASTE: '#dc3545', 
+    OUT_OF_STOCK: '#5c6bc0', 
   };
 
-  // 4️⃣ بناء تفاصيل التقرير
   let reportHTML = '';
 
   for (const item of report) {
@@ -988,7 +953,6 @@ async generateCheckReportPDF(
     `;
   }
 
-  // 5️⃣ Full HTML
   const html = `
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -1178,7 +1142,6 @@ async generateCheckReportPDF(
 </html>
   `;
 
-  // 6️⃣ Run Puppeteer
   const browser = await puppeteer.launch({
     headless: true,
     args: [
@@ -1192,7 +1155,7 @@ async generateCheckReportPDF(
 
   try {
     const page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(60000); // 60 seconds
+    await page.setDefaultNavigationTimeout(60000); 
     await page.setDefaultTimeout(60000);
     
     await page.setContent(html, { 
@@ -1200,10 +1163,8 @@ async generateCheckReportPDF(
       timeout: 60000,
     });
 
-    // Wait a bit for styles to render
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // 7️⃣ Save PDF
     const reportsDir = path.join(process.cwd(), 'uploads', 'reports');
     if (!fs.existsSync(reportsDir)) {
       fs.mkdirSync(reportsDir, { recursive: true });

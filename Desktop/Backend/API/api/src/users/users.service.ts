@@ -93,7 +93,6 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File) {
     throw new ConflictException('This email is already taken');
   }
 
-  // const hashedPassword = await bcrypt.hash(password_hash!, 10);
   let hashedPassword :string| null= null;
 
     if (password_hash) {
@@ -109,10 +108,8 @@ async create(createUserDto: CreateUserDto, ID_imageFile?: Express.Multer.File) {
   user.role_id = role.role_id;
   user.status = 'Active';
 
-/////////////
 user.google_id = (createUserDto.google_id ?? null) as string | null;
 user.provider = createUserDto.provider ?? 'local';
-///////////////////
 
   if (ID_imageFile) {
     user.ID_image = `/uploads/${ID_imageFile.filename}`;
@@ -239,74 +236,7 @@ async searchUsers(query: string): Promise<User[]> {
 }
 
 
-// async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
-//   const user = await User.findByPk(userId);
-//   if (!user) throw new NotFoundException('User not found');
 
-//   let roleChanged = false;
-//   let statusChanged = false;
-
-//   if (updateDto.status && updateDto.status !== user.status) {
-//     user.status = updateDto.status;
-//     statusChanged = true;
-
-//     if (updateDto.status === 'Inactive') {
-//       const deleteDate = new Date();
-//       deleteDate.setDate(deleteDate.getDate() + 30);
-//       user.deletedAt = deleteDate;
-
-//       const viewerRole = await Role.findOne({ where: { role_name: 'Viewer' } });
-//       if (viewerRole && user.role_id !== viewerRole.role_id) {
-//         user.role_id = viewerRole.role_id;
-//         roleChanged = true;
-//       }
-
-//        if (viewerRole.role_name === 'Supplier') {
-//         await Supplier.create({ user_id: user.user_id } as any);
-//       }
-//     } else {
-//       user.deletedAt = null;
-//     }
-//   }
-
-//   if (updateDto.role_name && user.status !== 'Inactive') {
-//     const role = await Role.findOne({ where: { role_name: updateDto.role_name } });
-//     if (!role) throw new NotFoundException(`Role with name ${updateDto.role_name} not found`);
-
-//     if (user.role_id !== role.role_id) {
-//       user.role_id = role.role_id;
-//       roleChanged = true;
-//     }
-//   }
-
-//   await user.save();
-
-//   if (roleChanged || statusChanged) {
-//     let message = `Hello ${user.first_name}, your account has been updated by Admin.`;
-//     if (statusChanged) message += ` Your status is now ${updateDto.status}.`;
-
-//     if(user.status === 'Inactive'){
-//       message += ` Your role is now Viewer.`;
-//     }
-//     else{
-//     if (roleChanged && user.status === 'Active' ) message += ` Your role is now ${updateDto.role_name}.`;
-//     }
-
-//     try {
-//       await this.notificationService.sendNotification({
-//         title: 'Account Update Notification',
-//         message,
-//         userId: user.user_id,
-//         channel: NotificationChannel.IN_APP,
-//         userEmail: user.email,
-//       } as any);
-//     } catch (err) {
-//       console.error('Failed to send role/status update notification', err);
-//     }
-//   }
-
-//   return { message: 'User updated successfully' };
-// }
 
 async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
   const user = await User.findByPk(userId);
@@ -315,12 +245,9 @@ async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
   let roleChanged = false;
   let statusChanged = false;
 
-  // 🟡 جلب الدور القديم
   const oldRole = await Role.findByPk(user.role_id);
 
-  // =============================
-  // 1️⃣ Status change
-  // =============================
+
   if (updateDto.status && updateDto.status !== user.status) {
     user.status = updateDto.status;
     statusChanged = true;
@@ -340,9 +267,7 @@ async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
     }
   }
 
-  // =============================
-  // 2️⃣ Role change
-  // =============================
+
   if (updateDto.role_name && user.status !== 'Inactive') {
     const newRole = await Role.findOne({
       where: { role_name: updateDto.role_name },
@@ -358,18 +283,13 @@ async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
       user.role_id = newRole.role_id;
       roleChanged = true;
 
-      // =============================
-      // ✅ NEW LOGIC STARTS HERE
-      // =============================
 
-      // 🔴 كان Supplier وصار أي دور ثاني → احذفه من Supplier
       if (oldRole?.role_name === 'Supplier') {
         await Supplier.destroy({
           where: { user_id: user.user_id },
         });
       }
 
-      // 🟢 لم يكن Supplier وصار Supplier → أضفه
       if ( newRole.role_name === 'Supplier') {
         const exists = await Supplier.findOne({
           where: { user_id: user.user_id },
@@ -382,17 +302,12 @@ async updateRoleStatus(userId: number, updateDto: UpdateUserDto): Promise<any> {
         }
       }
 
-      // =============================
-      // ✅ NEW LOGIC ENDS HERE
-      // =============================
+
     }
   }
 
   await user.save();
 
-  // =============================
-  // 3️⃣ Notification
-  // =============================
   if (roleChanged || statusChanged) {
     let message = `Hello ${user.first_name}, your account has been updated by Admin.`;
 

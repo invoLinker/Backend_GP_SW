@@ -12,10 +12,7 @@ export class HistoryLogService {
     private historyLogModel: typeof HistoryLog
   ) {}
 
-  /**
-   * إنشاء سجل تاريخي (History Log)
-   * @param logData بيانات السجل
-   */
+ 
 
   async createLog(logData: Partial<CreateHistoryLogDto>) {
     try {

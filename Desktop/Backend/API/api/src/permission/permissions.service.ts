@@ -36,7 +36,6 @@ export class PermissionsService {
   }
 
  async create(dto: CreatePermissionDto): Promise<Permission> {
-  // تحقق إذا الاسم موجود مسبقًا
   const existing = await this.permissionModel.findOne({ where: { permission_name: dto.permission_name } });
   if (existing) {
     throw new BadRequestException(`Permission with name "${dto.permission_name}" already exists`);
@@ -50,16 +49,14 @@ export class PermissionsService {
 
 
   async update(id: number, dto: UpdatePermissionDto): Promise<Permission> {
-  const permission = await this.findOne(id); // يرمي NotFoundException إذا ما وجد
+  const permission = await this.findOne(id);
 
   try {
-    // تحديث الاسم فقط إذا موجود بالـDTO
     if (dto.permission_name) {
       if (dto.permission_name === permission.permission_name) {
         throw new BadRequestException(`Permission name is the same as the current one`);
       }
 
-      // تحقق من عدم وجود اسم مكرر عند Permissions آخرين
       const existing = await this.permissionModel.findOne({ 
         where: { permission_name: dto.permission_name } 
       });
@@ -71,7 +68,6 @@ export class PermissionsService {
       permission.permission_name = dto.permission_name;
     }
 
-    // تحديث الوصف إذا موجود
     if (dto.description) {
       permission.description = dto.description;
     }

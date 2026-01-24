@@ -190,7 +190,6 @@ async createPayment(po_id: number, dto: CreatePaymentDto) {
     };
   }
 
-  // ========= RESPONSE COLLECTOR ============
     const paymentsToReturn: {
     invoice_id: number;
     invoiceCurrency: string;
@@ -235,7 +234,6 @@ async createPayment(po_id: number, dto: CreatePaymentDto) {
 
     const remainingAmount = Math.max(Number(invoice.total_amount) - (previousPaid + amountForInvoice), 0);
 
-    // ========= STORE PAYMENT ============
     await Payment.create({
       invoice_id: invoice.invoice_id,
       curruncy: invoiceCurrency,
@@ -299,22 +297,7 @@ convertCurrency(amount: number, from: string, to: string, rate: number): number 
   return amount * rate;
 }
 
-// async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
-//   if(from === to)return 1;
-//   const formattedDate = date.toISOString().split('T')[0];
-//   const url = `https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=1&date=${formattedDate}&access_key=4e3ecc8736a617bf5db8aff010fe6eb9`;
 
-//   const response = await fetch(url);
-//   const data = await response.json();
-// // console.log("EX RATE RESPONSE >>>", data);
-
-//   if (!data.success || !data.info?.quote) {
-//     throw new BadRequestException('Currency conversion failed');
-//   }
-
-
-//   return data.info.quote;
-// }
 
 async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
   if (from === to) return 1;
@@ -369,7 +352,6 @@ async getExchangeRate(from: string, to: string, date: Date): Promise<number> {
       ? 'Payment confirmed successfully.'
       : 'Payment marked as failed.';
 
-      // 🔔 Notify Payment Officer
   await this.notifyRole(
     'PaymentOfficer',
     `Payment Status Updated`,
@@ -432,7 +414,6 @@ async updatePayment(payment_id: number, dto: {
   const invoice = await SupplierInvoice.findByPk(payment.invoice_id);
   if (!invoice) throw new NotFoundException('Invoice not found');
 
-  // if (dto.payment_method) payment.payment_method = dto.payment_method;
   if (dto.payment_details) payment.payment_details = dto.payment_details;
   if (dto.notes) payment.notes = dto.notes;
 
@@ -598,35 +579,11 @@ private async notifyRole(roleName: string, title: string, message: string) {
 }
 
 @Cron(CronExpression.EVERY_DAY_AT_NOON)
-// @Cron('*/5 * * * * *')
 async notifyPaymentOfficerForReadyAndInstallments() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // =========================
-  // 1️⃣ ReadyForPaid POs
-  // =========================
-  // const readyPOs = await PurchaseOrder.findAll({
-  //   where: {
-  //     status: 'ReadyForPaid',
-  //     ready_for_paid_notified_at: { [Op.is]: null },
-  //   },
-  // });
-
-  // for (const po of readyPOs) {
-  //   await this.notifyRole(
-  //     'PaymentOfficer',
-  //     '✅ PO Ready For Payment',
-  //     `PO "${po.po_number}" is ready for payment.`
-  //   );
-
-  //   po.ready_for_paid_notified_at = new Date();
-  //   await po.save();
-  // }
-
-  // =========================
-  // 2️⃣ Installments check
-  // =========================
+  
   const partialInvoices = await SupplierInvoice.findAll({
     where: { status: 'Partial_paid' },
   });
@@ -635,14 +592,12 @@ async notifyPaymentOfficerForReadyAndInstallments() {
 
   for (const invoice of partialInvoices) {
 
-    // 2.1 جيبي الـ PO
     const po = await PurchaseOrder.findOne({
       where: { po_number: invoice.po_number! },
     });
 
     if (!po || !po.installmentsData) continue;
 
-    // 2.2 installmentsData parsing
     let installmentsData: any = po.installmentsData;
     if (typeof installmentsData === 'string') {
       try {
@@ -655,7 +610,6 @@ async notifyPaymentOfficerForReadyAndInstallments() {
     const installments = installmentsData.installments;
     if (!Array.isArray(installments)) continue;
 
-    // 2.3 جيبي كل الفواتير لنفس PO
     const invoices = await SupplierInvoice.findAll({
       where: { po_number: po.po_number },
     });
@@ -669,14 +623,12 @@ async notifyPaymentOfficerForReadyAndInstallments() {
       raw: true,
     });
 
-    // عدد الأقساط المدفوعة
     const paidInstallmentsCount = new Set(
       payments
         .filter(p => p.payment_date)
         .map(p => new Date(p.payment_date).toISOString().split('T')[0])
     ).size;
 
-    // القسط القادم
     const nextInstallment = installments[paidInstallmentsCount];
     if (!nextInstallment?.due_date) continue;
 
@@ -689,9 +641,7 @@ async notifyPaymentOfficerForReadyAndInstallments() {
 
     const dueKey = dueDate.toISOString().split('T')[0];
 
-    // =========================
-    // ⏰ OVERDUE
-    // =========================
+
     if (diffDays < 0) {
       const alertKey = `OVERDUE:${dueKey}`;
 
@@ -708,9 +658,7 @@ async notifyPaymentOfficerForReadyAndInstallments() {
       continue;
     }
 
-    // =========================
-    // 📌 UPCOMING
-    // =========================
+
     if (diffDays <= UPCOMING_DAYS) {
       const alertKey = `UPCOMING:${dueKey}`;
 
@@ -744,13 +692,11 @@ async paymentOfficier(){
 
 async getAllPayment() {
   return await Payment.findAll({
-    // attributes: {
-    //   // exclude: ['invoice_id'], // نخفي الـ id
-    // },
+ 
     include: [
       {
         model: SupplierInvoice,
-        attributes: ['invoice_number'], // بس الرقم
+        attributes: ['invoice_number'], 
       },
     ],
   });
