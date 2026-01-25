@@ -445,6 +445,11 @@ type CheckStatus =
     }
 
     if (status !== undefined) {
+      
+      if (status === 'OutOfStock') {
+        stock.status = 'OutOfStock';
+        stock.quantity = 0;
+      } 
       if (status === 'Available' && stock.quantity === 0) {
         stock.status = 'OutOfStock';
       } else {
